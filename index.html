@@ -122,59 +122,88 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
 .pr-fold[open] > summary::before { transform: rotate(90deg); }
 #team-sched td, #team-sched th { white-space: nowrap; }
 .pr-foot { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
-/* ---- Game breakdown: mid-2000s broadsheet sports-section look ---- */
-.pr-mx-btn { font: 700 11px/1 Georgia, "Times New Roman", serif; color: var(--color-fg); background: none; border: 0; border-bottom: 1px solid currentColor; padding: 2px 0; margin-top: 5px; cursor: pointer; }
-.np-back { position: fixed; inset: 0; z-index: 50; background: rgba(20,20,20,.7); overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 6px 40px; }
-.np { max-width: 820px; margin: 0 auto; background: #fbfaf5; color: #111; font: 15px/1.55 Georgia, "Times New Roman", Times, serif; padding: 14px 18px 18px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
-.np-close { float: right; font: 700 12px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .06em; background: #fff; color: #111; border: 1px solid #111; padding: 6px 9px; cursor: pointer; }
-.np-mast { text-align: center; border-bottom: 1px solid #111; padding-bottom: 6px; clear: both; }
-.np-name { font: 700 clamp(24px, 6vw, 40px)/1 "Times New Roman", Times, Georgia, serif; letter-spacing: .02em; }
-.np-strip { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; border-bottom: 3px double #111; padding: 4px 0; font: 11px/1.3 Arial, Helvetica, sans-serif; text-transform: uppercase; letter-spacing: .05em; }
-.np-strip b { font-weight: 700; }
-.np-flag { display: flex; align-items: baseline; gap: 10px; margin: 10px 0 2px; }
-.np-flag b { font: 900 22px/1 Arial, Helvetica, sans-serif; letter-spacing: -.01em; }
-.np-flag span { font: 11px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: #555; }
-.np-kicker { font: 700 11px/1.2 Arial, Helvetica, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: #8a1c1c; margin-top: 12px; }
-.np-hed { font: 700 clamp(26px, 6.2vw, 44px)/1.05 Georgia, "Times New Roman", serif; letter-spacing: -.01em; margin: 6px 0 8px; }
-.np-dek { font: italic 400 clamp(16px, 3.6vw, 20px)/1.35 Georgia, serif; color: #333; margin: 0 0 10px; }
-.np-by { font: 11px/1.4 Arial, Helvetica, sans-serif; text-transform: uppercase; letter-spacing: .06em; color: #444; border-top: 1px solid #bbb; border-bottom: 1px solid #bbb; padding: 5px 0; margin-bottom: 12px; }
-.np-by b { color: #111; }
-.np-grid { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 22px; }
-.np-story p { margin: 0 0 12px; text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
-.np-story p:first-of-type::first-letter { float: left; font: 700 52px/0.85 Georgia, serif; padding: 4px 6px 0 0; }
-.np-dl { font: 700 13px/1 Arial, Helvetica, sans-serif; text-transform: uppercase; letter-spacing: .03em; }
-.np-sh { font: 700 13px/1.2 Arial, Helvetica, sans-serif; text-transform: uppercase; letter-spacing: .06em; border-top: 2px solid #111; padding-top: 6px; margin: 16px 0 6px; }
-.np-pull { border-top: 3px solid #111; border-bottom: 1px solid #111; margin: 14px 0; padding: 10px 2px; font: italic 700 21px/1.25 Georgia, serif; text-align: center; }
-.np-pull small { display: block; margin-top: 6px; font: 11px/1.2 Arial, sans-serif; font-style: normal; text-transform: uppercase; letter-spacing: .08em; color: #555; }
-.np-side { font: 12px/1.35 Arial, Helvetica, sans-serif; }
-.np-box { border-top: 4px solid #111; margin-bottom: 16px; }
-.np-box h4 { margin: 0; padding: 5px 0; font: 900 13px/1.1 Arial, Helvetica, sans-serif; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid #111; }
-.np-box.tint { background: #ece6d6; border-top-color: #23395b; padding: 0 8px 8px; }
-.np-box.tint h4 { border-bottom-color: #23395b; color: #23395b; }
-.np-ag { width: 100%; border-collapse: collapse; font: 12px/1.3 "Arial Narrow", Arial, Helvetica, sans-serif; font-variant-numeric: tabular-nums; }
-.np-ag th { text-align: right; font-weight: 700; padding: 4px 2px; border-bottom: 1px solid #111; }
-.np-ag th:first-child, .np-ag td:first-child { text-align: left; }
-.np-ag td { text-align: right; padding: 3px 2px; border-bottom: 1px dotted #999; }
-.np-ag td.lead { font-weight: 900; }
-.np-kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; padding-top: 6px; }
-.np-kv dt { font-weight: 700; text-transform: uppercase; font-size: 10.5px; letter-spacing: .04em; color: #333; }
-.np-kv dd { margin: 0; }
-.np-chip { display: inline-block; width: 9px; height: 9px; margin-right: 4px; vertical-align: 0; border: 1px solid #111; }
-.np-wp { padding-top: 6px; }
-.np-wpbar { display: flex; height: 14px; border: 1px solid #111; margin: 4px 0 2px; }
-.np-wpbar div { height: 100%; }
-.np-wpl { display: flex; justify-content: space-between; font-weight: 700; }
-.np-pick { font: 700 18px/1.2 Georgia, serif; padding-top: 6px; }
-.np-pick small { display: block; font: 12px/1.35 Arial, sans-serif; font-weight: 400; color: #333; margin-top: 3px; }
-.np-foot { border-top: 1px solid #111; margin-top: 8px; padding-top: 6px; font: italic 11px/1.4 Georgia, serif; color: #555; }
-@media (max-width: 640px) { .np { padding: 12px 12px 16px; } .np-grid { grid-template-columns: 1fr; gap: 6px; } .np-story p { text-align: left; } }
+/* ---- Game breakdown infographic (print-newspaper graphics-desk look) ---- */
+.pr-mx-btn { font: 700 11px/1 Arial, Helvetica, sans-serif; text-transform: uppercase; letter-spacing: .05em; color: var(--color-fg); background: none; border: 1px solid currentColor; padding: 4px 7px; margin-top: 5px; cursor: pointer; }
+.ig-back { position: fixed; inset: 0; z-index: 50; background: rgba(20,20,20,.72); overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 6px 40px; }
+.ig { --a: #555; --h: #555; max-width: 760px; margin: 0 auto; background: #fbfaf6; color: #1a1a1a; font: 13px/1.35 "Franklin Gothic Medium", "Arial Narrow", Arial, Helvetica, sans-serif; padding: 14px 16px 16px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+.ig * { box-sizing: border-box; }
+.ig-close { float: right; font: 700 11px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .06em; background: #fff; color: #111; border: 1px solid #111; padding: 6px 9px; cursor: pointer; }
+.ig-kick { padding-right: 90px; font: 700 11px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .12em; color: #666; border-bottom: 3px solid #111; padding-bottom: 6px; margin-bottom: 10px; }
+.ig-title { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 8px; }
+.ig-tm { min-width: 0; }
+.ig-tm.h { text-align: right; }
+.ig-tn { font: 900 clamp(22px, 6vw, 38px)/1 "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif; letter-spacing: -.01em; text-transform: uppercase; word-break: keep-all; }
+.ig-tm.a .ig-tn { color: var(--a); } .ig-tm.h .ig-tn { color: var(--h); }
+.ig-tr { font: 12px/1.4 Arial, sans-serif; color: #444; margin-top: 4px; }
+.ig-tr b { color: #111; }
+.ig-at { font: italic 700 16px/1 Georgia, serif; color: #888; padding-bottom: 6px; }
+.ig-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center; font: 11.5px/1.3 Arial, sans-serif; color: #444; border-top: 1px solid #bbb; border-bottom: 1px solid #bbb; padding: 6px 0; margin: 10px 0 12px; }
+.ig-meta b { color: #111; text-transform: uppercase; font-size: 10px; letter-spacing: .06em; margin-right: 3px; }
+.ig-h { font: 900 12px/1 Arial, Helvetica, sans-serif; text-transform: uppercase; letter-spacing: .08em; margin: 16px 0 8px; display: flex; align-items: center; gap: 8px; }
+.ig-h::after { content: ""; flex: 1; border-top: 1px solid #111; }
+.ig-top { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; align-items: start; }
+.ig-score { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; text-align: center; }
+.ig-num { font: 900 clamp(46px, 13vw, 76px)/.9 "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif; letter-spacing: -.03em; }
+.ig-num.a { color: var(--a); } .ig-num.h { color: var(--h); }
+.ig-dash { font: 700 11px/1.2 Arial, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: #666; padding: 0 6px; }
+.ig-cap { font: 10.5px/1.3 Arial, sans-serif; color: #555; text-transform: uppercase; letter-spacing: .05em; text-align: center; margin-top: 4px; }
+.ig-wp { margin-top: 12px; }
+.ig-wpbar { display: flex; height: 26px; }
+.ig-wpbar div { display: flex; align-items: center; color: #fff; font: 900 13px/1 Arial, sans-serif; padding: 0 7px; white-space: nowrap; }
+.ig-wpbar .a { background: var(--a); } .ig-wpbar .h { background: var(--h); justify-content: flex-end; }
+.ig-ticks { position: relative; height: 12px; border-top: 1px solid #111; }
+.ig-ticks span { position: absolute; top: 0; height: 5px; border-left: 1px solid #111; font: 9px/1 Arial, sans-serif; color: #666; }
+.ig-ticks span b { position: absolute; top: 6px; transform: translateX(-50%); font-weight: 400; white-space: nowrap; }
+.ig-line { border: 1px solid #111; }
+.ig-line table { width: 100%; border-collapse: collapse; font: 12.5px/1.25 Arial, sans-serif; }
+.ig-line td { padding: 6px 8px; border-bottom: 1px solid #ccc; }
+.ig-line td:first-child { color: #555; text-transform: uppercase; font-size: 10px; letter-spacing: .06em; font-weight: 700; width: 42%; }
+.ig-line td:last-child { font-weight: 700; }
+.ig-line tr.pick td { background: #1a1a1a; color: #fff; border-bottom: 0; }
+.ig-line tr.pick td:first-child { color: #ddd; }
+.ig-edge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 9px; font-size: 10.5px; background: #f2c14e; color: #111; }
+.ig-mm { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ig-mmh { font: 700 11.5px/1.25 Arial, sans-serif; margin-bottom: 6px; }
+.ig-scale { position: relative; height: 54px; }
+.ig-rail { position: absolute; left: 0; right: 0; top: 22px; height: 4px; background: linear-gradient(90deg, #2e7d4f, #d9d4c4 50%, #b3412f); }
+.ig-conn { position: absolute; top: 22px; height: 4px; background: #111; }
+.ig-dot { position: absolute; top: 15px; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fbfaf6; box-shadow: 0 0 0 1px #111; transform: translateX(-50%); }
+.ig-dl { position: absolute; transform: translateX(-50%); font: 700 10.5px/1 Arial, sans-serif; white-space: nowrap; }
+.ig-dl.up { top: 0; } .ig-dl.dn { top: 37px; }
+.ig-sl { display: flex; justify-content: space-between; font: 9.5px/1 Arial, sans-serif; color: #666; text-transform: uppercase; letter-spacing: .05em; }
+.ig-verdict { font: 11.5px/1.3 Arial, sans-serif; margin-top: 6px; }
+.ig-verdict b { font-weight: 900; }
+.ig-bf { display: grid; grid-template-columns: 1fr 112px 1fr; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px dotted #bbb; }
+.ig-bf .lab { text-align: center; font: 700 10.5px/1.15 Arial, sans-serif; text-transform: uppercase; letter-spacing: .03em; color: #333; }
+.ig-bf .sd { display: flex; align-items: center; gap: 5px; font: 700 11.5px/1 Arial, sans-serif; }
+.ig-bf .sd.a { flex-direction: row-reverse; }
+.ig-bf .bar { height: 14px; }
+.ig-bf .sd.a .bar { background: var(--a); } .ig-bf .sd.h .bar { background: var(--h); }
+.ig-bf .sd.lose .bar { opacity: .35; }
+.ig-bf .sd .v { min-width: 40px; white-space: nowrap; }
+.ig-bf .sd.a .v { text-align: right; }
+.ig-bf .sd.win .v { font-weight: 900; }
+.ig-bf .sd.lose .v { font-weight: 400; color: #666; }
+.ig-legend { display: flex; justify-content: space-between; font: 10px/1.2 Arial, sans-serif; color: #666; margin-top: 4px; }
+.ig-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ig-fr { display: flex; gap: 4px; margin-top: 4px; }
+.ig-g { flex: 1; text-align: center; border: 1px solid #111; padding: 4px 2px; font: 10px/1.2 Arial, sans-serif; min-width: 0; }
+.ig-g b { display: block; font: 900 16px/1 Arial, sans-serif; }
+.ig-g.w b { color: #2e7d4f; } .ig-g.l b { color: #b3412f; }
+.ig-g .o { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ig-g .x { display: block; font-weight: 700; }
+.ig-g .x.p { color: #2e7d4f; } .ig-g .x.n { color: #b3412f; }
+.ig-notes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font: 11.5px/1.4 Arial, sans-serif; }
+.ig-notes b { text-transform: uppercase; font-size: 10px; letter-spacing: .06em; }
+.ig-foot { border-top: 1px solid #111; margin-top: 14px; padding-top: 6px; font: 10px/1.4 Arial, sans-serif; color: #666; }
+@media (max-width: 600px) { .ig { padding: 12px 10px 14px; } .ig-top, .ig-mm, .ig-form, .ig-notes { grid-template-columns: 1fr; } .ig-bf { grid-template-columns: 1fr 86px 1fr; } }
 </style>
 
 <div class="pr">
   <header id="header">
     <h1 class="pr-title">The Horick Index</h1>
     <p class="pr-take" id="takeaway">After Week <b data-draw="wk">—</b>, <b data-draw="leader">—</b> is No. 1 with a rating of <b data-draw="leaderRating">—</b>. Biggest jump vs. last week: <b data-draw="riser">—</b> (up <b data-draw="riserChg">—</b>). Biggest drop: <b data-draw="faller">—</b> (down <b data-draw="fallerChg">—</b>).</p>
-    <p class="pr-foot">Updated Fri Nov 13, 2026, 2:41 PM ET</p>
+    <p class="pr-foot">Updated Fri Nov 13, 2026, 2:49 PM ET</p>
   </header>
 
   <section class="pr-card" id="ats">
@@ -564,7 +593,7 @@ dash.draw('atsTable', (tb) => {
     const wxt = wxLine(r);
     if (wxt) { const w = document.createElement('div'); w.className = 'pr-wx'; w.textContent = wxt; w.title = r.wx_note || ''; g.append(w); }
     const kt = document.createElement('div'); kt.className = 'pr-wx'; kt.textContent = '🕒 ' + kickText(r) + ' ET'; g.append(kt);
-    const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'pr-mx-btn'; mb.textContent = 'Read the breakdown »'; mb.onclick = (e) => { e.stopPropagation(); openMatchup(r); }; g.append(mb);
+    const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'pr-mx-btn'; mb.textContent = 'Breakdown ▸'; mb.onclick = (e) => { e.stopPropagation(); openMatchup(r); }; g.append(mb);
     tr.style.cursor = 'pointer'; tr.addEventListener('click', () => openMatchup(r));
     add(`${r.model_away_pts}–${r.model_home_pts}`, 'pr-strong');
     const p = add(r.pick, 'pr-l pr-strong');
@@ -682,135 +711,139 @@ for (const inp of document.querySelectorAll('.pr-search')) {
 document.getElementById('trend-fold').addEventListener('toggle', (e) => { if (e.target.open) dash.draw('trend'); });
 
 
-// ---- Game breakdown (broadsheet sports-section look) ----
-function npColor(t) { const c = ok('colors'); const r = c && c.find((x) => x.team === t); return (r && r.color) || '#777'; }
-function npEl(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-function npPhi(x) { const t = 1 / (1 + 0.2316419 * Math.abs(x)); const d = 0.3989423 * Math.exp(-x * x / 2); const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return x > 0 ? 1 - p : p; }
-function npOrd(n) { n = Math.round(+n); const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
-function npWord(n) { return ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][n] || String(n); }
-function npLast(t) {
-  const s = ok('schedule') || [];
-  const g = s.filter((x) => (x.away === t || x.home === t) && x.away_pts !== '' && x.home_pts !== '').sort((a, b) => +b.espn_week - +a.espn_week)[0];
-  if (!g) return '';
-  const home = g.home === t, us = +(home ? g.home_pts : g.away_pts), them = +(home ? g.away_pts : g.home_pts), opp = home ? g.away : g.home;
-  const res = us > them ? (us - them >= 21 ? 'a rout of' : 'a win over') : (them - us >= 21 ? 'a lopsided loss to' : 'a loss to');
-  return `${t} is coming off ${res} ${opp}, ${Math.max(us, them)}-${Math.min(us, them)}${+g.neutral ? '' : home ? ' at home' : ' on the road'}.`;
+
+// ---- Game breakdown infographic ----
+function igColor(t) { const c = ok('colors'); const r = c && c.find((x) => x.team === t); return (r && r.color) || '#666'; }
+function igEl(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+function igPhi(x) { const t = 1 / (1 + 0.2316419 * Math.abs(x)); const d = 0.3989423 * Math.exp(-x * x / 2); const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return x > 0 ? 1 - p : p; }
+function igOrd(n) { n = Math.round(+n); const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+function igLum(hex) { const m = String(hex).match(/^#?([0-9a-f]{6})$/i); if (!m) return 0; const n = parseInt(m[1], 16); return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255; }
+function igPair(a, h) {   // keep the two team colors distinguishable and readable on cream
+  let ca = igColor(a), ch = igColor(h);
+  if (igLum(ca) > 0.78) ca = '#555'; if (igLum(ch) > 0.78) ch = '#555';
+  if (ca.toLowerCase() === ch.toLowerCase()) ch = '#777';
+  return [ca, ch];
 }
-function npWx(r) {
-  if (String(r.wx_dome) === '1') return 'Indoors.';
-  if (r.wx_temp === '' || r.wx_temp == null) return '';
+function igWx(r) {
+  if (String(r.wx_dome) === '1') return 'Indoors';
+  if (r.wx_temp === '' || r.wx_temp == null) return '—';
   const g = +r.wx_gust, w = +r.wx_wind;
-  return `${Math.round(+r.wx_temp)} degrees, ${Math.round(+r.wx_precip)} percent chance of rain, wind ${Math.round(w)} mph${g > w ? ` (gusts to ${Math.round(g)})` : ''}.`;
+  return `${Math.round(+r.wx_temp)}°, ${Math.round(+r.wx_precip)}% rain, wind ${Math.round(w)}${g > w ? `–${Math.round(g)}` : ''} mph`;
 }
 function openMatchup(r) {
   const R = ok('rankings') || [], S = ok('stats') || [];
   const A = R.find((x) => x.team === r.away) || {}, H = R.find((x) => x.team === r.home) || {};
   const SA = S.find((x) => x.team === r.away) || {}, SH = S.find((x) => x.team === r.home) || {};
-  const ml = +r.model_line, homeFav = ml >= 0, fav = homeFav ? r.home : r.away, dog = homeFav ? r.away : r.home;
-  const F = homeFav ? H : A, D = homeFav ? A : H;
-  const fpts = homeFav ? r.model_home_pts : r.model_away_pts, dpts = homeFav ? r.model_away_pts : r.model_home_pts;
-  const pH = npPhi(ml / 14), pFav = homeFav ? pH : 1 - pH, margin = Math.abs(ml);
-  const nm = (T, t) => { const c = cfpRank(t); return c ? `No. ${c} ${t}` : t; };
-  const night = +r.night && !+r.neutral, final = r.result && r.away_pts !== '';
-  const gdate = r.date ? new Date(r.date + 'T12:00:00') : null;
-  const longDate = gdate ? gdate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '';
-
-  // headline + deck
-  let hed;
-  if (final) {
-    const aw = +r.away_pts > +r.home_pts, w = aw ? r.away : r.home, l = aw ? r.home : r.away, ws = Math.max(+r.away_pts, +r.home_pts), ls = Math.min(+r.away_pts, +r.home_pts);
-    hed = `${w} ${ws - ls >= 17 ? 'routs' : ws - ls <= 3 ? 'edges' : 'beats'} ${l}, ${ws}-${ls}`;
-  } else if (margin < 3) hed = `${r.away}, ${r.home} shape up as a coin flip${night ? ' under the lights' : ''}`;
-  else if (margin < 10) hed = `${fav} favored to get past ${dog}${night ? ' under the lights' : ''}`;
-  else if (margin < 20) hed = `${fav} expected to handle ${dog}`;
-  else hed = `${fav} projected to roll past ${dog}`;
-  const sp = +r.home_spread, vegasFav = sp < 0 ? r.home : sp > 0 ? r.away : null, vegasN = Math.abs(sp);
-  const agree = vegasFav === fav;
-  const dek = final ? `The Horick Index had projected ${fav} ${fpts}-${dpts}; the pick against the spread was a ${r.result}.`
-    : `The Horick Index makes it ${fav} ${fpts}, ${dog} ${dpts}, ${agree ? (Math.abs(margin - vegasN) < 1.5 ? 'right in line with' : margin > vegasN ? 'a bigger margin than' : 'a closer game than') : 'going against'} the ${vegasFav ? vegasFav + ' -' + vegasN : 'pick’em'} line in Las Vegas.`;
-
-  // story
-  const P = [];
-  const dl = (r.neutral === '1' ? 'NEUTRAL SITE' : r.home.toUpperCase()) + ' — ';
-  P.push([dl, `${nm(F, fav)} (${F.record}) comes in ranked ${npOrd(F.rank)} in the Horick Index, ${dog} (${D.record}) ${npOrd(D.rank)}. The model projects a ${fpts}-${dpts} ${fav} win, a ${margin.toFixed(1)}-point margin that works out to a ${Math.round(pFav * 100)} percent chance of victory.`]);
-  if (vegasFav) P.push(['', `The betting market has ${vegasFav} by ${vegasN}. ${r.pick ? `That makes the Horick Index pick ${r.pick}` : ''}${Math.abs(+r.edge) >= 6 ? ', one of the strongest leans on the board this week' : Math.abs(+r.edge) >= 3 ? ', a solid edge by the model’s standards' : ', though the gap is small enough to call it a lean'}. On the total, the model expects ${(+r.model_total).toFixed(0)} points against a posted ${r.total || '—'}${r.total_pick ? ` (${r.total_pick})` : ''}.`]);
-  const unit = (O, Dd, off, def) => `${off}'s offense ranks ${npOrd(O.off_rk)} nationally; ${def}'s defense, ${npOrd(Dd.def_rk)}.`;
-  const sh1 = `When ${r.away} has the ball`, sh2 = `When ${r.home} has the ball`;
-  const rush = (s, t) => s.rush_ypc ? ` ${t} runs for ${(+s.rush_ypc).toFixed(1)} yards a carry and throws for ${Math.round(+s.pass_ypg)} a game.` : '';
-  const stop = (s, t) => s.rush_ypc_allowed ? ` ${t} allows ${(+s.rush_ypc_allowed).toFixed(1)} a carry and ${Math.round(+s.pass_ypg_allowed)} passing yards a game.` : '';
-  const P2 = [[sh1, unit(A, H, r.away, r.home) + rush(SA, r.away) + stop(SH, r.home)], [sh2, unit(H, A, r.home, r.away) + rush(SH, r.home) + stop(SA, r.away)]];
-  const tail = [];
-  const inj = [A.injury_note && `${r.away}: ${A.injury_note}.`, H.injury_note && `${r.home}: ${H.injury_note}.`].filter(Boolean);
-  tail.push(['Injuries', inj.length ? 'The model docks points for missing starters. ' + inj.join(' ') : 'Neither team has a significant injury on this week’s reports.']);
-  const st = (+A.st_rk && +H.st_rk) ? ` On special teams, ${+A.st_rk < +H.st_rk ? r.away : r.home} holds the edge (${npOrd(Math.min(A.st_rk, H.st_rk))} vs. ${npOrd(Math.max(A.st_rk, H.st_rk))}).` : '';
-  const tough = (+A.toughness_rk && +H.toughness_rk) ? ` ${+A.toughness_rk < +H.toughness_rk ? r.away : r.home} grades as the more physical team.` : '';
-  tail.push(['The details', `${npLast(r.away)} ${npLast(r.home)}${st}${tough}`.trim()]);
-  const wx = wxLine(r);
-  tail.push(['Conditions', `${kickText(r)} ET${+r.neutral ? ' at a neutral site' : `, ${r.home} home field worth about ${(+r.hfa).toFixed(1)} points`}${night ? ' for a night game' : ''}. ${npWx(r) ? 'Forecast: ' + npWx(r) : ''}${r.wx_note && /cuts|favors|not used/.test(r.wx_note) ? ' ' + r.wx_note.split('; ').slice(1).join('; ') + '.' : ''}`]);
-
-  // build DOM
-  const back = npEl('div', 'np-back'); back.setAttribute('role', 'dialog'); back.setAttribute('aria-label', `${r.away} at ${r.home} breakdown`);
-  const np = npEl('article', 'np');
+  const [ca, ch] = igPair(r.away, r.home);
+  const back = igEl('div', 'ig-back'); back.setAttribute('role', 'dialog'); back.setAttribute('aria-label', `${r.away} at ${r.home} breakdown`);
+  const ig = igEl('div', 'ig'); ig.style.setProperty('--a', ca); ig.style.setProperty('--h', ch);
   const close = () => { back.remove(); document.removeEventListener('keydown', esc); document.body.style.overflow = ''; };
   const esc = (e) => { if (e.key === 'Escape') close(); };
   back.addEventListener('click', (e) => { if (e.target === back) close(); }); document.addEventListener('keydown', esc);
-  const x = npEl('button', 'np-close', 'Close ✕'); x.type = 'button'; x.onclick = close;
-  const mast = npEl('div', 'np-mast'); mast.append(npEl('div', 'np-name', 'The Horick Index'));
-  const strip = npEl('div', 'np-strip'); const s1 = npEl('span'); s1.append(npEl('b', '', longDate)); strip.append(s1, npEl('span', '', 'Week ' + r.week + ' · Game preview'), npEl('span', '', 'Final edition'));
-  const flag = npEl('div', 'np-flag'); flag.append(npEl('b', '', 'Sports'), npEl('span', '', 'College football'));
-  np.append(x, mast, strip, flag, npEl('div', 'np-kicker', final ? 'Recap' : (cfpRank(r.away) || cfpRank(r.home) ? 'Playoff picture' : 'Saturday’s slate')),
-    npEl('h2', 'np-hed', hed), npEl('p', 'np-dek', dek));
-  const by = npEl('div', 'np-by'); by.innerHTML = 'By <b>The Horick Index model</b> · Updated ' + document.querySelector('.pr-foot').textContent.replace('Updated ', ''); np.append(by);
+  const x = igEl('button', 'ig-close', 'Close ✕'); x.type = 'button'; x.onclick = close;
+  const sec = (t) => ig.append(igEl('div', 'ig-h', t));
 
-  const grid = npEl('div', 'np-grid'); const story = npEl('div', 'np-story');
-  P.forEach(([d, t], i) => { const p = npEl('p'); if (d) p.append(npEl('span', 'np-dl', d)); p.append(t); story.append(p); });
-  const pull = npEl('div', 'np-pull'); pull.append(`“${fav} by ${margin.toFixed(1)}.”`, npEl('small', '', `Horick Index line · Vegas: ${vegasFav ? vegasFav + ' -' + vegasN : 'pick’em'}`)); story.append(pull);
-  [...P2, ...tail].forEach(([h, t]) => { story.append(npEl('div', 'np-sh', h), npEl('p', '', t)); });
+  ig.append(x, igEl('div', 'ig-kick', `Game breakdown · Week ${r.week}`));
+  const title = igEl('div', 'ig-title');
+  const tm = (T, t, cls) => { const d = igEl('div', 'ig-tm ' + cls); const c = cfpRank(t);
+    const tr = igEl('div', 'ig-tr'); tr.innerHTML = `<b>${T.record || ''}</b> · Horick <b>#${T.rank}</b>${c ? ` · CFP <b>#${c}</b>` : ''}`;
+    d.append(igEl('div', 'ig-tn', t), tr); return d; };
+  title.append(tm(A, r.away, 'a'), igEl('div', 'ig-at', +r.neutral ? 'vs.' : 'at'), tm(H, r.home, 'h'));
+  const meta = igEl('div', 'ig-meta');
+  const mi = (k, v) => { const s = igEl('span'); s.append(igEl('b', '', k), v); meta.append(s); };
+  mi('Kickoff', kickText(r) + ' ET'); mi('Site', +r.neutral ? 'Neutral' : r.home + (+r.night ? ' (night)' : '')); mi('Weather', igWx(r));
+  ig.append(title, meta);
 
-  const side = npEl('aside', 'np-side');
-  const box = (title, tint) => { const b = npEl('div', 'np-box' + (tint ? ' tint' : '')); b.append(npEl('h4', '', title)); side.append(b); return b; };
-  const pk = box('The pick', true);
-  const pp = npEl('div', 'np-pick', r.pick || '—'); pp.append(npEl('small', '', `Edge ${Math.abs(+r.edge).toFixed(1)} pts vs. the line${r.result ? ' · ' + r.result.toUpperCase() : ''}. Total: ${r.total_pick || '—'}${r.total_result ? ' · ' + r.total_result.toUpperCase() : ''}.`)); pk.append(pp);
-  const wpd = npEl('div', 'np-wp'); const wb = npEl('div', 'np-wpbar'); const wa = npEl('div'), wh = npEl('div');
-  wa.style.width = ((1 - pH) * 100) + '%'; wa.style.background = npColor(r.away); wh.style.width = (pH * 100) + '%'; wh.style.background = npColor(r.home); wb.append(wa, wh);
-  const wl = npEl('div', 'np-wpl'); wl.append(npEl('span', '', `${r.away} ${Math.round((1 - pH) * 100)}%`), npEl('span', '', `${r.home} ${Math.round(pH * 100)}%`));
-  wpd.append(npEl('div', '', 'Win probability'), wb, wl); pk.append(wpd);
+  // projection + line
+  const final = r.result && r.away_pts !== '';
+  const top = igEl('div', 'ig-top');
+  const left = igEl('div');
+  const sc = igEl('div', 'ig-score');
+  sc.append(igEl('div', 'ig-num a', final ? r.away_pts : r.model_away_pts), igEl('div', 'ig-dash', final ? 'Final' : 'Projected'), igEl('div', 'ig-num h', final ? r.home_pts : r.model_home_pts));
+  left.append(sc); if (final) left.append(igEl('div', 'ig-cap', `Model projected ${r.model_away_pts}–${r.model_home_pts}`));
+  const ml = +r.model_line, pH = igPhi(ml / 14), pA = 1 - pH;
+  const wp = igEl('div', 'ig-wp'); wp.append(igEl('div', 'ig-cap', 'Win probability'));
+  const bar = igEl('div', 'ig-wpbar'); const ba = igEl('div', 'a', Math.round(pA * 100) + '%'), bh = igEl('div', 'h', Math.round(pH * 100) + '%');
+  ba.style.width = pA * 100 + '%'; bh.style.width = pH * 100 + '%'; bar.append(ba, bh);
+  const ticks = igEl('div', 'ig-ticks'); [0, 25, 50, 75, 100].forEach((p) => { const s = igEl('span'); s.style.left = p + '%'; s.append(igEl('b', '', p === 50 ? '50-50' : '')); ticks.append(s); });
+  wp.append(bar, ticks); left.append(wp);
+  const right = igEl('div', 'ig-line'); const tb = igEl('table');
+  const sp = +r.home_spread, vf = sp < 0 ? `${r.home} -${Math.abs(sp)}` : sp > 0 ? `${r.away} -${sp}` : 'Pick’em';
+  const hf = ml > 0 ? `${r.home} -${Math.abs(ml).toFixed(1)}` : ml < 0 ? `${r.away} -${Math.abs(ml).toFixed(1)}` : 'Even';
+  const tr = (k, v, cls) => { const t = igEl('tr', cls || ''); const td = igEl('td'); if (v instanceof Node) td.append(v); else td.textContent = v; t.append(igEl('td', '', k), td); tb.append(t); };
+  tr('Vegas line', vf); tr('Horick line', hf);
+  const pk = igEl('span'); pk.append(r.pick || '—'); const ed = igEl('span', 'ig-edge', Math.abs(+r.edge).toFixed(1) + ' pts'); pk.append(ed);
+  if (r.result) pk.append(' · ' + r.result.toUpperCase());
+  tr('Spread pick', pk, 'pick');
+  tr('Over/under', `${r.total || '—'} (model ${(+r.model_total).toFixed(1)})`);
+  const tp = igEl('span'); tp.append(r.total_pick || '—'); if (r.total_edge !== '' && r.total_edge != null) tp.append(igEl('span', 'ig-edge', Math.abs(+r.total_edge).toFixed(1) + ' pts')); if (r.total_result) tp.append(' · ' + r.total_result.toUpperCase());
+  tr('Total pick', tp, 'pick');
+  tr('Home field', +r.neutral ? 'Neutral site' : `${(+r.hfa).toFixed(1)} pts`);
+  right.append(tb); top.append(left, right);
+  sec('The projection'); ig.append(top);
 
-  const g = box('At a glance');
-  const kv = npEl('dl', 'np-kv');
-  const add = (k, v) => { kv.append(npEl('dt', '', k), npEl('dd', '', v)); };
-  add('Kickoff', kickText(r) + ' ET'); add('Site', +r.neutral ? 'Neutral' : r.home);
-  add('Line', vegasFav ? `${vegasFav} -${vegasN}` : 'Pick’em'); add('Over/under', r.total || '—');
-  add('Projected', final ? `${r.model_away_pts}-${r.model_home_pts} (final ${r.away_pts}-${r.home_pts})` : `${r.away} ${r.model_away_pts}, ${r.home} ${r.model_home_pts}`);
-  add('Weather', npWx(r) || '—');
-  g.append(kv);
-
-  const t = box('Tale of the tape');
-  const tb = npEl('table', 'np-ag'); const th = npEl('thead'); const hr = npEl('tr');
-  const hc = (team) => { const c = npEl('th'); const ch = npEl('span', 'np-chip'); ch.style.background = npColor(team); c.append(ch, team); return c; };
-  hr.append(npEl('th', '', ''), hc(r.away), hc(r.home)); th.append(hr);
-  const body = npEl('tbody');
-  const row = (lab, a, h, fmt, low) => {
-    if (a === '' || h === '' || a == null || h == null || isNaN(+a) || isNaN(+h)) return;
-    const tr = npEl('tr'); const la = low ? +a < +h : +a > +h, lh = low ? +h < +a : +h > +a;
-    tr.append(npEl('td', '', lab), npEl('td', la ? 'lead' : '', fmt(+a)), npEl('td', lh ? 'lead' : '', fmt(+h))); body.append(tr);
+  // unit matchups: dumbbells on a 1-138 rank scale
+  sec('Where it’s won: unit vs. unit');
+  const mm = igEl('div', 'ig-mm');
+  const dumb = (offT, defT, O, Dd, cO, cD) => {
+    const box = igEl('div'); box.append(igEl('div', 'ig-mmh', `${offT} offense vs. ${defT} defense`));
+    const s = igEl('div', 'ig-scale'); s.append(igEl('div', 'ig-rail'));
+    const po = (+O.off_rk - 1) / 137 * 100, pd = (+Dd.def_rk - 1) / 137 * 100;
+    const cn = igEl('div', 'ig-conn'); cn.style.left = Math.min(po, pd) + '%'; cn.style.width = Math.abs(po - pd) + '%'; s.append(cn);
+    const dot = (p, c, lab, up) => { const d = igEl('div', 'ig-dot'); d.style.left = p + '%'; d.style.background = c; const l = igEl('div', 'ig-dl ' + (up ? 'up' : 'dn'), lab); l.style.left = Math.min(92, Math.max(8, p)) + '%'; s.append(d, l); };
+    dot(po, cO, `${offT} O ${igOrd(O.off_rk)}`, true); dot(pd, cD, `${defT} D ${igOrd(Dd.def_rk)}`, false);
+    const sl = igEl('div', 'ig-sl'); sl.append(igEl('span', '', '1st (best)'), igEl('span', '', '138th'));
+    const adv = +O.off_rk < +Dd.def_rk ? `${offT} offense` : +O.off_rk > +Dd.def_rk ? `${defT} defense` : 'Even';
+    const v = igEl('div', 'ig-verdict'); v.append('Edge: '); v.append(igEl('b', '', adv)); v.append(` (${Math.abs(+O.off_rk - +Dd.def_rk)} spots)`);
+    box.append(s, sl, v); return box;
   };
-  const o = npOrd, f1 = (v) => v.toFixed(1), f0 = (v) => v.toFixed(0), f2 = (v) => v.toFixed(2);
-  row('Horick rank', A.rank, H.rank, o, true);
-  row('CFP rank', cfpRank(r.away) || '', cfpRank(r.home) || '', o, true);
-  row('Rating', A.rating, H.rating, f1, false);
-  row('Offense', A.off_rk, H.off_rk, o, true); row('Defense', A.def_rk, H.def_rk, o, true); row('Special teams', A.st_rk, H.st_rk, o, true);
-  row('Résumé', A.resume_rk, H.resume_rk, o, true); row('Schedule', A.sos_rk, H.sos_rk, o, true); row('Talent', A.talent_rk, H.talent_rk, o, true);
-  row('Toughness', A.toughness_rk, H.toughness_rk, o, true);
-  row('Pass yds/g', SA.pass_ypg, SH.pass_ypg, f0, false); row('Rush yds/carry', SA.rush_ypc, SH.rush_ypc, f2, false);
-  row('Pass yds allowed/g', SA.pass_ypg_allowed, SH.pass_ypg_allowed, f0, true); row('Rush yds/carry allowed', SA.rush_ypc_allowed, SH.rush_ypc_allowed, f2, true);
-  row('Penalty yds/g', SA.pen_yds_g, SH.pen_yds_g, f0, true);
-  tb.append(th, body); t.append(tb, npEl('div', '', 'Ranks among 138 FBS teams. Bold = edge.'));
-  const fm = box('Recent form');
-  [[r.away, A], [r.home, H]].forEach(([tm, T]) => { if (T.form_note) { const p = npEl('p'); p.style.margin = '6px 0'; p.append(npEl('b', '', tm + ': '), T.form_note); fm.append(p); } });
+  mm.append(dumb(r.away, r.home, A, H, ca, ch), dumb(r.home, r.away, H, A, ch, ca)); ig.append(mm);
 
-  grid.append(story, side); np.append(grid, npEl('div', 'np-foot', 'Projections from the Horick Index power ratings, stadium home-field values and the kickoff forecast. Win probability assumes a 14-point standard deviation.'));
-  back.append(np); document.body.append(back); document.body.style.overflow = 'hidden'; x.focus();
+  // butterfly chart
+  sec('Tale of the tape');
+  const bf = igEl('div');
+  const row = (lab, a, h, fmt, low, scale) => {
+    if (a === '' || h === '' || a == null || h == null || isNaN(+a) || isNaN(+h)) return;
+    const av = +a, hv = +h, aw = low ? av < hv : av > hv, hw = low ? hv < av : hv > av;
+    const mk = (v, cls, win, lose) => { const d = igEl('div', 'sd ' + cls + (win ? ' win' : '') + (lose ? ' lose' : '')); const b = igEl('div', 'bar');
+      b.style.width = Math.max(3, Math.min(100, scale(v) * 100)) + '%'; d.append(b, igEl('span', 'v', fmt(v))); return d; };
+    const rw = igEl('div', 'ig-bf'); rw.append(mk(av, 'a', aw, hw), igEl('div', 'lab', lab), mk(hv, 'h', hw, aw)); bf.append(rw);
+  };
+  const rk = (v) => 1 - (v - 1) / 138, o = igOrd;
+  row('Power rank', A.rank, H.rank, o, true, rk);
+  row('Offense', A.off_rk, H.off_rk, o, true, rk); row('Defense', A.def_rk, H.def_rk, o, true, rk); row('Special teams', A.st_rk, H.st_rk, o, true, rk);
+  row('Résumé', A.resume_rk, H.resume_rk, o, true, rk); row('Schedule faced', A.sos_rk, H.sos_rk, o, true, rk);
+  row('Roster talent', A.talent_rk, H.talent_rk, o, true, rk); row('Toughness', A.toughness_rk, H.toughness_rk, o, true, rk);
+  row('Pass yds/game', SA.pass_ypg, SH.pass_ypg, (v) => v.toFixed(0), false, (v) => v / 380);
+  row('Rush yds/carry', SA.rush_ypc, SH.rush_ypc, (v) => v.toFixed(1), false, (v) => v / 7.5);
+  row('Pass yds allowed', SA.pass_ypg_allowed, SH.pass_ypg_allowed, (v) => v.toFixed(0), true, (v) => 1 - v / 380);
+  row('Rush yds/carry allowed', SA.rush_ypc_allowed, SH.rush_ypc_allowed, (v) => v.toFixed(1), true, (v) => 1 - v / 7.5);
+  row('Penalty yds/game', SA.pen_yds_g, SH.pen_yds_g, (v) => v.toFixed(0), true, (v) => 1 - v / 100);
+  const lg = igEl('div', 'ig-legend'); lg.append(igEl('span', '', 'Longer bar = better'), igEl('span', '', 'Bold = edge · ranks among 138 FBS teams'));
+  ig.append(bf, lg);
+
+  // recent form tiles
+  sec('Last four games vs. expectations');
+  const fm = igEl('div', 'ig-form');
+  [[r.away, A], [r.home, H]].forEach(([t, T]) => {
+    const box = igEl('div'); const hd = igEl('div', 'ig-mmh'); hd.style.color = t === r.away ? ca : ch; hd.textContent = t; box.append(hd);
+    const fr = igEl('div', 'ig-fr');
+    const games = String(T.form_note || '').split(';').map((s) => s.trim()).filter(Boolean).slice(0, 4).reverse();
+    games.forEach((g) => { const m = g.match(/^([WL])\s+(vs|at)\s+(.+?)\s+([+-]\d+)$/);
+      if (!m) return; const tile = igEl('div', 'ig-g ' + (m[1] === 'W' ? 'w' : 'l'));
+      tile.append(igEl('b', '', m[1]), igEl('span', 'o', (m[2] === 'at' ? '@ ' : '') + m[3]), igEl('span', 'x ' + (+m[4] >= 0 ? 'p' : 'n'), (+m[4] > 0 ? '+' : '') + m[4].replace('+', '')));
+      fr.append(tile); });
+    if (!fr.children.length) fr.append(igEl('div', '', 'No recent FBS games.'));
+    box.append(fr); fm.append(box);
+  });
+  ig.append(fm, igEl('div', 'ig-cap', 'Oldest to newest. Number = points better (+) or worse (−) than the ratings expected.'));
+
+  // notes
+  sec('Injuries');
+  const nt = igEl('div', 'ig-notes');
+  [[r.away, A], [r.home, H]].forEach(([t, T]) => { const d = igEl('div'); d.append(igEl('b', '', t + ': '), T.injury_note || 'None of note'); nt.append(d); });
+  ig.append(nt, igEl('div', 'ig-foot', 'Sources: Horick Index power ratings and projections; team stats from cfbstats.com; kickoff forecast from the National Weather Service. Win probability assumes a 14-point standard deviation.'));
+  back.append(ig); document.body.append(back); document.body.style.overflow = 'hidden'; x.focus();
 }
 </script>
 
