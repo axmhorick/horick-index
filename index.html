@@ -212,7 +212,7 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
   <header id="header">
     <h1 class="pr-title">The Horick Index</h1>
     <p class="pr-take" id="takeaway">After Week <b data-draw="wk">—</b>, <b data-draw="leader">—</b> is No. 1 with a rating of <b data-draw="leaderRating">—</b>. Biggest jump vs. last week: <b data-draw="riser">—</b> (up <b data-draw="riserChg">—</b>). Biggest drop: <b data-draw="faller">—</b> (down <b data-draw="fallerChg">—</b>).</p>
-    <p class="pr-foot">Updated Fri Nov 13, 2026, 3:37 PM ET</p>
+    <p class="pr-foot">Updated Fri Nov 13, 2026, 3:38 PM ET</p>
   </header>
 
   <section class="pr-card" id="ats">
@@ -760,7 +760,7 @@ function openMatchup(r) {
   title.append(tm(A, r.away, 'a'), igEl('div', 'ig-at', +r.neutral ? 'vs.' : 'at'), tm(H, r.home, 'h'));
   const meta = igEl('div', 'ig-meta');
   const mi = (k, v) => { const s = igEl('span'); s.append(igEl('b', '', k), v); meta.append(s); };
-  mi('Kickoff', kickText(r) + ' ET'); const stl = ok('stadiums'), sr = stl && stl.find((x) => x.team === r.home); const venue = r.venue || (+r.neutral ? '' : (sr ? sr.stadium : r.home));
+  mi('Kickoff', kickText(r) + ' ET'); const stl = ok('stadiums'), sr = stl && (stl.find((x) => x.team === `${r.away}@${r.home}`) || (+r.neutral ? null : stl.find((x) => x.team === r.home))); const venue = sr ? sr.stadium : (+r.neutral ? '' : r.home);
   mi('Site', (venue || 'Neutral site') + (+r.neutral && venue ? ' (neutral)' : '') + (+r.night ? ' (night)' : '')); mi('Weather', igWx(r));
   const tvl = ok('tv'); const tv = tvl && tvl.find((x) => x.away === r.away && x.home === r.home && String(x.week) === String(r.week));
   if (tv) { mi('TV', tv.network); if (tv.announcers) { const cr = igEl('div', 'ig-crew'); cr.append(igEl('b', '', 'Booth'), tv.announcers.replace(/ \((play-by-play|analyst|reporter)\)/g, (m, k) => ({'play-by-play': ' (PBP)', analyst: ' (analyst)', reporter: ' (sideline)'})[k])); meta.append(cr); } }
