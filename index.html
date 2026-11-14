@@ -128,7 +128,7 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
 .ig { --a: #555; --h: #555; max-width: 760px; margin: 0 auto; background: #fbfaf6; color: #1a1a1a; font: 13px/1.35 "Franklin Gothic Medium", "Arial Narrow", Arial, Helvetica, sans-serif; padding: 14px 16px 16px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
 .ig * { box-sizing: border-box; }
 .ig-close { float: right; font: 700 11px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .06em; background: #fff; color: #111; border: 1px solid #111; padding: 6px 9px; cursor: pointer; }
-.ig-kick { padding-right: 90px; font: 700 11px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .12em; color: #666; border-bottom: 3px solid #111; padding-bottom: 6px; margin-bottom: 10px; }
+.ig-kick { padding-right: 200px; font: 700 11px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .12em; color: #666; border-bottom: 3px solid #111; padding-bottom: 6px; margin-bottom: 10px; }
 .ig-title { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 8px; }
 .ig-tm { min-width: 0; }
 .ig-tm.h { text-align: right; }
@@ -205,6 +205,8 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
 .ig-gm { font-size: 11px; color: #666; }
 .ig-rest { font: 11px/1.4 Arial, sans-serif; color: #555; margin-top: 6px; }
 .pr-box-btn { margin-left: 4px; }
+.ig-save { float: right; margin-right: 6px; font: 700 11px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .06em; background: #111; color: #fff; border: 1px solid #111; padding: 6px 9px; cursor: pointer; }
+.ig-save[disabled] { opacity: .6; cursor: wait; }
 .bx-ls { width: 100%; border-collapse: collapse; font: 13px/1.2 Arial, sans-serif; margin-top: 4px; }
 .bx-ls th { font: 700 10px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .06em; color: #666; padding: 5px 6px; border-bottom: 2px solid #111; text-align: center; }
 .bx-ls td { padding: 6px; border-bottom: 1px solid #ccc; text-align: center; font-variant-numeric: tabular-nums; }
@@ -231,7 +233,7 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
   <header id="header">
     <h1 class="pr-title">The Horick Index</h1>
     <p class="pr-take" id="takeaway">After Week <b data-draw="wk">—</b>, <b data-draw="leader">—</b> is No. 1 with a rating of <b data-draw="leaderRating">—</b>. Biggest jump vs. last week: <b data-draw="riser">—</b> (up <b data-draw="riserChg">—</b>). Biggest drop: <b data-draw="faller">—</b> (down <b data-draw="fallerChg">—</b>).</p>
-    <p class="pr-foot">Updated Sat Nov 14, 2026, 8:24 AM ET</p>
+    <p class="pr-foot">Updated Sat Nov 14, 2026, 8:27 AM ET</p>
   </header>
 
   <section class="pr-card" id="ats">
@@ -772,7 +774,7 @@ function openMatchup(r) {
   const x = igEl('button', 'ig-close', 'Close ✕'); x.type = 'button'; x.onclick = close;
   const sec = (t) => ig.append(igEl('div', 'ig-h', t));
 
-  ig.append(x, igEl('div', 'ig-kick', `Game breakdown · Week ${r.week}`));
+  ig.append(x, igSaveBtn(ig, igFile(r, 'breakdown')), igEl('div', 'ig-kick', `Game breakdown · Week ${r.week}`));
   const title = igEl('div', 'ig-title');
   const tm = (T, t, cls) => { const d = igEl('div', 'ig-tm ' + cls); const c = cfpRank(t);
     const tr = igEl('div', 'ig-tr'); tr.innerHTML = `<b>${T.record || ''}</b> · Horick <b>#${T.rank}</b>${c ? ` · CFP <b>#${c}</b>` : ''}`;
@@ -908,7 +910,7 @@ function openBox(r, b) {
   back.addEventListener('click', (e) => { if (e.target === back) close(); }); document.addEventListener('keydown', esc);
   const x = igEl('button', 'ig-close', 'Close ✕'); x.type = 'button'; x.onclick = close;
   const sec = (t) => ig.append(igEl('div', 'ig-h', t));
-  ig.append(x, igEl('div', 'ig-kick', `Box score · Week ${r.week} · Final`));
+  ig.append(x, igSaveBtn(ig, igFile(r, 'boxscore')), igEl('div', 'ig-kick', `Box score · Week ${r.week} · Final`));
   const sc = igEl('div', 'ig-score');
   const nm = (t, cls) => { const d = igEl('div'); d.append(igEl('div', 'ig-tn', t)); d.firstChild.style.color = cls === 'a' ? ca : ch; d.firstChild.style.fontSize = 'clamp(16px,4.5vw,26px)'; return d; };
   const top = igEl('div', 'ig-title'); top.append(nm(r.away, 'a'), igEl('div', 'ig-at', +r.neutral ? 'vs.' : 'at'), nm(r.home, 'h'));
@@ -965,6 +967,34 @@ function openBox(r, b) {
   ig.append(igEl('div', 'ig-foot', 'Box score data: ' + (b.source || 'official game stats') + '. Model projection and picks: Horick Index.'));
   back.append(ig); document.body.append(back); document.body.style.overflow = 'hidden'; x.focus();
 }
+
+// ---- Save a breakdown / box score as an image ----
+function igLoadLib() {
+  if (window.htmlToImage) return Promise.resolve(window.htmlToImage);
+  return new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js';
+    sc.onload = () => res(window.htmlToImage); sc.onerror = () => rej(new Error('Could not load the image tool')); document.head.append(sc); });
+}
+function igSaveBtn(ig, name) {
+  const b = igEl('button', 'ig-save', '⤓ Save image'); b.type = 'button'; b.title = 'Save this graphic as a PNG image';
+  b.onclick = async () => {
+    b.disabled = true; const old = b.textContent; b.textContent = 'Saving…';
+    try {
+      const lib = await igLoadLib();
+      const blob = await lib.toBlob(ig, { pixelRatio: 2, backgroundColor: '#fbfaf6', filter: (n) => !(n.classList && (n.classList.contains('ig-close') || n.classList.contains('ig-save'))) });
+      const file = new File([blob], name + '.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] }) && /Mobi|iPhone|iPad|Android/i.test(navigator.userAgent)) {
+        await navigator.share({ files: [file], title: name });
+      } else {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name + '.png'; document.body.append(a); a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      }
+    } catch (e) { if (e && e.name !== 'AbortError') alertless(b, 'Couldn’t save'); }
+    b.disabled = false; b.textContent = old;
+  };
+  return b;
+}
+function alertless(b, msg) { b.textContent = msg; setTimeout(() => { b.textContent = '⤓ Save image'; }, 2000); }
+function igFile(r, kind) { return `${kind}-wk${r.week}-${r.away}-at-${r.home}`.replace(/[^A-Za-z0-9-]+/g, '-').replace(/-+/g, '-'); }
 </script>
 
 </body>
