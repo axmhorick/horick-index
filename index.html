@@ -122,9 +122,13 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
 .pr-fold[open] > summary::before { transform: rotate(90deg); }
 #team-sched td, #team-sched th { white-space: nowrap; }
 .pr-new { margin-top: var(--cds-gap-md); background: var(--color-panel); border: 1px solid var(--color-border-line); border-left: 4px solid var(--pr-accent, #1e407c); border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-lg) var(--cds-pad-sm) var(--cds-pad-lg); }
-.pr-new:empty { display: none; }
-.pr-new h2 { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 4px 0 6px; }
-.pr-new h2 span { font-weight: 400; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.pr-new:empty, .pr-new.none { display: none; }
+.pr-new > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); padding: 4px 0; }
+.pr-new > summary::-webkit-details-marker { display: none; }
+.pr-new > summary::before { content: "▸"; color: var(--color-fg-muted); transition: transform .15s; }
+.pr-new[open] > summary::before { transform: rotate(90deg); }
+.pr-new[open] > summary { margin-bottom: 4px; }
+.pr-new > summary span { font-weight: 400; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
 .pr-new ul { margin: 0; padding-left: 0; list-style: none; }
 .pr-new li { display: flex; gap: 8px; align-items: baseline; padding: 5px 0; border-top: 1px solid var(--color-border-line); font-size: var(--cds-font-size-caption); line-height: 1.45; color: var(--color-fg); }
 .pr-new li:first-child { border-top: 0; }
@@ -252,9 +256,8 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
 <div class="pr">
   <header id="header">
     <h1 class="pr-title">The Horick Index</h1>
-    <p class="pr-take" id="takeaway">After Week <b data-draw="wk">—</b>, <b data-draw="leader">—</b> is No. 1 with a rating of <b data-draw="leaderRating">—</b>.</p>
-    <div class="pr-new" id="whats-new" data-draw="changes"></div>
-    <p class="pr-foot">Updated Sat Nov 14, 2026, 11:06 AM ET</p>
+    <details class="pr-new" id="whats-new" data-draw="changes"></details>
+    <p class="pr-foot">Updated Sat Nov 14, 2026, 11:08 AM ET</p>
   </header>
 
   <section class="pr-card" id="ats">
@@ -421,9 +424,10 @@ function mover(kind, field) {
 }
 dash.draw('changes', (el) => {
   const c = ok('changes'); el.replaceChildren();
-  if (!c || !c.length) return;
-  const h = document.createElement('h2'); h.textContent = 'What’s new since the last update ';
-  const sp = document.createElement('span'); sp.textContent = c[0].since ? `(${c[0].since.replace(/, \d{4},/, ',')})` : ''; h.append(sp);
+  if (!c || !c.length) { el.classList.add('none'); return; }
+  el.classList.remove('none');
+  const h = document.createElement('summary'); h.append('What’s new since the last update');
+  const sp = document.createElement('span'); sp.textContent = (c[0].since ? c[0].since.replace(/, \d{4},/, ',') + ' · ' : '') + c.length + (c.length === 1 ? ' item' : ' items'); h.append(sp);
   const ul = document.createElement('ul');
   const lab = { graded: 'Results', kickoff: 'Schedule', injury: 'Injuries', rating: 'Ratings', pick: 'Picks', projection: 'Projections', line: 'Lines', box: 'Box scores', cfp: 'CFP' };
   for (const r of c) { const li = document.createElement('li'); const k = document.createElement('span'); k.className = 'k'; k.textContent = lab[r.kind] || r.kind; const t = document.createElement('span'); t.textContent = r.text; li.append(k, t); ul.append(li); }
