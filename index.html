@@ -206,6 +206,12 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
 .ig-rest { font: 11px/1.4 Arial, sans-serif; color: #555; margin-top: 6px; }
 .pr-box-btn { margin-left: 4px; }
 .ig-save { float: right; margin-right: 6px; font: 700 11px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .06em; background: #111; color: #fff; border: 1px solid #111; padding: 6px 9px; cursor: pointer; }
+.ig.ig-print { width: 760px; max-width: none; padding: 16px 18px 18px; }
+.ig.ig-print .ig-top { grid-template-columns: 1.15fr 1fr; }
+.ig.ig-print .ig-mm, .ig.ig-print .ig-form, .ig.ig-print .ig-notes { grid-template-columns: 1fr 1fr; }
+.ig.ig-print .ig-bf { grid-template-columns: 1fr 112px 1fr; }
+.ig.ig-print .ig-tn { font-size: 38px; }
+.ig.ig-print .ig-num { font-size: 76px; }
 .ig-save[disabled] { opacity: .6; cursor: wait; }
 .bx-ls { width: 100%; border-collapse: collapse; font: 13px/1.2 Arial, sans-serif; margin-top: 4px; }
 .bx-ls th { font: 700 10px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .06em; color: #666; padding: 5px 6px; border-bottom: 2px solid #111; text-align: center; }
@@ -233,7 +239,7 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
   <header id="header">
     <h1 class="pr-title">The Horick Index</h1>
     <p class="pr-take" id="takeaway">After Week <b data-draw="wk">—</b>, <b data-draw="leader">—</b> is No. 1 with a rating of <b data-draw="leaderRating">—</b>. Biggest jump vs. last week: <b data-draw="riser">—</b> (up <b data-draw="riserChg">—</b>). Biggest drop: <b data-draw="faller">—</b> (down <b data-draw="fallerChg">—</b>).</p>
-    <p class="pr-foot">Updated Sat Nov 14, 2026, 8:27 AM ET</p>
+    <p class="pr-foot">Updated Sat Nov 14, 2026, 8:31 AM ET</p>
   </header>
 
   <section class="pr-card" id="ats">
@@ -824,7 +830,7 @@ function openMatchup(r) {
     const s = igEl('div', 'ig-scale'); s.append(igEl('div', 'ig-rail'));
     const po = (+O.off_rk - 1) / 137 * 100, pd = (+Dd.def_rk - 1) / 137 * 100;
     const cn = igEl('div', 'ig-conn'); cn.style.left = Math.min(po, pd) + '%'; cn.style.width = Math.abs(po - pd) + '%'; s.append(cn);
-    const dot = (p, c, lab, up) => { const d = igEl('div', 'ig-dot'); d.style.left = p + '%'; d.style.background = c; const l = igEl('div', 'ig-dl ' + (up ? 'up' : 'dn'), lab); l.style.left = Math.min(92, Math.max(8, p)) + '%'; s.append(d, l); };
+    const dot = (p, c, lab, up) => { const d = igEl('div', 'ig-dot'); d.style.left = p + '%'; d.style.background = c; const l = igEl('div', 'ig-dl ' + (up ? 'up' : 'dn'), lab); if (p < 20) { l.style.left = Math.max(0, p - 2) + '%'; l.style.transform = 'none'; } else if (p > 80) { l.style.left = 'auto'; l.style.right = Math.max(0, 98 - p) + '%'; l.style.transform = 'none'; } else l.style.left = p + '%'; s.append(d, l); };
     dot(po, cO, `${offT} O ${igOrd(O.off_rk)}`, true); dot(pd, cD, `${defT} D ${igOrd(Dd.def_rk)}`, false);
     const sl = igEl('div', 'ig-sl'); sl.append(igEl('span', '', '1st (best)'), igEl('span', '', '138th'));
     const adv = +O.off_rk < +Dd.def_rk ? `${offT} offense` : +O.off_rk > +Dd.def_rk ? `${defT} defense` : 'Even';
@@ -980,7 +986,8 @@ function igSaveBtn(ig, name) {
     b.disabled = true; const old = b.textContent; b.textContent = 'Saving…';
     try {
       const lib = await igLoadLib();
-      const blob = await lib.toBlob(ig, { pixelRatio: 2, backgroundColor: '#fbfaf6', filter: (n) => !(n.classList && (n.classList.contains('ig-close') || n.classList.contains('ig-save'))) });
+      ig.classList.add('ig-print'); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      let blob; try { blob = await lib.toBlob(ig, { width: ig.offsetWidth, height: ig.offsetHeight, pixelRatio: 2, backgroundColor: '#fbfaf6', filter: (n) => !(n.classList && (n.classList.contains('ig-close') || n.classList.contains('ig-save'))) }); } finally { ig.classList.remove('ig-print'); }
       const file = new File([blob], name + '.png', { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] }) && /Mobi|iPhone|iPad|Android/i.test(navigator.userAgent)) {
         await navigator.share({ files: [file], title: name });
