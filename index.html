@@ -217,6 +217,9 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
 .ig-gm { font-size: 11px; color: #666; }
 .ig-rest { font: 11px/1.4 Arial, sans-serif; color: #555; margin-top: 6px; }
 .pr-box-btn { margin-left: 4px; }
+.pr-live-btn.on { color: #b3412f; border-color: #b3412f; }
+.bx-livetag { color: #b3412f; }
+
 .ig-save { float: right; margin-right: 6px; font: 700 11px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .06em; background: #111; color: #fff; border: 1px solid #111; padding: 6px 9px; cursor: pointer; }
 .ig.ig-print { width: 760px; max-width: none; padding: 16px 18px 18px; }
 .ig.ig-print .ig-top { grid-template-columns: 1.15fr 1fr; }
@@ -257,7 +260,7 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
   <header id="header">
     <h1 class="pr-title">The Horick Index</h1>
     <details class="pr-new" id="whats-new" data-draw="changes"></details>
-    <p class="pr-foot">Updated Sat Nov 14, 2026, 11:08 AM ET</p>
+    <p class="pr-foot">Updated Sat Nov 14, 2026, 11:13 AM ET</p>
   </header>
 
   <section class="pr-card" id="ats">
@@ -618,7 +621,7 @@ dash.draw('atsTiles', (el) => {
 });
 
 dash.draw('atsTable', (tb) => {
-  const rows = ok('picks');
+  const rows = ok('picks'); setTimeout(liveStart, 0);
   tb.replaceChildren();
   if (!rows) return;
   const kmin = (r) => { const m = String(r.kickoff || '').match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i); if (!m) return 9999; let h = +m[1] % 12; if (/pm/i.test(m[3])) h += 12; return h * 60 + +m[2]; };
@@ -660,6 +663,7 @@ dash.draw('atsTable', (tb) => {
     const kt = document.createElement('div'); kt.className = 'pr-wx'; kt.textContent = '🕒 ' + kickText(r) + ' ET'; g.append(kt);
     const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'pr-mx-btn'; mb.textContent = 'Breakdown ▸'; mb.onclick = (e) => { e.stopPropagation(); openMatchup(r); }; g.append(mb);
     const bx = boxFor(r); if (bx) { const bb = document.createElement('button'); bb.type = 'button'; bb.className = 'pr-mx-btn pr-box-btn'; bb.textContent = '▦ Box score'; bb.title = 'Final box score'; bb.onclick = (e) => { e.stopPropagation(); openBox(r, bx); }; g.append(' ', bb); }
+    else { const lb = liveBtn(r); if (lb) g.append(' ', lb); }
     tr.style.cursor = 'pointer'; tr.addEventListener('click', () => openMatchup(r));
     add(`${r.model_away_pts}–${r.model_home_pts}`, 'pr-strong');
     const p = add(r.pick, 'pr-l pr-strong');
@@ -1001,6 +1005,125 @@ function openBox(r, b) {
   }
   ig.append(igEl('div', 'ig-foot', 'Box score data: ' + (b.source || 'official game stats') + '. Model projection and picks: Horick Index.'));
   back.append(ig); document.body.append(back); document.body.style.overflow = 'hidden'; x.focus();
+}
+
+// ---- Live box scores (ESPN public scoreboard, polled in the visitor's browser) ----
+const LIVE = { games: {}, timer: null, last: 0 };
+const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/';
+function nowET() { const s = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false }); const m = s.match(/(\d+)\/(\d+)\/(\d+),\s*(\d+):(\d+)/); return m ? new Date(+m[3], +m[1] - 1, +m[2], +m[4] % 24, +m[5]) : new Date(); }
+function koET(r) { if (!r.date) return null; const m = String(r.kickoff || '').match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i); const [y, mo, d] = r.date.split('-').map(Number); let h = 12, mi = 0; if (m) { h = (+m[1] % 12) + (/pm/i.test(m[3]) ? 12 : 0); mi = +m[2]; } return new Date(y, mo - 1, d, h, mi); }
+const lgKey = (r) => `${r.week}|${r.away}|${r.home}`;
+const NM_TOK = { 'st.': 'state', 'st': 'state', 's.': 'south', 'n.': 'north', 'w.': 'west', 'e.': 'east', 'ga.': 'georgia', 'coll.': 'college', 'caro.': 'carolina', 'mex.': 'mexico', 'va.': 'virginia', 'wash.': 'washington', 'app.': 'appalachian', 'so.': 'southern', 'jax': 'jacksonville', 'la.': 'louisiana', 'fla.': 'florida', 'miss.': 'mississippi', 'mich.': 'michigan', 'tenn.': 'tennessee', 'ill.': 'illinois', 'ky.': 'kentucky' };
+const NM_ALIAS = { 'n. mex. st.': ['new mexico state'], 'n. illinois': ['northern illinois'], 'n. colorado': ['northern colorado'], 'n. iowa': ['northern iowa'], 'e. michigan': ['eastern michigan'], 'w. michigan': ['western michigan'], 'c. michigan': ['central michigan'], 'w. kentucky': ['western kentucky'], 'e. kentucky': ['eastern kentucky'], 'ole miss': ['mississippi', 'ole miss'], 'miami-oh': ['miami oh', 'miami ohio'], 'fau': ['florida atlantic'], 'fiu': ['florida international', 'fiu'], 'mtsu': ['middle tennessee'], 'ecu': ['east carolina'], 'jmu': ['james madison'], 'uconn': ['uconn', 'connecticut'], 'usf': ['south florida'], 'ulm': ['ul monroe', 'louisiana monroe'], 'bgsu': ['bowling green'], 'cmu': ['central michigan'], 'wmu': ['western michigan'], 'emu': ['eastern michigan'], 'umass': ['massachusetts', 'umass'], 'wku': ['western kentucky'], 'pittsburgh': ['pittsburgh', 'pitt'], 'nc state': ['nc state', 'north carolina state'], 'north dakota state': ['north dakota state'], 'kennesaw': ['kennesaw state'], 'sam houston': ['sam houston', 'sam houston state'], 'appalachian state': ['app state', 'appalachian state'], 'hawaii': ['hawaii'], 'sac state': ['sacramento state'], 'louisiana': ['louisiana', 'louisiana lafayette', 'ul lafayette'], 'southern miss': ['southern miss', 'southern mississippi'], 'san jose state': ['san jose state'], 'utsa': ['utsa', 'ut san antonio'] };
+function nmNorm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[()']/g, '').replace(/\s+/g, ' ').trim(); }
+function nmOurs(t) { const raw = nmNorm(t); const exp = raw.split(' ').map((w) => NM_TOK[w] || w).join(' ').replace(/[.]/g, '').replace(/-/g, ' ').trim(); const out = new Set([raw.replace(/[.]/g, ''), exp]); for (const k of [raw, exp, raw.replace(/[.]/g, '')]) (NM_ALIAS[k] || []).forEach((a) => out.add(a)); return out; }
+function nmEspn(team) { const out = new Set(); for (const v of [team.location, team.shortDisplayName, team.abbreviation, (team.displayName || '').replace(' ' + (team.name || ''), '')]) { const n = nmNorm(v).replace(/[.]/g, '').replace(/-/g, ' '); if (n) out.add(n.replace(/\bst\b/g, 'state')); } return out; }
+function nmMatch(ours, team) { const a = nmOurs(ours), b = nmEspn(team); for (const x of a) if (b.has(x)) return true; return false; }
+function liveCandidates() {
+  const P = ok('picks') || [], n = nowET();
+  return P.filter((r) => !r.result && !boxFor(r) && koET(r) && n >= new Date(koET(r) - 10 * 60000) && n <= new Date(+koET(r) + 7 * 3600000));
+}
+async function livePoll() {
+  const C = liveCandidates(); if (!C.length) return;
+  const dates = [...new Set(C.map((r) => r.date.replace(/-/g, '')))];
+  let changed = false;
+  for (const d of dates) {
+    let js; try { js = await (await fetch(`${ESPN}scoreboard?groups=80&dates=${d}&limit=300`, { cache: 'no-store' })).json(); } catch (e) { continue; }
+    for (const ev of js.events || []) {
+      const comp = (ev.competitions || [])[0]; if (!comp) continue;
+      const H = comp.competitors.find((c) => c.homeAway === 'home'), A = comp.competitors.find((c) => c.homeAway === 'away'); if (!H || !A) continue;
+      for (const r of C) {
+        let flip = false;
+        if (nmMatch(r.home, H.team) && nmMatch(r.away, A.team)) flip = false;
+        else if (nmMatch(r.home, A.team) && nmMatch(r.away, H.team)) flip = true; else continue;
+        const st = ev.status || comp.status || {}; const ty = st.type || {};
+        const g = { id: ev.id, state: ty.state, detail: ty.shortDetail || ty.detail || '', away: +(flip ? H : A).score || 0, home: +(flip ? A : H).score || 0, poss: (comp.situation || {}).downDistanceText || '' };
+        const old = LIVE.games[lgKey(r)]; if (!old || old.away !== g.away || old.home !== g.home || old.detail !== g.detail) changed = true;
+        LIVE.games[lgKey(r)] = g;
+      }
+    }
+  }
+  LIVE.last = Date.now();
+  if (changed) dash.draw('atsTable');
+}
+function liveStart() { if (LIVE.timer) return; livePoll(); LIVE.timer = setInterval(() => { if (!document.hidden) livePoll(); }, 60000); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - LIVE.last > 55000) livePoll(); });
+function liveBtn(r) {
+  const g = LIVE.games[lgKey(r)]; if (!g || g.state === 'pre') return null;
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'pr-mx-btn pr-box-btn pr-live-btn' + (g.state === 'in' ? ' on' : '');
+  b.textContent = (g.state === 'in' ? '● Live ' : '▦ Final ') + `${g.away}–${g.home}` + (g.state === 'in' ? ` · ${g.detail.replace(/ - /, ' ')}` : '');
+  b.title = g.state === 'in' ? 'Live box score (updates every 30 seconds)' : 'Unofficial final box score';
+  b.onclick = (e) => { e.stopPropagation(); openLiveBox(r); }; return b;
+}
+function openLiveBox(r) {
+  const [ca, ch] = igPair(r.away, r.home);
+  const back = igEl('div', 'ig-back'); back.setAttribute('role', 'dialog'); back.setAttribute('aria-label', `${r.away} at ${r.home} live box score`);
+  const ig = igEl('div', 'ig'); ig.style.setProperty('--a', ca); ig.style.setProperty('--h', ch);
+  let timer = null;
+  const close = () => { clearInterval(timer); back.remove(); document.removeEventListener('keydown', esc); document.body.style.overflow = ''; };
+  const esc = (e) => { if (e.key === 'Escape') close(); };
+  back.addEventListener('click', (e) => { if (e.target === back) close(); }); document.addEventListener('keydown', esc);
+  const x = igEl('button', 'ig-close', 'Close ✕'); x.type = 'button'; x.onclick = close;
+  const body = igEl('div'); const kick = igEl('div', 'ig-kick', `Box score · Week ${r.week} · Live`);
+  ig.append(x, igSaveBtn(ig, igFile(r, 'live-boxscore')), kick, body);
+  back.append(ig); document.body.append(back); document.body.style.overflow = 'hidden'; x.focus();
+  const render = async () => {
+    const g = LIVE.games[lgKey(r)]; if (!g) { body.replaceChildren(igEl('div', 'ig-cap', 'Live data not available yet.')); return; }
+    let js; try { js = await (await fetch(`${ESPN}summary?event=${g.id}`, { cache: 'no-store' })).json(); } catch (e) { body.replaceChildren(igEl('div', 'ig-cap', 'Couldn’t reach the live feed. Retrying…')); return; }
+    const comp = ((js.header || {}).competitions || [])[0] || {}; const cs = comp.competitors || [];
+    const side = (ours) => cs.find((c) => nmMatch(ours, c.team || {})) || {};
+    const A = side(r.away), H = side(r.home);
+    const st = (comp.status || {}).type || {}; const live = st.state === 'in';
+    kick.textContent = `Box score · Week ${r.week} · ${live ? 'Live' : st.state === 'post' ? 'Final (unofficial)' : 'Pregame'}`;
+    const ap = +A.score || 0, hp = +H.score || 0;
+    const out = [];
+    const hd = igEl('div', 'bx-hd');
+    const sd = (t, pts, c) => { const d = igEl('div', 'bx-side'); const n = igEl('div', 'ig-tn', t); n.style.color = c; const p = igEl('div', 'ig-num', pts); p.style.color = c; d.append(n, p); return d; };
+    const mid = igEl('div', 'bx-mid'); mid.append(igEl('div', 'ig-at', +r.neutral ? 'vs.' : 'at'), igEl('div', 'ig-dash' + (live ? ' bx-livetag' : ''), live ? '● ' + (st.shortDetail || st.detail || 'Live') : (st.shortDetail || 'Final')));
+    hd.append(sd(r.away, ap, ca), mid, sd(r.home, hp, ch)); out.push(hd);
+    const sit = (js.situation && (js.situation.downDistanceText || js.situation.shortDownDistanceText)) || g.poss;
+    if (live && sit) out.push(igEl('div', 'ig-cap', sit));
+    // line score
+    const la = (A.linescores || []).map((q) => q.displayValue ?? q.value), lh = (H.linescores || []).map((q) => q.displayValue ?? q.value);
+    if (la.length || lh.length) {
+      const nq = Math.max(4, la.length, lh.length); const ls = igEl('table', 'bx-ls'); const hr = igEl('tr');
+      ['', ...Array.from({ length: nq }, (_, i) => i < 4 ? String(i + 1) : (nq > 5 ? 'OT' + (i - 3) : 'OT')), 'T'].forEach((h) => hr.append(igEl('th', '', h)));
+      const th = igEl('thead'); th.append(hr); ls.append(th); const tb = igEl('tbody');
+      [[r.away, la, ap], [r.home, lh, hp]].forEach(([t, L, T]) => { const tr = igEl('tr'); const c = igEl('td'); c.append(chip(t), t); tr.append(c); for (let i = 0; i < nq; i++) tr.append(igEl('td', '', L[i] ?? '')); tr.append(igEl('td', 't', T)); tb.append(tr); });
+      ls.append(tb); out.push(igEl('div', 'ig-h', 'Scoring by quarter'), ls);
+    }
+    // model vs. live
+    const res = igEl('div', 'bx-res');
+    const cell = (k, v, cls) => { const d = igEl('div', cls || ''); d.append(k); d.append(igEl('b', '', v)); res.append(d); };
+    cell('Model projected', `${r.model_away_pts}–${r.model_home_pts}`);
+    const cover = (hp - ap) + +r.home_spread, mine = r.pick_side === 'home' ? cover : -cover;
+    cell('Spread pick: ' + r.pick, mine > 0 ? `Covering by ${Math.abs(mine)}` : mine < 0 ? `Short by ${Math.abs(mine)}` : 'Right on the number', mine > 0 ? 'win' : mine < 0 ? 'loss' : '');
+    if (r.total_pick) { const tot = ap + hp, need = +r.total - tot; const over = /^Over/.test(r.total_pick);
+      cell('Total pick: ' + r.total_pick, over ? (need < 0 ? 'Over already' : `${tot} so far, needs ${(need + 0.5).toFixed(0)}+ more`) : (need <= 0 ? 'Over the total' : `${tot} so far, ${need} under`), over ? (need < 0 ? 'win' : '') : (need <= 0 ? 'loss' : '')); }
+    out.push(igEl('div', 'ig-h', live ? 'How the model is doing' : 'How the model did'), res);
+    // team stats
+    const BT = ((js.boxscore || {}).teams || []);
+    const statsOf = (C) => { const t = BT.find((x) => (x.team || {}).id && C.team && x.team.id === C.team.id) || BT.find((x) => x.homeAway === C.homeAway) || {}; const m = {}; (t.statistics || []).forEach((s) => { m[s.name] = s.displayValue; m['label:' + s.name] = s.label; }); return m; };
+    const SA = statsOf(A), SH = statsOf(H);
+    const rows = [['totalYards', 'Total yards', 'hi'], ['yardsPerPlay', 'Yards per play', 'hi'], ['firstDowns', 'First downs', 'hi'], ['rushingAttempts', 'Rush attempts', null], ['rushingYards', 'Rushing yards', 'hi'], ['completionAttempts', 'Passing (C-A)', null], ['netPassingYards', 'Passing yards', 'hi'], ['thirdDownEff', '3rd down', null], ['turnovers', 'Turnovers', 'lo'], ['totalPenaltiesYards', 'Penalties-yards', null], ['possessionTime', 'Possession', null]];
+    if (Object.keys(SA).length || Object.keys(SH).length) {
+      const t = igEl('table', 'bx-st'); const h2 = igEl('tr'); const ha = igEl('th', '', r.away), hh = igEl('th', '', r.home); ha.style.color = ca; hh.style.color = ch; h2.append(ha, igEl('th', ''), hh); t.append(h2);
+      for (const [k, lab, better] of rows) { const av = SA[k], hv = SH[k]; if (av == null && hv == null) continue; const an = parseFloat(av), hn = parseFloat(hv); let wa = false, wh = false;
+        if (better && !isNaN(an) && !isNaN(hn) && an !== hn) { wa = better === 'hi' ? an > hn : an < hn; wh = !wa; }
+        const tr = igEl('tr'); tr.append(igEl('td', wa ? 'win' : '', av ?? '—'), igEl('td', 'lab', lab), igEl('td', wh ? 'win' : '', hv ?? '—')); t.append(tr); }
+      out.push(igEl('div', 'ig-h', 'Team stats'), t);
+    }
+    // scoring plays
+    const SP = js.scoringPlays || [];
+    if (SP.length) { const box = igEl('div', 'bx-sc');
+      SP.forEach((p) => { const d = igEl('div'); const flipA = (A.homeAway === 'home'); const as = flipA ? p.homeScore : p.awayScore, hs = flipA ? p.awayScore : p.homeScore;
+        d.append(igEl('span', 'q', `Q${(p.period || {}).number || ''} ${(p.clock || {}).displayValue || ''}`), igEl('span', '', ((p.team || {}).abbreviation ? p.team.abbreviation + ': ' : '') + (p.text || '')), igEl('span', 's', `${as ?? ''}–${hs ?? ''}`)); box.append(d); });
+      out.push(igEl('div', 'ig-h', 'Scoring summary'), box, igEl('div', 'ig-cap', `Score shown ${r.away}–${r.home}`)); }
+    out.push(igEl('div', 'ig-foot', `Live data: ESPN${live ? ', refreshes every 30 seconds' : ''}. Updated ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}. Official box score and grading follow once the game is final.`));
+    body.replaceChildren(...out);
+    if (!live) clearInterval(timer);
+  };
+  render(); timer = setInterval(() => { if (!document.hidden) render(); }, 30000);
 }
 
 // ---- Save a breakdown / box score as an image ----
