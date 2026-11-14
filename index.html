@@ -213,6 +213,12 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
 .ig.ig-print .ig-tn { font-size: 38px; }
 .ig.ig-print .ig-num { font-size: 76px; }
 .ig-save[disabled] { opacity: .6; cursor: wait; }
+.bx-hd { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: end; text-align: center; margin-top: 4px; }
+.bx-side { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.bx-side .ig-tn { font-size: clamp(16px, 4.6vw, 28px); line-height: 1.05; overflow-wrap: anywhere; }
+.bx-mid { display: flex; flex-direction: column; align-items: center; gap: 18px; padding-bottom: 14px; }
+.bx-mid .ig-at { padding-bottom: 0; }
+.ig.ig-print .bx-side .ig-tn { font-size: 30px; }
 .bx-ls { width: 100%; border-collapse: collapse; font: 13px/1.2 Arial, sans-serif; margin-top: 4px; }
 .bx-ls th { font: 700 10px/1 Arial, sans-serif; text-transform: uppercase; letter-spacing: .06em; color: #666; padding: 5px 6px; border-bottom: 2px solid #111; text-align: center; }
 .bx-ls td { padding: 6px; border-bottom: 1px solid #ccc; text-align: center; font-variant-numeric: tabular-nums; }
@@ -239,7 +245,7 @@ window.__DATA__ = {"rankings":[{"week":"11","rank":"1","team":"Georgia","wins":"
   <header id="header">
     <h1 class="pr-title">The Horick Index</h1>
     <p class="pr-take" id="takeaway">After Week <b data-draw="wk">—</b>, <b data-draw="leader">—</b> is No. 1 with a rating of <b data-draw="leaderRating">—</b>. Biggest jump vs. last week: <b data-draw="riser">—</b> (up <b data-draw="riserChg">—</b>). Biggest drop: <b data-draw="faller">—</b> (down <b data-draw="fallerChg">—</b>).</p>
-    <p class="pr-foot">Updated Sat Nov 14, 2026, 10:05 AM ET</p>
+    <p class="pr-foot">Updated Sat Nov 14, 2026, 10:20 AM ET</p>
   </header>
 
   <section class="pr-card" id="ats">
@@ -917,11 +923,11 @@ function openBox(r, b) {
   const x = igEl('button', 'ig-close', 'Close ✕'); x.type = 'button'; x.onclick = close;
   const sec = (t) => ig.append(igEl('div', 'ig-h', t));
   ig.append(x, igSaveBtn(ig, igFile(r, 'boxscore')), igEl('div', 'ig-kick', `Box score · Week ${r.week} · Final`));
-  const sc = igEl('div', 'ig-score');
-  const nm = (t, cls) => { const d = igEl('div'); d.append(igEl('div', 'ig-tn', t)); d.firstChild.style.color = cls === 'a' ? ca : ch; d.firstChild.style.fontSize = 'clamp(16px,4.5vw,26px)'; return d; };
-  const top = igEl('div', 'ig-title'); top.append(nm(r.away, 'a'), igEl('div', 'ig-at', +r.neutral ? 'vs.' : 'at'), nm(r.home, 'h'));
-  sc.append(igEl('div', 'ig-num a', b.away_pts), igEl('div', 'ig-dash', 'Final'), igEl('div', 'ig-num h', b.home_pts));
-  ig.append(top, sc);
+  const hd = igEl('div', 'bx-hd');
+  const side = (t, pts, c, cls) => { const d = igEl('div', 'bx-side ' + cls); const n = igEl('div', 'ig-tn', t); n.style.color = c; const p = igEl('div', 'ig-num', pts); p.style.color = c; d.append(n, p); return d; };
+  const mid = igEl('div', 'bx-mid'); mid.append(igEl('div', 'ig-at', +r.neutral ? 'vs.' : 'at'), igEl('div', 'ig-dash', 'Final'));
+  hd.append(side(r.away, b.away_pts, ca, 'a'), mid, side(r.home, b.home_pts, ch, 'h'));
+  ig.append(hd);
   // line score
   const ot = b.a_ot !== '' && b.a_ot != null;
   const ls = igEl('table', 'bx-ls'); const hr = igEl('tr'); ['', '1', '2', '3', '4'].concat(ot ? ['OT'] : [], ['T']).forEach((h) => hr.append(igEl('th', '', h)));
