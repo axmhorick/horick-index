@@ -843,7 +843,7 @@ const SimCoach = (() => {
   $('start').onclick = () => {
     const p = pick(); if (p.away === p.home) return alertBox('Pick two different teams.');
     g = E.init(D, p.home, p.away, { neutral: p.neutral, hfa: p.hfa, seed: (Math.random() * 1e9) | 0 });
-    SND.on = $('soundOn').checked; SND.lastSit = ''; $('mute').textContent = SND.on ? '🔊' : '🔇'; SND.q4 = false; if (SND.on) { bedStart(); roar(2.5, 0.25); cadence(2); setTimeout(() => band('charge'), 2000); const fan = g[me === 'watch' ? 'home' : me], k = fan.songs && fan.songs.kickoff; if (k) setTimeout(() => playTrack(k.id, `🏟️ ${fan.name} takes the field! Tap ▶️ for ${k.t}`), 300); }
+    SND.on = $('soundOn').checked; SND.lastSit = ''; $('mute').textContent = SND.on ? '🔊' : '🔇'; SND.q4 = false; if (SND.on) { bedStart(); roar(2.5, 0.25); cadence(2); setTimeout(() => band('charge'), 2000); const fan = g[me === 'watch' ? 'home' : me], k = fan.songs && fan.songs.kickoff; if (k) setTimeout(() => playTrack(k.id, `🏟️ ${fan.name} takes the field! Tap ▶️ for ${k.t}`, 'event'), 300); }
     coach = $('coachMode').checked; $('pbCard').classList.toggle('hidden', !coach); $('film').innerHTML = ''; $('report').classList.add('hidden');
     $('setup').classList.add('hidden'); $('game').classList.remove('hidden');
     for (const s of ['away', 'home']) { $(s + 'Name').textContent = lab(g[s].name); $(s + 'Chip').style.background = g[s].color; $(s + 'Sub').textContent = g[s].record + (me === s ? ' · you' : ''); }
@@ -1058,10 +1058,22 @@ const SimCoach = (() => {
   }
   // Phones only let Spotify play after a tap inside its player, so the fight song is tap-to-play:
   // after a touchdown a small Spotify player pops up and stays until closed or the next touchdown.
-  function stopSong() { $('spot').innerHTML = ''; $('soundBox').classList.add('off'); SND.kind = ''; }
+  // Phones only let Spotify play after a tap inside its player, so songs are tap-to-play.
+  // Once you tap ▶️ the song keeps going: later pop-ups won't replace it until you close it (✕) or it's had a minute.
+  // Pop-ups that haven't been tapped give way only to something bigger (touchdown > stop/takeaway > first down/quarter).
+  const PRIO = { hype: 0, fd: 1, event: 1, stop: 2, song: 3 };
+  function stopSong() { $('spot').innerHTML = ''; $('soundBox').classList.add('off'); SND.kind = ''; SND.lockUntil = 0; }
+  window.addEventListener('blur', () => setTimeout(() => { // focus moving into the Spotify player = you tapped play
+    const a = document.activeElement;
+    if (a && a.tagName === 'IFRAME' && $('spot').contains(a) && SND.kind !== 'hype') SND.lockUntil = Date.now() + 60000;
+  }, 0));
   function playTrack(id, cap, kind = 'song') {
     if (!SND.on) return;
-    SND.kind = kind; SND.at = Date.now();
+    if (SND.lockUntil > Date.now()) return; // something you started is playing: leave it alone
+    const showing = SND.kind && !$('soundBox').classList.contains('off');
+    if (showing && SND.kind !== 'hype' && PRIO[kind] < PRIO[SND.kind] && Date.now() - SND.at < 25000) return;
+    if (showing && SND.kind === kind && kind !== 'hype' && Date.now() - SND.at < 12000) return; // same kind of moment, back to back: give you time to tap
+    SND.kind = kind; SND.at = Date.now(); SND.lockUntil = 0;
     $('songCap').textContent = cap;
     $('spot').innerHTML = `<iframe src="https://open.spotify.com/embed/track/${id}?utm_source=generator&theme=0" width="100%" height="80" frameborder="0" style="border-radius:10px" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="eager"></iframe>`;
     $('soundBox').classList.remove('off');
@@ -1087,12 +1099,12 @@ const SimCoach = (() => {
   let stingI = Math.floor(Math.random() * STING.length);
   function stinger() { const [id, t] = STING[stingI++ % STING.length]; playTrack(id, `🔊 First down! ${t}`, 8000); }
   function thirdDownHype() { // tap-to-play anthem while your defense lines up; removing the player at the snap stops it
-    if (SND.kind === 'song' && Date.now() - SND.at < 45000) { cadence(2); return; } // don't bump a fight song that just started
+    if (SND.lockUntil > Date.now() || (SND.kind === 'song' && Date.now() - SND.at < 45000)) { cadence(2); return; } // don't bump a fight song that just started
     const own = g[me].songs && g[me].songs.third_down; // a team's own 3rd-down tradition beats the rotation
     const [id, t] = own ? [own.id, own.t] : HYPE[hypeI++ % HYPE.length]; playTrack(id, `📣 3rd down, get loud! Tap ▶️ for ${t} (stops at the snap)`, 'hype'); SND.hype = true;
   }
   function announce(entry) {
-    if (SND.hype) { SND.hype = false; if (SND.kind === 'hype') stopSong(); }
+    if (SND.hype) { SND.hype = false; if (SND.kind === 'hype') stopSong(); } // 3rd-down anthems end at the snap, by design
     if (!SND.on || !g) return;
     const txt = entry ? (entry.text || '') : '';
     const homeGood = (side) => side === 'home'; // the crowd is the home crowd
@@ -1108,7 +1120,7 @@ const SimCoach = (() => {
       const retHome = entry.retSide === 'home', kickWin = ['punt_muff', 'ko_fumble', 'ko_onside_rec'].includes(entry.res), big = kickWin || entry.res === 'punt_block' || (entry.res === 'punt_ret' && entry.yards >= 20) || (entry.res === 'ko_ret' && entry.yards >= 35);
       if (big) { const goodForHome = kickWin ? !retHome : retHome; if (goodForHome) { roar(2.4, 0.35); band('hey'); } else groan(); }
       const ps = me !== 'watch' && g[me].songs, pt = (['punt_muff', 'ko_fumble', 'ko_onside_rec'].includes(entry.res) && entry.side === me) || (entry.res === 'punt_block' && entry.retSide === me);
-      if (pt) setTimeout(() => (ps && ps.turnover ? playTrack(ps.turnover.id, `🔄 Takeaway! Tap ▶️ for ${ps.turnover.t}`) : (([id, t]) => playTrack(id, `🔄 Takeaway! Tap ▶️ for ${t} by the Sonic Boom of the South`))(jsu())), 500);
+      if (pt) setTimeout(() => (ps && ps.turnover ? playTrack(ps.turnover.id, `🔄 Takeaway! Tap ▶️ for ${ps.turnover.t}`, 'stop') : (([id, t]) => playTrack(id, `🔄 Takeaway! Tap ▶️ for ${t} by the Sonic Boom of the South`, 'stop'))(jsu())), 500);
       SND.lastSit = ''; return;
     }
     if (entry && ['two_good', 'two_fail', 'pat_miss'].includes(entry.res)) { const goodHome = (entry.res === 'two_good') === (entry.side === 'home'); if (goodHome) { roar(2, 0.3); band('hey'); } else groan(); SND.lastSit = ''; return; }
@@ -1122,14 +1134,14 @@ const SimCoach = (() => {
     // special-request songs for the team you're coaching (team_songs.csv): first downs and 3rd-down stops
     const mine = me !== 'watch' && g[me].songs;
     const fan = g[me === 'watch' ? 'home' : me]; // your team (or the home team when just watching)
-    if (g.qtr === 4 && !SND.q4) { SND.q4 = true; const q = fan.songs && fan.songs.fourth_quarter; if (q) setTimeout(() => playTrack(q.id, `🕓 Start of the 4th quarter at ${fan.name}! Tap ▶️ for ${q.t}`), 400); }
-    if (mine && fd && entry.side === me && mine.first_down) setTimeout(() => playTrack(mine.first_down.id, `🎉 ${g[me].name} first down! Tap ▶️ for ${mine.first_down.t}`), 500);
+    if (g.qtr === 4 && !SND.q4) { SND.q4 = true; const q = fan.songs && fan.songs.fourth_quarter; if (q) setTimeout(() => playTrack(q.id, `🕓 Start of the 4th quarter at ${fan.name}! Tap ▶️ for ${q.t}`, 'event'), 400); }
+    if (mine && fd && entry.side === me && mine.first_down) setTimeout(() => playTrack(mine.first_down.id, `🎉 ${g[me].name} first down! Tap ▶️ for ${mine.first_down.t}`, 'fd'), 500);
     const stop3 = entry && entry.down === 3 && me !== 'watch' && entry.side !== me && !fd && !/TOUCHDOWN/.test(txt) && (g.poss !== entry.side || g.down === 4);
     const takeaway = entry && me !== 'watch' && ((entry.side !== me && ['int', 'fumble'].includes(entry.res)) || (entry.res === 'punt_muff' && entry.side === me) || (entry.res === 'punt_block' && entry.retSide === me));
-    if (takeaway && me !== 'watch') setTimeout(() => (mine && mine.turnover ? playTrack(mine.turnover.id, `🔄 Takeaway! Tap ▶️ for ${mine.turnover.t}`) : (([id, t]) => playTrack(id, `🔄 Takeaway! Tap ▶️ for ${t} by the Sonic Boom of the South`))(jsu())), 500);
+    if (takeaway && me !== 'watch') setTimeout(() => (mine && mine.turnover ? playTrack(mine.turnover.id, `🔄 Takeaway! Tap ▶️ for ${mine.turnover.t}`, 'stop') : (([id, t]) => playTrack(id, `🔄 Takeaway! Tap ▶️ for ${t} by the Sonic Boom of the South`, 'stop'))(jsu())), 500);
     const stop4 = !takeaway && entry && entry.down === 4 && me !== 'watch' && entry.side !== me && /Turnover on downs/.test(txt);
-    if (mine && stop4 && mine.fourth_down_stop) setTimeout(() => playTrack(mine.fourth_down_stop.id, `🛑 4th-down stop! Tap ▶️ for ${mine.fourth_down_stop.t}`), 500);
-    if (mine && stop3 && mine.third_down_stop && !takeaway) setTimeout(() => playTrack(mine.third_down_stop.id, `🛑 3rd-down stop! Tap ▶️ for ${mine.third_down_stop.t}`), 500);
+    if (mine && stop4 && mine.fourth_down_stop) setTimeout(() => playTrack(mine.fourth_down_stop.id, `🛑 4th-down stop! Tap ▶️ for ${mine.fourth_down_stop.t}`, 'stop'), 500);
+    if (mine && stop3 && mine.third_down_stop && !takeaway) setTimeout(() => playTrack(mine.third_down_stop.id, `🛑 3rd-down stop! Tap ▶️ for ${mine.third_down_stop.t}`, 'stop'), 500);
     if (fd && offHome) { roar(1.6, 0.25); setTimeout(() => (Math.random() < 0.4 ? cadence(1) : band(Math.random() < 0.5 ? 'firstDown' : 'charge')), 350); }
     const sit = `${g.down}|${g.togo}|${g.ball}|${g.poss}`;
     if (sit === SND.lastSit) return; SND.lastSit = sit;
