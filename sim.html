@@ -945,13 +945,18 @@ const SimCoach = (() => {
     $('spot').innerHTML = `<iframe src="https://open.spotify.com/embed/track/${id}?utm_source=generator&theme=0" width="100%" height="80" frameborder="0" style="border-radius:10px" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="eager"></iframe>`;
     $('soundBox').classList.remove('off');
   }
-  const fightSong = (T) => T.song ? playTrack(T.song.id, `🎺 Touchdown ${T.name}! Tap ▶️ for ${T.song.t}`) : playTrack('7dw9u0NXfdJVEpHqxTafr9', `🎺 Touchdown ${T.name}! Tap ▶️ for the band`); // generic marching-band cut for schools without a listed fight song
+  const fightSong = (T) => T.song ? playTrack(T.song.id, `🎺 Touchdown ${T.name}! Tap ▶️ for ${T.song.t}`) : (([id, t]) => playTrack(id, `🎺 Touchdown ${T.name}! Tap ▶️ for ${t} by the Sonic Boom of the South`))(jsu()); // generic marching-band cut for schools without a listed fight song
   // 3rd-down stadium anthems: play while your defense lines up, cut at the snap
   const HYPE = [['7ISL3LO8AWP3fKIXunvqTa', 'Joker And The Thief'], ['3dPQuX8Gs42Y7b454ybpMR', 'Seven Nation Army'], ['3f2fyR55BFMl3ZWS5S3BUZ', 'Zombie Nation'],
     ['7ACxUo21jtTHzy7ZEV56vU', 'Crazy Train'], ['57bgtoPSgt236HzfBOd8kj', 'Thunderstruck'], ['3VqHuw0wFlIHcIPWkhIbdQ', 'Enter Sandman'], ['6Sy9BUbgFse0n0LPA5lwy5', 'Sandstorm'],
-    ['6JymsaWDHk2Yj4e0yNBIFH', 'Jump Around'], ['6ndmKwWqMozN2tcZqzCX4K', 'Remember the Name'], ['12sXrSIdiqCtB0vKYHNH29', 'All I Do Is Win'], ['6Vjk8MNXpQpi0F4BefdTyq', 'Kashmir']];
+    ['6JymsaWDHk2Yj4e0yNBIFH', 'Jump Around'], ['6ndmKwWqMozN2tcZqzCX4K', 'Remember the Name'], ['12sXrSIdiqCtB0vKYHNH29', 'All I Do Is Win'], ['6Vjk8MNXpQpi0F4BefdTyq', 'Kashmir'],
+    ['5dz57SgSUMSQbzETh9e4N1', "Highest In the Room (Sonic Boom)"], ['36KtovifRtTyrqJ4pLpXbY', 'Neck (Sonic Boom)'], ['4WbhM4qrZaj5DhqKVKaBOX', 'Five On It (Sonic Boom)']];
   for (let i = HYPE.length - 1; i > 1; i--) { const j = 1 + Math.floor(Math.random() * i); [HYPE[i], HYPE[j]] = [HYPE[j], HYPE[i]]; } // Joker leads off, the rest shuffled each visit
   let hypeI = 0;
+  // Gap fillers from the Jackson State Sonic Boom of the South (from the site owner's college football playlist)
+  const JSU = [['5dz57SgSUMSQbzETh9e4N1', "Highest In the Room '19"], ['36KtovifRtTyrqJ4pLpXbY', 'Neck (2021)'], ['3usCZOGgHcjwi0XsaTh7zv', 'Candy Rain'], ['4WbhM4qrZaj5DhqKVKaBOX', "Five On It '22"]];
+  let jsuI = Math.floor(Math.random() * JSU.length);
+  const jsu = () => JSU[jsuI++ % JSU.length];
   // home-team first-down stingers (~8 seconds), like the stadium DJ
   const STING = [['6Sy9BUbgFse0n0LPA5lwy5', 'Sandstorm'], ['6JymsaWDHk2Yj4e0yNBIFH', 'Jump Around'], ['57bgtoPSgt236HzfBOd8kj', 'Thunderstruck'], ['7ACxUo21jtTHzy7ZEV56vU', 'Crazy Train'], ['3VqHuw0wFlIHcIPWkhIbdQ', 'Enter Sandman']];
   let stingI = Math.floor(Math.random() * STING.length);
@@ -978,7 +983,7 @@ const SimCoach = (() => {
       const retHome = entry.retSide === 'home', big = entry.res === 'punt_muff' || entry.res === 'punt_block' || (entry.res === 'punt_ret' && entry.yards >= 20);
       if (big) { const goodForHome = entry.res === 'punt_muff' ? !retHome : retHome; if (goodForHome) { roar(2.4, 0.35); band('hey'); } else groan(); }
       const ps = me !== 'watch' && g[me].songs, pt = (entry.res === 'punt_muff' && entry.side === me) || (entry.res === 'punt_block' && entry.retSide === me);
-      if (ps && pt && ps.turnover) setTimeout(() => playTrack(ps.turnover.id, `🔄 Takeaway! Tap ▶️ for ${ps.turnover.t}`), 500);
+      if (pt) setTimeout(() => (ps && ps.turnover ? playTrack(ps.turnover.id, `🔄 Takeaway! Tap ▶️ for ${ps.turnover.t}`) : (([id, t]) => playTrack(id, `🔄 Takeaway! Tap ▶️ for ${t} by the Sonic Boom of the South`))(jsu())), 500);
       SND.lastSit = ''; return;
     }
     const offHome = entry && entry.side === 'home';
@@ -994,10 +999,10 @@ const SimCoach = (() => {
     if (mine && fd && entry.side === me && mine.first_down) setTimeout(() => playTrack(mine.first_down.id, `🎉 ${g[me].name} first down! Tap ▶️ for ${mine.first_down.t}`), 500);
     const stop3 = entry && entry.down === 3 && me !== 'watch' && entry.side !== me && !fd && !/TOUCHDOWN/.test(txt) && (g.poss !== entry.side || g.down === 4);
     const takeaway = entry && me !== 'watch' && ((entry.side !== me && ['int', 'fumble'].includes(entry.res)) || (entry.res === 'punt_muff' && entry.side === me) || (entry.res === 'punt_block' && entry.retSide === me));
-    if (mine && takeaway && mine.turnover) setTimeout(() => playTrack(mine.turnover.id, `🔄 Takeaway! Tap ▶️ for ${mine.turnover.t}`), 500);
-    const stop4 = !(takeaway && mine && mine.turnover) && entry && entry.down === 4 && me !== 'watch' && entry.side !== me && /Turnover on downs/.test(txt);
+    if (takeaway && me !== 'watch') setTimeout(() => (mine && mine.turnover ? playTrack(mine.turnover.id, `🔄 Takeaway! Tap ▶️ for ${mine.turnover.t}`) : (([id, t]) => playTrack(id, `🔄 Takeaway! Tap ▶️ for ${t} by the Sonic Boom of the South`))(jsu())), 500);
+    const stop4 = !takeaway && entry && entry.down === 4 && me !== 'watch' && entry.side !== me && /Turnover on downs/.test(txt);
     if (mine && stop4 && mine.fourth_down_stop) setTimeout(() => playTrack(mine.fourth_down_stop.id, `🛑 4th-down stop! Tap ▶️ for ${mine.fourth_down_stop.t}`), 500);
-    if (mine && stop3 && mine.third_down_stop && !(takeaway && mine.turnover)) setTimeout(() => playTrack(mine.third_down_stop.id, `🛑 3rd-down stop! Tap ▶️ for ${mine.third_down_stop.t}`), 500);
+    if (mine && stop3 && mine.third_down_stop && !takeaway) setTimeout(() => playTrack(mine.third_down_stop.id, `🛑 3rd-down stop! Tap ▶️ for ${mine.third_down_stop.t}`), 500);
     if (fd && offHome) { roar(1.6, 0.25); setTimeout(() => (Math.random() < 0.4 ? cadence(1) : band(Math.random() < 0.5 ? 'firstDown' : 'charge')), 350); }
     const sit = `${g.down}|${g.togo}|${g.ball}|${g.poss}`;
     if (sit === SND.lastSit) return; SND.lastSit = sit;
