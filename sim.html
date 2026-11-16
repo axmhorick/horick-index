@@ -49,6 +49,9 @@ select { width:100%; padding:9px; border-radius:8px; border:1px solid var(--line
 .log { max-height:340px; overflow:auto; font-size:13px; }
 .log div { padding:6px 0; border-bottom:1px solid var(--line); }
 .log .score-l { font-weight:600; color:var(--good); }
+.dict dt.flash { animation: flash 2.2s ease-out; border-radius:4px; }
+@keyframes flash { 0%,40% { background:#f2c94c66; } 100% { background:transparent; } }
+.backbtn { position:fixed; right:14px; bottom:16px; z-index:20; box-shadow:0 6px 20px rgba(0,0,0,.25); }
 .log .to { color:var(--bad); }
 .log .meta { color:var(--muted); font-size:12px; }
 table { width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums; }
@@ -82,7 +85,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 .lessons { padding-left:18px; margin:8px 0 0; font-size:14px; } .lessons li { margin:4px 0; }
 .toggle { display:flex; align-items:center; gap:8px; font-size:14px; margin-top:10px; color:var(--fg); }
 
-.term { font:inherit; color:inherit; background:none; border:0; padding:0; cursor:help; text-decoration:underline dotted; text-decoration-color:var(--accent); text-underline-offset:3px; font-weight:600; }
+.term { font:inherit; color:var(--accent); background:none; border:0; padding:0; cursor:pointer; text-decoration:underline; text-decoration-color:var(--accent); text-underline-offset:3px; font-weight:600; }
 .gloss { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); width:min(560px, calc(100% - 24px)); background:var(--panel); border:1px solid var(--line); border-top:4px solid var(--accent); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.25); padding:12px 14px; z-index:20; font-size:14px; }
 .gloss b { font-size:15px; }
 .gloss .x { float:right; border:0; background:none; font-size:18px; cursor:pointer; color:var(--muted); }
@@ -100,21 +103,21 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
   </div>
 
   <div class="card" id="setup">
-    <div class="h2">Pick a game</div>
-    <div class="seg" id="mode"><button data-m="slate" class="on">This week's games</button><button data-m="any">Any matchup</button></div>
-    <div id="slateBox"><label>Game</label><select id="slate"></select></div>
+    <div class="h2">🏈 Pick a game</div>
+    <div class="seg" id="mode"><button data-m="slate" class="on">📅 This week's games</button><button data-m="any">🔀 Any matchup</button></div>
+    <div id="slateBox"><label>🏟️ Game</label><select id="slate"></select></div>
     <div id="anyBox" class="hidden">
       <div class="row">
-        <div><label>Away team</label><select id="away"></select></div>
-        <div><label>Home team</label><select id="home"></select></div>
+        <div><label>✈️ Away team</label><select id="away"></select></div>
+        <div><label>🏠 Home team</label><select id="home"></select></div>
       </div>
-      <label><input type="checkbox" id="neutral"> Neutral site</label>
+      <label><input type="checkbox" id="neutral"> ⚖️ Neutral site</label>
     </div>
-    <label>You coach</label>
+    <label>🧢 You coach</label>
     <div class="seg" id="side"></div>
     <label class="toggle"><input type="checkbox" id="coachMode" checked> Coach mode: learn to see the game like a coach (pre-snap reads, coach-speak with tap-to-explain terms, play diagrams, postgame report)</label>
     <p class="hint" id="proj"></p>
-    <button class="btn primary" id="start" style="width:100%;margin-top:6px">Kick off</button>
+    <button class="btn primary" id="start" style="width:100%;margin-top:6px">🏁 Kick off</button>
   </div>
 
   <div id="game" class="hidden">
@@ -137,18 +140,18 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
       <div class="tip" id="tip"></div>
       <div class="grid" id="calls"></div>
       <div class="row" style="margin-top:10px">
-        <button class="btn" id="auto">Let the AI call this one</button>
-        <button class="btn" id="simDrive">Sim this drive</button>
-        <button class="btn" id="simAll">Sim to the end</button>
+        <button class="btn" id="auto">🤖 Let the AI call this one</button>
+        <button class="btn" id="simDrive">⏩ Sim this drive</button>
+        <button class="btn" id="simAll">⏭️ Sim to the end</button>
       </div>
     </div>
 
     <div class="card hidden" id="report"></div>
-    <div class="card" id="pbCard"><details class="pbk"><summary>Playbook: what every call does</summary><div id="pbOff"></div><div class="h2" style="margin-top:12px">Defensive calls</div><div id="pbDef"></div></details><details class="pbk"><summary>Coach’s dictionary: the vocabulary, in plain English</summary><dl class="dict" id="dict"></dl></details></div>
-    <div class="gloss hidden" id="gloss"></div>
-    <div class="card"><div class="h2">Play-by-play</div><div class="log" id="log"></div></div>
-    <div class="card"><div class="h2">Team stats</div><table id="stats"></table></div>
-    <button class="btn" id="again">New game</button>
+    <div class="card" id="pbCard"><details class="pbk"><summary>📖 Playbook: what every call does</summary><div id="pbOff"></div><div class="h2" style="margin-top:12px">🛡️ Defensive calls</div><div id="pbDef"></div></details><details class="pbk"><summary>📚 Coach’s dictionary: the vocabulary, in plain English</summary><dl class="dict" id="dict"></dl></details></div>
+    <button class="btn primary backbtn hidden" id="backBtn">⬆️ Back to the play</button>
+    <div class="card"><div class="h2">📝 Play-by-play</div><div class="log" id="log"></div></div>
+    <div class="card"><div class="h2">📊 Team stats</div><table id="stats"></table></div>
+    <button class="btn" id="again">🔄 New game</button>
   </div>
   <p class="hint">How it works: each play's result is drawn from a distribution set by the two teams' offense and defense ratings and their real rushing and passing numbers. Your call matters: loading the box shuts down runs but opens up passes, blitzes get sacks but give up big plays, a two-deep shell takes away the deep ball. 4th-down and kicking decisions are yours on offense. Simplified college overtime (one possession each from the 25).</p>
 </div>
@@ -572,16 +575,16 @@ const SimCoach = (() => {
       if (late && lead > 0 && lead <= 8) t.push('<b>“Nothing over our heads.”</b> Late with a one-score lead, two-high or prevent stops the quick touchdown.');
       if (100 - g.ball <= 20) t.push('<b>“Bend, don’t break.”</b> {red_zone|Red-zone} defense: holding them to a field goal is a win.');
     }
-    return rich(t.join(' '));
+    return t.length ? '🗣️ ' + rich(t.join(' ')) : '';
   }
   function readTip(look, onOffense) {
     if (onOffense) {
       const k = look.shown;
       const hint = k === 'run_stop' ? 'Coaches see eight in the box and think: throw it. They’re +1 against the run and single-high behind it.' : k === 'cover2' ? 'Two-high with six in the box: coaches think run it, or attack the middle hole.' : k === 'blitz' ? 'Looks like {pressure}: screens and quick game get the ball out before it arrives. But it could be a disguise.' : k === 'prevent' ? 'They’re conceding the short stuff. Take it.' : 'Balanced look. No obvious tell.';
-      return rich(`<b>Pre-snap read:</b> ${look.text} ${hint}`);
+      return rich(`👀 <b>Pre-snap read:</b> ${look.text} ${hint}`);
     }
     const hint = look.key === 'heavy' ? 'Heavy {personnel} usually means run: think about loading the box.' : look.key === 'spread' ? 'Four wide usually means pass: two-high or pressure.' : 'Could be anything. Base is the safe answer.';
-    return rich(`<b>Pre-snap read:</b> ${look.text} ${hint}`);
+    return rich(`👀 <b>Pre-snap read:</b> ${look.text} ${hint}`);
   }
 
   // ---------- after the snap ----------
@@ -590,10 +593,10 @@ const SimCoach = (() => {
     const grp = G(e.offKey), gr = GRADE[grp][e.defKey], ok = success(e);
     const mine = me === 'watch' ? null : e.side === me ? 'off' : 'def';
     const verdict = gr >= 2 ? 'Right call: great matchup for the offense.' : gr === 1 ? 'Favorable look for the offense.' : gr <= -2 ? 'The defense had this one called.' : gr === -1 ? 'The defense had the edge on this call.' : 'An even matchup.';
-    let s = `<b>${PLAYS[e.offKey].name}</b> vs <b>${DEFS[e.defKey].name.split(' (')[0]}</b>. ${FILM[grp][e.defKey]} <i>${verdict}</i>`;
+    let s = `🎬 <b>Film room:</b> <b>${PLAYS[e.offKey].name}</b> vs <b>${DEFS[e.defKey].name.split(' (')[0]}</b>. ${FILM[grp][e.defKey]} <i>${verdict}</i>`;
     if (look && look.disguised && mine === 'off') s += ` They showed ${DEFS[look.shown].name.split(' (')[0].toLowerCase()} and rotated at the snap: a {rotation} disguise. Defenses do this to bait exactly the call you made.`;
-    if (ok !== null) s += ` <span class="${ok ? 'succ' : 'fail'}">${ok ? '✓ Successful play' : '✗ Unsuccessful play'}</span> ({success}).`;
-    if (e.offKey && ((e.res === 'run' && e.yards >= 10) || (e.res === 'comp' && e.yards >= 15))) s += ' That’s an {explosive}.';
+    if (ok !== null) s += ` <span class="${ok ? 'succ' : 'fail'}">${ok ? '✅ Successful play' : '❌ Unsuccessful play'}</span> ({success}).`;
+    if (e.offKey && ((e.res === 'run' && e.yards >= 10) || (e.res === 'comp' && e.yards >= 15))) s += ' 💥 That’s an {explosive}.';
     return rich(s);
   }
 
@@ -602,31 +605,31 @@ const SimCoach = (() => {
     if (me === 'watch') return '';
     const off = g.log.filter((e) => e.byUser && e.offKey && e.side === me && !['punt', 'field_goal'].includes(e.offKey));
     const def = g.log.filter((e) => e.byUser && e.offKey && e.side !== me && !['punt', 'field_goal'].includes(e.offKey));
-    if (!off.length && !def.length) return '<div class="h2">Coaching report</div><p class="hint">You let the AI call every snap, so there’s nothing to grade. Call some plays yourself next game and you’ll get a breakdown here.</p>';
+    if (!off.length && !def.length) return '<div class="h2">🏆 Coaching report</div><p class="hint">You let the AI call every snap, so there’s nothing to grade. Call some plays yourself next game and you’ll get a breakdown here.</p>';
     const by = {};
     for (const e of off) { const k = sitKey(e); (by[k] = by[k] || { n: 0, s: 0, calls: {} }).n++; if (success(e)) by[k].s++; by[k].calls[e.offKey] = (by[k].calls[e.offKey] || 0) + 1; }
     const order = ['1st down', '2nd & short', '2nd & medium', '2nd & long', '3rd & short', '3rd & medium', '3rd & long', '4th & short', '4th & medium', '4th & long', 'Red zone'];
     const rows = order.filter((k) => by[k]).map((k) => { const v = by[k], top = Object.entries(v.calls).sort((a, b) => b[1] - a[1])[0][0];
-      return `<tr><td>${k}</td><td>${v.n}</td><td>${Math.round(100 * v.s / v.n)}%</td><td style="text-align:left">${PLAYS[top].name}</td></tr>`; }).join('');
+      return `<tr><td>${{'1st down':'1️⃣','2nd & short':'2️⃣','2nd & medium':'2️⃣','2nd & long':'2️⃣','3rd & short':'3️⃣','3rd & medium':'3️⃣','3rd & long':'3️⃣','4th & short':'4️⃣','4th & medium':'4️⃣','4th & long':'4️⃣','Red zone':'🔴'}[k] || ''} ${k}</td><td>${v.n}</td><td>${Math.round(100 * v.s / v.n)}%</td><td style="text-align:left">${PLAYS[top].name}</td></tr>`; }).join('');
     const sr = off.length ? Math.round(100 * off.filter(success).length / off.length) : 0;
     const dsr = def.length ? Math.round(100 * def.filter(success).length / def.length) : 0;
     const goodCalls = def.filter((e) => GRADE[G(e.offKey)][e.defKey] <= -1).length;
     const badOff = off.filter((e) => GRADE[G(e.offKey)][e.defKey] <= -2).length;
     const lessons = [];
-    if (off.length) lessons.push(`Your play calls' {success}: <b>${sr}%</b> on ${off.length} snaps (the FBS average is about 42%; elite offenses are 47%+).`);
-    if (def.length) lessons.push(`Opponent success rate against your defense: <b>${dsr}%</b>. Your defensive call beat their play call on ${goodCalls} of ${def.length} snaps.`);
-    if (badOff) lessons.push(`${badOff} of your plays ran straight into the defense built to stop them (like a deep shot into two-deep). Read {shell|the shell} and count {box|the box} before you call: that’s what coaches do on every snap.`);
+    if (off.length) lessons.push(`📈 Your play calls' {success}: <b>${sr}%</b> on ${off.length} snaps (the FBS average is about 42%; elite offenses are 47%+).`);
+    if (def.length) lessons.push(`🛡️ Opponent success rate against your defense: <b>${dsr}%</b>. Your defensive call beat their play call on ${goodCalls} of ${def.length} snaps.`);
+    if (badOff) lessons.push(`🧠 ${badOff} of your plays ran straight into the defense built to stop them (like a deep shot into two-deep). Read {shell|the shell} and count {box|the box} before you call: that’s what coaches do on every snap.`);
     const tl = off.filter((e) => e.down === 3 && e.togo >= 7 && ['short_pass', 'inside_run', 'outside_run'].includes(e.offKey));
-    if (tl.length >= 2) lessons.push(`You called short plays on 3rd & long ${tl.length} times. Those rarely reach {sticks|the sticks}; intermediate routes or a screen against a blitz convert more often.`);
+    if (tl.length >= 2) lessons.push(`📏 You called short plays on 3rd & long ${tl.length} times. Those rarely reach {sticks|the sticks}; intermediate routes or a screen against a blitz convert more often.`);
     const p4 = g.log.filter((e) => e.byUser && e.side === me && e.offKey === 'punt' && e.togo <= 2 && 100 - e.ball0 <= 55);
-    if (p4.length) lessons.push(`You punted on 4th & short past midfield ${p4.length} time${p4.length > 1 ? 's' : ''}. By {expected_pts}, going for it is the better bet there.`);
-    return `<div class="h2">Coaching report</div><p class="hint">Graded on the snaps you called yourself (simmed plays don’t count). “Success” = gaining 40% of the yards needed on 1st down, 60% on 2nd, all of it on 3rd and 4th. It’s the stat analysts use instead of yards per play.</p>
+    if (p4.length) lessons.push(`🎲 You punted on 4th & short past midfield ${p4.length} time${p4.length > 1 ? 's' : ''}. By {expected_pts}, going for it is the better bet there.`);
+    return `<div class="h2">🏆 Coaching report</div><p class="hint">Graded on the snaps you called yourself (simmed plays don’t count). “Success” = gaining 40% of the yards needed on 1st down, 60% on 2nd, all of it on 3rd and 4th. It’s the stat analysts use instead of yards per play.</p>
       <table class="rep"><tr><th>Situation</th><th>Plays</th><th>Success</th><th style="text-align:left">Your go-to call</th></tr>${rows}</table>
       <ul class="lessons">${lessons.map((l) => `<li>${rich(l)}</li>`).join('')}</ul>`;
   }
 
-  const card = (k, isDef) => { const I = isDef ? DEFS[k] : PLAYS[k]; const art = isDef ? line(true) + D[k] : (PLAY_ART[k] ? PLAY_ART[k] + D.base.replace(/class="x /g, 'class="x faint ') : '');
-    return rich(`<div class="pb">${art ? svgWrap(art) : ''}<div><b>${I.name}</b><p class="cs">${I.coach}</p><p>${I.what}</p><p><span class="succ">Works against:</span> ${I.good}</p><p><span class="fail">Struggles against:</span> ${I.bad}</p></div></div>`); };
+  const card = (k, isDef) => { const I = isDef ? DEFS[k] : PLAYS[k]; const IC = { inside_run: '🏃', outside_run: '💨', qb_sneak: '💪', screen: '🪤', short_pass: '⚡', medium_pass: '📐', deep_pass: '🚀', punt: '🦵', field_goal: '🎯', base: '🧱', run_stop: '🚧', blitz: '🔥', cover2: '🔒', prevent: '🛑' }; const art = isDef ? line(true) + D[k] : (PLAY_ART[k] ? PLAY_ART[k] + D.base.replace(/class="x /g, 'class="x faint ') : '');
+    return rich(`<div class="pb">${art ? svgWrap(art) : ''}<div><b>${IC[k]} ${I.name}</b><p class="cs">🗣️ ${I.coach}</p><p>${I.what}</p><p><span class="succ">✅ Works against:</span> ${I.good}</p><p><span class="fail">⚠️ Struggles against:</span> ${I.bad}</p></div></div>`); };
 
   const snapArt = (off, def) => (PLAY_ART[off] ? svgWrap(PLAY_ART[off] + D[def]) : '');
   return { PLAYS, DEFS, TERMS, rich, tip, readTip, defLook, offLook, film, report, success, card, snapArt };
@@ -638,16 +641,24 @@ const SimCoach = (() => {
   const names = Object.keys(D.teams).sort();
   let mode = 'slate', me = 'home', g = null, coach = true;
   const C = SimCoach;
+  const ICON = { inside_run: '🏃', outside_run: '💨', qb_sneak: '💪', screen: '🪤', short_pass: '⚡', medium_pass: '📐', deep_pass: '🚀', punt: '🦵', field_goal: '🎯', base: '🧱', run_stop: '🚧', blitz: '🔥', cover2: '🔒', prevent: '🛑' };
   $('pbOff').innerHTML = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal'].map((k) => C.card(k, false)).join('');
   $('pbDef').innerHTML = Object.keys(C.DEFS).map((k) => C.card(k, true)).join('');
-  $('dict').innerHTML = Object.values(C.TERMS).sort((a, b) => a[0].localeCompare(b[0])).map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('');
+  $('dict').innerHTML = Object.entries(C.TERMS).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, [t, d]]) => `<dt id="term-${k}">📌 ${t}</dt><dd>${d}</dd>`).join('');
   let pend = null; // pre-snap: { key, side, play | def, look }
+  let backTo = 0;
   document.addEventListener('click', (e) => {
     const t = e.target.closest('.term');
-    if (t) { const [nm, df] = C.TERMS[t.dataset.term]; $('gloss').innerHTML = `<button class="x" aria-label="Close">×</button><b>${nm}</b><p style="margin:6px 0 0">${df}</p>`; $('gloss').classList.remove('hidden'); e.stopPropagation(); return; }
-    if (!e.target.closest('#gloss') || e.target.closest('.x')) $('gloss').classList.add('hidden');
+    if (t) {
+      e.preventDefault(); backTo = window.scrollY;
+      const dt = $('term-' + t.dataset.term); if (!dt) return;
+      $('pbCard').classList.remove('hidden'); dt.closest('details').open = true;
+      dt.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      dt.classList.remove('flash'); void dt.offsetWidth; dt.classList.add('flash');
+      $('backBtn').classList.remove('hidden');
+    }
   });
-  const opt = (v, t) => `<option value="${v}">${t}</option>`;
+  $('backBtn').onclick = () => { window.scrollTo({ top: backTo, behavior: 'smooth' }); $('backBtn').classList.add('hidden'); };  const opt = (v, t) => `<option value="${v}">${t}</option>`;
   const lab = (n) => `${D.teams[n].rank <= 25 ? '#' + D.teams[n].rank + ' ' : ''}${n}`;
   $('slate').innerHTML = D.games.map((x, i) => opt(i, `${lab(x.away)} ${x.neutral ? 'vs' : 'at'} ${lab(x.home)} · ${x.kickoff || x.date}`)).join('');
   $('away').innerHTML = names.map((n) => opt(n, `${n} (${D.teams[n].record})`)).join('');
@@ -716,22 +727,22 @@ const SimCoach = (() => {
     card.classList.remove('hidden');
     let html = '';
     if (userOnOffense()) {
-      $('callTitle').textContent = 'Your offense: call a play';
+      $('callTitle').textContent = '📋 Your offense: call a play';
       const fgDist = 100 - g.ball + 17, p = E.fgProb(g, g.poss);
       const list = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass'];
       const tips = { inside_run: 'Steady, few negatives', outside_run: 'Boom or bust', qb_sneak: 'Best on 3rd/4th & 1', screen: 'Beats the blitz', short_pass: 'High percentage', medium_pass: '10–20 yards', deep_pass: 'Low %, big payoff' };
-      html = list.map((k) => `<button class="btn" data-o="${k}">${E.OFF_PLAYS[k].label}<small>${tips[k]}</small></button>`).join('');
+      html = list.map((k) => `<button class="btn" data-o="${k}">${ICON[k]} ${E.OFF_PLAYS[k].label}<small>${tips[k]}</small></button>`).join('');
       if (g.down === 4 || g.ot === 0 && g.qtr >= 2 && g.clock < 30) {
-        if (!g.ot) html += `<button class="btn" data-o="punt">Punt<small>Flip the field</small></button>`;
-        if (fgDist <= 65) html += `<button class="btn" data-o="field_goal">Field goal (${fgDist} yds)<small>~${Math.round(p * 100)}% to make</small></button>`;
+        if (!g.ot) html += `<button class="btn" data-o="punt">🦵 Punt<small>Flip the field</small></button>`;
+        if (fgDist <= 65) html += `<button class="btn" data-o="field_goal">🎯 Field goal (${fgDist} yds)<small>~${Math.round(p * 100)}% to make</small></button>`;
       }
     } else if (userOnDefense()) {
-      $('callTitle').textContent = 'Your defense: make a call';
+      $('callTitle').textContent = '🛡️ Your defense: make a call';
       const tips = { base: 'Balanced', run_stop: 'Stuffs runs, softer vs pass', blitz: 'Sacks, but big-play risk', cover2: 'Takes away deep shots', prevent: 'Nothing deep, gives underneath' };
-      html = Object.keys(E.DEF_CALLS).map((k) => `<button class="btn" data-d="${k}">${E.DEF_CALLS[k].label}<small>${tips[k]}</small></button>`).join('');
+      html = Object.keys(E.DEF_CALLS).map((k) => `<button class="btn" data-d="${k}">${ICON[k]} ${E.DEF_CALLS[k].label}<small>${tips[k]}</small></button>`).join('');
     } else {
-      $('callTitle').textContent = 'Watching: AI vs AI';
-      html = `<button class="btn" data-n="1">Next play<small>Step through one snap</small></button>`;
+      $('callTitle').textContent = '🍿 Watching: AI vs AI';
+      html = `<button class="btn" data-n="1">▶️ Next play<small>Step through one snap</small></button>`;
     }
     $('calls').innerHTML = html;
     $('tip').innerHTML = coach && me !== 'watch' ? C.tip(g, userOnOffense()) : '';
@@ -774,7 +785,7 @@ const SimCoach = (() => {
   function renderLog() {
     const rows = g.log.slice().reverse().slice(0, 150).map((e) => {
       const t = e.q <= 4 ? `${qName(e.q)} ${fmtClock(e.clock)}` : qName(e.q);
-      if (e.type === 'score') return `<div class="score-l">${e.text}</div>`;
+      if (e.type === 'score') return `<div class="score-l">${/FG/.test(e.text) ? '🎯' : /safety/.test(e.text) ? '🧱' : '🏈🎉'} ${e.text}</div>`;
       if (!e.dd) return `<div class="meta">${e.text}</div>`;
       return `<div class="${e.type === 'turnover' ? 'to' : ''}"><span class="meta">${t} · ${e.off} · ${e.dd} · ${e.play} vs ${e.def}</span><br>${e.text}</div>`;
     });
