@@ -81,6 +81,15 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 .rep { margin:6px 0; } .rep td, .rep th { text-align:right; } .rep td:first-child, .rep th:first-child { text-align:left; }
 .lessons { padding-left:18px; margin:8px 0 0; font-size:14px; } .lessons li { margin:4px 0; }
 .toggle { display:flex; align-items:center; gap:8px; font-size:14px; margin-top:10px; color:var(--fg); }
+
+.term { font:inherit; color:inherit; background:none; border:0; padding:0; cursor:help; text-decoration:underline dotted; text-decoration-color:var(--accent); text-underline-offset:3px; font-weight:600; }
+.gloss { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); width:min(560px, calc(100% - 24px)); background:var(--panel); border:1px solid var(--line); border-top:4px solid var(--accent); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.25); padding:12px 14px; z-index:20; font-size:14px; }
+.gloss b { font-size:15px; }
+.gloss .x { float:right; border:0; background:none; font-size:18px; cursor:pointer; color:var(--muted); }
+.read { margin:0 0 10px; padding:10px; border:1px dashed var(--muted); border-radius:8px; font-size:14px; }
+.read:empty { display:none; }
+.cs { font-style:italic; color:var(--muted); }
+.dict dt { font-weight:600; margin-top:8px; } .dict dd { margin:2px 0 0; font-size:13.5px; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -103,7 +112,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
     </div>
     <label>You coach</label>
     <div class="seg" id="side"></div>
-    <label class="toggle"><input type="checkbox" id="coachMode" checked> Coach mode: explain the football as I play (tips, diagrams, postgame report)</label>
+    <label class="toggle"><input type="checkbox" id="coachMode" checked> Coach mode: learn to see the game like a coach (pre-snap reads, coach-speak with tap-to-explain terms, play diagrams, postgame report)</label>
     <p class="hint" id="proj"></p>
     <button class="btn primary" id="start" style="width:100%;margin-top:6px">Kick off</button>
   </div>
@@ -124,6 +133,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 
     <div class="card" id="callCard">
       <div class="h2" id="callTitle"></div>
+      <div class="read" id="read"></div>
       <div class="tip" id="tip"></div>
       <div class="grid" id="calls"></div>
       <div class="row" style="margin-top:10px">
@@ -134,7 +144,8 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
     </div>
 
     <div class="card hidden" id="report"></div>
-    <div class="card" id="pbCard"><details class="pbk"><summary>Playbook: what every call does</summary><div id="pbOff"></div><div class="h2" style="margin-top:12px">Defensive calls</div><div id="pbDef"></div></details></div>
+    <div class="card" id="pbCard"><details class="pbk"><summary>Playbook: what every call does</summary><div id="pbOff"></div><div class="h2" style="margin-top:12px">Defensive calls</div><div id="pbDef"></div></details><details class="pbk"><summary>Coach’s dictionary: the vocabulary, in plain English</summary><dl class="dict" id="dict"></dl></details></div>
+    <div class="gloss hidden" id="gloss"></div>
     <div class="card"><div class="h2">Play-by-play</div><div class="log" id="log"></div></div>
     <div class="card"><div class="h2">Team stats</div><table id="stats"></table></div>
     <button class="btn" id="again">New game</button>
@@ -426,35 +437,102 @@ const SimCoach = (() => {
     medium_pass: line(true) + A('M30 100 L30 60 L95 60') + A('M240 104 L240 62 L200 62') + A('M270 100 L270 50 L285 40'),
     deep_pass: line(true) + A('M30 100 L30 10') + A('M270 100 L270 50 L215 12') + A('M150 135 L150 122', 'blk'),
   };
+  // ---------- coach vocabulary: {key} or {key|shown text} in any string becomes a tap-to-define term ----------
+  const TERMS = {
+    box: ['the box', 'The area near the line of scrimmage between the offensive tackles, about 5 yards deep. "Box count" = how many defenders are standing in it. Coaches count it before every snap.'],
+    plus1: ['plus-one', 'Having one more player than the other side at the point of attack. "The defense is +1 in the box" means there are more run defenders than blockers, so someone goes unblocked.'],
+    numbers: ['numbers', 'Counting players on each side of the ball. "We have the numbers" = more blockers than defenders where the play is going.'],
+    mofc: ['MOFC', '"Middle of the field closed." One safety sits deep in the middle (a one-high shell): Cover 1 or Cover 3. Usually means an extra defender is closer to the line to stop the run.'],
+    mofo: ['MOFO', '"Middle of the field open." Two safeties split the deep field and nobody is in the deep middle (a two-high shell): Cover 2 or Cover 4. Harder to throw deep, easier to run.'],
+    shell: ['shell', 'How the safeties line up before the snap: one-high or two-high. Quarterbacks read the shell first, because it tells them how many defenders can help deep.'],
+    rotation: ['post-snap rotation', 'Safeties showing one look before the snap and moving to another at the snap, like two-high that rotates to one-high. It\'s how defenses disguise coverages and pressures.'],
+    gap: ['gap', 'The space between two offensive linemen. A gap = center-guard, B gap = guard-tackle, C gap = outside the tackle. Run defenses are built on "gap integrity": every gap has a defender responsible for it.'],
+    zone_block: ['zone blocking', 'Linemen block an area instead of a specific man: they step together in the same direction and block whoever shows up. The back reads which gap opens.'],
+    cutback: ['cutback lane', 'The opening that appears on the back side of a run when the defense flows too hard toward the play side.'],
+    edge: ['set the edge', 'Keeping the ball carrier from getting outside the defense. The edge defender\'s job is to turn every run back inside to the help.'],
+    sticks: ['the sticks', 'The first-down marker. "Throw to the sticks" = make sure the route goes past the line to gain.'],
+    schedule: ['on schedule', 'Being in a down-and-distance where the whole playbook works (2nd & 5, 3rd & 3). "Behind the chains" is the opposite: 2nd & 12, 3rd & 9.'],
+    quick: ['quick game', '3-step-drop passes (slants, hitches, flats) where the ball is out in about 2 seconds. Coaches treat it as an extension of the run game.'],
+    hot: ['throw hot', 'Getting the ball out right away to the receiver a blitzer just left open. If a defense sends more rushers than you can block, someone is uncovered, and the QB has to find him fast.'],
+    pressure: ['pressure', 'Coach-speak for a blitz: rushing 5 or more. "Sim pressure" = showing a blitz but dropping into coverage.'],
+    man: ['man coverage', 'Each defender covers a specific receiver wherever he goes. Tight coverage, but if a receiver wins, nobody is helping.'],
+    zone: ['zone coverage', 'Defenders cover areas of the field and react to the throw. Fewer big plays, but there are holes between the zones.'],
+    cover1: ['Cover 1', 'Man coverage with one free safety deep in the middle (MOFC). Lets the defense put 8 in the box or blitz.'],
+    cover3: ['Cover 3', 'Zone with three deep defenders (two corners and a safety) and four underneath. The most common base coverage in college football.'],
+    cover2: ['Cover 2', 'Zone with two deep safeties splitting the field in halves (MOFO) and five underneath; the corners sit on short outside routes.'],
+    hole_shot: ['hole shot', 'A throw into the soft spot of Cover 2: behind the corner and in front of the safety along the sideline, about 18–22 yards deep.'],
+    seam: ['seam', 'The vertical lane between the hash marks and the numbers. Against two-high, the seams and the deep middle are the targets.'],
+    conflict: ['conflict defender', 'A defender who has to play both the run and the pass (usually a linebacker or nickel). Good play calls put him in conflict: whatever he does is wrong.'],
+    explosive: ['explosive', 'A run of 10+ yards or a pass of 15+. Drives with an explosive play score far more often, which is why coaches track them.'],
+    success: ['success rate', 'A play is "successful" if it gains 40% of the yards needed on 1st down, 60% on 2nd, and all of it on 3rd or 4th. Analysts and coaches use it because it measures staying on schedule, not just yards.'],
+    personnel: ['personnel', 'Who\'s on the field, written as two digits: running backs, then tight ends. "11" = 1 RB, 1 TE, 3 WRs. "12" = 1 RB, 2 TEs. "10" = 1 RB, 4 WRs. Defenses substitute to match it.'],
+    under_center: ['under center', 'The QB takes the snap directly from the center (vs. lined up 5 yards back in the shotgun). It tips more toward runs and play-action.'],
+    free_play: ['free play', 'A down where a failed shot costs you little, usually 2nd & short. If the deep ball misses, you still have 3rd & short.'],
+    money_down: ['money down', 'Coach-speak for 3rd down. Drives live or die on it.'],
+    four_minute: ['four-minute offense', 'The late-game mode when you\'re ahead: run the ball, stay in bounds, make the defense use its timeouts. The opposite of the two-minute drill.'],
+    red_zone: ['red zone', 'Inside the opponent\'s 20. The field shrinks: there\'s no room to throw deep, so windows get tight and the run game matters more.'],
+    field_pos: ['field position', 'Where drives start. Each extra 10 yards of starting field position is worth about 0.7 points on average, which is why punting and kickoffs matter.'],
+    expected_pts: ['expected points', 'The average number of points a team scores from a given down, distance and spot on the field. 4th-down analytics compares the expected points of going for it vs. punting or kicking.'],
+    leverage: ['leverage', 'Which side of a receiver a defender lines up on. Inside leverage takes away slants; outside leverage takes away outs and fades.'],
+    flood: ['flood', 'A pass concept that sends three receivers to one side at three depths (short, medium, deep) so one zone defender has to cover two men.'],
+    mesh: ['mesh point', 'The moment the QB and running back meet on a handoff (or a fake). It\'s where read-option and play-action decisions happen.'],
+  };
+  const esc = (s) => String(s).replace(/"/g, '&quot;');
+  const rich = (s) => String(s).replace(/\{(\w+)(?:\|([^}]+))?\}/g, (m, k, shown) => TERMS[k] ? `<button type="button" class="term" data-term="${k}">${shown || TERMS[k][0]}</button>` : (shown || k));
+
   const PLAYS = {
-    inside_run: { name: 'Inside zone', what: 'The whole line steps the same way and blocks whoever is in front of them; the back reads the first gap that opens between the tackles.', good: 'Two-deep shells and prevent (only 6 in the box), keeping the offense on schedule.', bad: 'A loaded box: there are more defenders than blockers.' },
-    outside_run: { name: 'Outside zone (stretch)', what: 'Linemen run sideways to reach the edge; the back aims wide and cuts back if the defense over-pursues.', good: 'Fast defenses that over-run the play, and blitzes that leave the edge unguarded (big-play chance).', bad: 'Loaded boxes and disciplined edge defenders; more tackles for loss than inside zone.' },
-    qb_sneak: { name: 'QB sneak', what: 'The quarterback takes the snap under center and pushes straight behind the center. No handoff, nothing to mess up.', good: '3rd or 4th and 1: the most reliable yard in football.', bad: 'Anything longer than 2 yards. It almost never breaks.' },
-    screen: { name: 'Running-back screen', what: 'Linemen let the pass rush through on purpose, then release to set up a wall; the QB lofts it over the rushers to the back.', good: 'Blitzes: the extra rushers run themselves out of the play.', bad: 'Base defenses that keep linebackers home, and long yardage (it rarely goes far).' },
-    short_pass: { name: 'Quick game (slant/flat/hitch)', what: '3-step drop, ball out in about 2 seconds to receivers 3–7 yards deep.', good: 'Blitzes and soft coverage; high completion rate keeps the chains moving.', bad: '3rd and long: short throws often end short of the sticks.' },
-    medium_pass: { name: 'Intermediate (dig/flood)', what: 'Routes break 10–18 yards downfield into the holes of a zone. Needs the QB to hold the ball a bit longer.', good: 'Loaded boxes and two-deep shells: the space between linebackers and safeties.', bad: 'Blitzes: the QB doesn’t have time and the risk of sacks and interceptions goes up.' },
-    deep_pass: { name: 'Shot play (go/post)', what: 'Receivers run straight downfield or to the post, 20+ yards. Low completion rate, big payoff.', good: 'Single-high defenses (loaded box, blitz) where a receiver is one-on-one.', bad: 'Two-deep and prevent: there’s always a safety over the top. Also the most sacks and picks.' },
-    punt: { name: 'Punt', what: 'Give the ball away on purpose to flip field position (about 40 net yards).', good: '4th and medium/long in your own territory.', bad: 'Short yardage near midfield or later: analytics says go for it more than coaches do.' },
-    field_goal: { name: 'Field goal', what: 'Distance = yards to the goal line + 17. Make rates drop fast past 45 yards.', good: '4th down inside about the opponent’s 30, or when 3 points ties or wins it late.', bad: 'Long tries (50+) that hand the opponent great field position on a miss.' },
+    inside_run: { name: 'Inside zone', coach: '“We’re running inside zone. If they’re only six in {box|the box}, we have the {numbers}.”', what: '{zone_block|Zone blocking}: the line steps together and blocks whoever is there; the back reads the A and B {gap|gaps} and takes the first one that opens, or the {cutback}.', good: 'Two-high ({mofo}) looks and prevent: light boxes. Keeps you {schedule|on schedule}.', bad: 'A loaded box. When the defense is {plus1} in the box, someone is unblocked.' },
+    outside_run: { name: 'Outside zone (stretch)', coach: '“Stretch it. Make their edge run with us and hit the {cutback}.”', what: 'Linemen run laterally to reach the defender in front of them; the back aims at the outside hip of the tackle, then cuts up or back.', good: 'Fast, aggressive fronts that over-pursue, and blitzes that leave nobody to {edge|set the edge}. Biggest {explosive} chance of the runs.', bad: 'Disciplined edge defenders and loaded boxes; more tackles for loss than inside zone.' },
+    qb_sneak: { name: 'QB sneak', coach: '“Short yardage, get {under_center|under center} and push the pile.”', what: 'The QB keeps it and follows the center into the A {gap}. No exchange, so nothing to fumble.', good: '3rd or 4th & 1: the highest-percentage yard in football.', bad: 'Anything over 2 yards. It almost never becomes an explosive.' },
+    screen: { name: 'Running-back screen', coach: '“They’re bringing {pressure}. Let ’em in and dump it over the top.”', what: 'Linemen let the rush through on purpose, then release to set up a wall; the QB lofts it over the blitzers to the back.', good: 'Blitzes and over-aggressive rushers. The extra rushers take themselves out of the play.', bad: 'Defenses that keep linebackers home (base, Cover 2). Rarely gets to the {sticks} on 3rd & long.' },
+    short_pass: { name: 'Quick game (slant/flat/hitch)', coach: '“Take the easy completion. {quick|Quick game} is an extension of the run game.”', what: '3-step drop, ball out in ~2 seconds. The QB reads one defender’s {leverage} and throws away from it.', good: 'Blitzes (it beats the rush) and soft coverage. Lets you {hot|throw hot}.', bad: 'Cover 2 corners who sit on short outside routes, and long yardage, where it ends short of {sticks|the sticks}.' },
+    medium_pass: { name: 'Intermediate (dig/flood)', coach: '“Attack the holes in the zone. Put their {conflict|conflict defender} in a bind.”', what: 'Routes that break 10–18 yards downfield, like a dig across the middle or a {flood} to one side. Needs a clean pocket for about 3 seconds.', good: 'One-high defenses that bring a safety into the box, and the middle hole of Cover 2.', bad: 'Blitzes: the QB doesn’t have time, and sacks and picks go up.' },
+    deep_pass: { name: 'Shot play (go/post)', coach: '“They’re {mofc} with an extra man in the box: we have one-on-ones outside. Take the shot.”', what: 'Receivers run vertical routes or post routes 20+ yards downfield. Low completion %, high payoff.', good: 'One-high looks ({cover1}, loaded box, blitz) where a receiver is one-on-one with no help. Best on a {free_play}.', bad: 'Two-high ({mofo}) and prevent: there’s always help over the top. Highest sack and interception risk.' },
+    punt: { name: 'Punt', coach: '“Win the {field_pos|field-position} battle.”', what: 'Give the ball back on purpose to flip the field (about 40 net yards).', good: '4th and medium/long in your own territory.', bad: '4th & short near midfield or beyond. By {expected_pts}, going for it is usually worth more than the punt.' },
+    field_goal: { name: 'Field goal', coach: '“Come away with points.”', what: 'Distance = yards to the goal line + 17. Make rates fall off quickly past about 45 yards.', good: '4th down inside the opponent’s 30, or when 3 points ties or wins it late.', bad: '50+ yarders: a miss hands the opponent great {field_pos}.' },
   };
   const DEFS = {
-    base: { name: 'Base (4-2-5, Cover 3)', what: 'Seven defenders near the line, three deep. Balanced against everything, great against nothing.', good: 'Early downs when you don’t know what’s coming.', bad: 'Doesn’t take anything away; good offenses pick their spot.' },
-    run_stop: { name: 'Load the box (8 men, single high)', what: 'Bring a safety down so there are more run defenders than blockers. Only one safety stays deep.', good: 'Short yardage and run-heavy teams.', bad: 'Play-action and shots: receivers are one-on-one with no help over the top.' },
-    blitz: { name: 'Blitz (5–6 rushers, man behind)', what: 'Send more rushers than the line can block and cover man-to-man behind them.', good: 'Long-yardage passing downs: sacks and rushed throws.', bad: 'Screens and quick passes, and any missed tackle can go the distance.' },
-    cover2: { name: 'Two-deep shell (Cover 2)', what: 'Two safeties split the deep field in halves; corners squat on short routes.', good: 'Taking away the deep ball and anything outside.', bad: 'Runs, since there are only six defenders in the box, and throws into the middle hole.' },
-    prevent: { name: 'Prevent', what: 'Rush three, drop eight deep. Give up anything short, nothing over the top.', good: 'Protecting a late lead against a hurry-up offense that needs a big play.', bad: 'Any other time: offenses march underneath and the clock still runs.' },
+    base: { name: 'Base (Cover 3)', coach: '“Line up, play fast, don’t guess.”', what: 'Seven in {box|the box}, one-high ({mofc}) {cover3}. Sound against everything.', good: '1st down, when you don’t know what’s coming.', bad: 'It doesn’t take anything away, so a good offense picks its spot.' },
+    run_stop: { name: 'Load the box (8 men, Cover 1)', coach: '“Get {plus1} in the box. Make them beat us throwing.”', what: 'Bring a safety down so the defense has more run defenders than the offense has blockers; play {cover1} behind it.', good: 'Short yardage and run-heavy teams.', bad: 'Shots and intermediate throws: receivers are one-on-one with only one safety deep.' },
+    blitz: { name: 'Blitz (Cover 0/1 pressure)', coach: '“Bring {pressure}. Make him get it out before he’s ready.”', what: 'Rush 5–6, more than the line can block, and play {man} behind it.', good: 'Long yardage when the QB has to hold the ball: sacks, rushed throws, negative runs.', bad: 'Screens, {quick} and {hot|hot throws}. One missed tackle can be an {explosive} touchdown.' },
+    cover2: { name: 'Two-high shell (Cover 2)', coach: '“Keep a lid on it. Nothing over our heads.”', what: 'Two safeties split the deep field ({mofo}); corners squat on short routes. Only six in {box|the box}.', good: 'Taking away the deep ball and the outside.', bad: 'Runs (light box), the {hole_shot}, and throws up the {seam} into the middle hole.' },
+    prevent: { name: 'Prevent', coach: '“Keep everything in front. Make them burn the clock.”', what: 'Rush three, drop eight deep in {zone}.', good: 'Protecting a late lead against a two-minute drill.', bad: 'Any other time: offenses walk down the field underneath.' },
   };
-  // ---------- film room: why a call worked or didn't ----------
   const G = (k) => (['inside_run', 'outside_run', 'qb_sneak'].includes(k) ? 'run' : k.replace('_pass', ''));
   const FILM = {
-    run: { base: 'Even numbers in the box: this one comes down to who wins up front.', run_stop: 'They had an extra man in the box for the run, so somebody went unblocked.', blitz: 'The blitzers shot gaps; if the back gets past them, there’s no one behind.', cover2: 'Only six in the box with two safeties deep, so runs have room.', prevent: 'With eight defenders dropping deep, the run is wide open underneath.' },
-    screen: { base: 'Linebackers stayed home, so the screen had company.', run_stop: 'The box was loaded for the run; the screen got outside of it.', blitz: 'Textbook: the blitz ran past the back and he had blockers in front of him.', cover2: 'The flat defenders in Cover 2 sit right where screens go.', prevent: 'Prevent concedes the short stuff; the screen takes it.' },
-    short: { base: 'A quick throw against a balanced look: steady, unspectacular.', run_stop: 'With a safety down for the run, quick routes outside have room.', blitz: 'Ball out fast beats the blitz before it gets home, but it’s a tighter window in man coverage.', cover2: 'Cover 2 corners squat on short routes; windows are tight outside.', prevent: 'Prevent gives you everything short. Take it.' },
-    medium: { base: 'Intermediate routes test the seams between zones.', run_stop: 'The vacated safety spot leaves holes 10–20 yards downfield.', blitz: 'Intermediate routes need time; the blitz rushes the throw.', cover2: 'The middle hole between the safeties is open, but the throw has to be on time.', prevent: 'Prevent drops deep enough to take away 15+ yards.' },
-    deep: { base: 'Three deep defenders. A shot needs a perfect throw.', run_stop: 'One-on-one outside with no safety help: this is when you take your shot.', blitz: 'If the QB survives the rush, a receiver is running free.', cover2: 'Two safeties over the top: the deep ball has nowhere to go.', prevent: 'Eight defenders deep. This is exactly what prevent is built to stop.' },
+    run: { base: 'Seven in {box|the box} vs. seven blockers: even {numbers}. It comes down to who wins up front.', run_stop: 'They were {plus1} in {box|the box}: an extra run defender nobody could block.', blitz: 'The blitzers shot the {gap|gaps}. Run through them and there’s nobody behind; miss and it’s a loss.', cover2: 'Two-high ({mofo}) means only six in {box|the box}: the offense has the {numbers} to run.', prevent: 'Prevent drops eight. The run is wide open underneath.' },
+    screen: { base: 'Linebackers stayed home and read it, so the screen had company.', run_stop: 'The box was loaded for the run; the screen got the ball outside of it.', blitz: 'Textbook: the {pressure} ran right past the back and he had blockers in front of him.', cover2: 'Cover 2’s squatting corners and flat defenders sit right where screens go.', prevent: 'Prevent concedes everything short; the screen takes it.' },
+    short: { base: 'A {quick} throw against a balanced look: steady, keeps you {schedule|on schedule}.', run_stop: 'With a safety down for the run, the corners play off and the {quick} throws are open.', blitz: 'Ball out fast beats {pressure} before it arrives, but {man} makes the window tight.', cover2: '{cover2} corners squat on short outside routes; those windows close fast.', prevent: 'Prevent gives you everything short. Take it.' },
+    medium: { base: 'Intermediate routes stress the seams between {zone} defenders.', run_stop: 'The safety they brought into {box|the box} left a hole 10–20 yards deep.', blitz: 'Intermediate routes need time; the {pressure} got there before the route did.', cover2: 'The hole between the two safeties is there, but the throw has to be on time.', prevent: 'Prevent drops deep enough to wall off the 15-yard throws.' },
+    deep: { base: '{cover3} has three deep defenders; a shot needs a perfect throw.', run_stop: '{mofc} with an extra man in the box: one-on-one outside with no help. That’s when you take the shot.', blitz: 'If the QB survives the {pressure}, a receiver is running free: boom or bust.', cover2: 'Two-high ({mofo}): a safety over the top on both sides. The deep ball had nowhere to go.', prevent: 'Eight defenders deep. This is exactly what prevent is built to stop.' },
   };
-  // matchup grade from the engine's matrix: + good for offense, - good for defense
   const GRADE = { run: { base: 0, run_stop: -2, blitz: 0, cover2: 1, prevent: 2 }, screen: { base: 0, run_stop: 1, blitz: 2, cover2: -1, prevent: 1 }, short: { base: 0, run_stop: 1, blitz: 0, cover2: -1, prevent: 2 }, medium: { base: 0, run_stop: 1, blitz: -2, cover2: 0, prevent: -1 }, deep: { base: 0, run_stop: 2, blitz: 1, cover2: -2, prevent: -2 } };
+
+  // ---------- pre-snap reads ----------
+  // What the defense shows (25% of the time it disguises and shows a different call's look).
+  const LOOKS = {
+    base: 'Seven in {box|the box}, one safety deep in the middle ({mofc}), corners off at 7 yards.',
+    run_stop: 'Eight in {box|the box}: a safety walked down to the line. Single-high ({mofc}).',
+    blitz: 'Linebackers creeping up into the A {gap|gaps}, corners pressed on the receivers, one safety deep.',
+    cover2: 'Two safeties deep ({mofo}), only six in {box|the box}, corners squatting at 5 yards.',
+    prevent: 'Three-man front, safeties 20 yards deep, everyone bailing.',
+  };
+  function defLook(g, call) {
+    const r = Math.random();
+    const keys = Object.keys(LOOKS).filter((k) => k !== call && k !== 'prevent');
+    const shown = r < 0.25 && call !== 'prevent' ? keys[Math.floor(Math.random() * keys.length)] : call;
+    return { shown, disguised: shown !== call, text: LOOKS[shown] };
+  }
+  const OFF_LOOKS = {
+    heavy: '{personnel|12 personnel} (two tight ends), QB {under_center}. Heavy: it usually means run.',
+    gun: '{personnel|11 personnel} (three receivers), QB in the shotgun. Balanced: run or pass.',
+    spread: '{personnel|10 personnel} (four receivers spread wide), shotgun. Pass-first.',
+  };
+  function offLook(play) {
+    const run = ['inside_run', 'outside_run', 'qb_sneak'].includes(play), r = Math.random();
+    const k = play === 'qb_sneak' ? 'heavy' : run ? (r < 0.55 ? 'heavy' : 'gun') : play === 'deep_pass' || play === 'medium_pass' ? (r < 0.45 ? 'spread' : r < 0.85 ? 'gun' : 'heavy') : (r < 0.8 ? 'gun' : 'spread');
+    return { key: k, text: OFF_LOOKS[k] };
+  }
 
   // ---------- success rate (the stat analysts use) ----------
   function success(e) {
@@ -470,44 +548,53 @@ const SimCoach = (() => {
     return e.togo <= 2 ? `${e.down === 3 ? '3rd' : '4th'} & short` : e.togo <= 6 ? `${e.down === 3 ? '3rd' : '4th'} & medium` : `${e.down === 3 ? '3rd' : '4th'} & long`;
   };
 
-  // ---------- situation tips before the call ----------
+  // ---------- situation tips: coach-speak first, then what it means ----------
   function tip(g, onOffense) {
     const toGoal = 100 - g.ball, lead = g.score[g.poss] - g.score[g.poss === 'home' ? 'away' : 'home'], late = g.qtr >= 4 && g.clock < 300;
     const t = [];
     if (onOffense) {
-      if (g.down === 4) t.push(g.togo <= 2 && toGoal <= 60 ? '4th & short past midfield: the numbers say go for it. A sneak or inside run converts most of the time, and a punt only nets ~40 yards.' : toGoal <= 33 ? 'In field-goal range. Kick unless it’s 4th & 1–2 or you need a touchdown.' : 'Deep in your own end on 4th & medium or long: punting to flip the field is the percentage play.');
-      else if (toGoal <= 10) t.push('Goal-to-go: the field is compressed, so deep shots lose their value. Power runs and quick throws are your best tools.');
-      else if (toGoal <= 20) t.push('Red zone: less space to throw into. Teams that score touchdowns here instead of field goals win games.');
-      else if (g.down === 1) t.push('1st & 10: a successful play gets 4+ yards (40% of what you need). Stay ahead of the chains and the playbook stays open.');
-      else if (g.down === 2 && g.togo <= 3) t.push('2nd & short: a “free play.” You can take a deep shot and still have 3rd & short as a fallback. Defenses often load the box here.');
-      else if (g.down === 2 && g.togo >= 8) t.push('2nd & long: you need 60% of the distance (about ' + Math.ceil(0.6 * g.togo) + ' yards) for a successful play. Screens and intermediate throws are common answers.');
-      else if (g.down === 3 && g.togo <= 2) t.push('3rd & short: sneaks and inside runs convert most often. Expect a loaded box.');
-      else if (g.down === 3 && g.togo <= 6) t.push('3rd & medium: a true coin flip (FBS teams convert ~49% on 3rd/4th and 2–5). Quick throws beat the blitzes defenses love here.');
-      else if (g.down === 3) t.push('3rd & long: the throw has to get past the sticks, so the defense will sit deep or blitz. A screen against a blitz is a classic counter.');
-      if (late && lead > 0) t.push('Protecting a lead late: runs keep the clock moving and cut turnover risk.');
-      if (late && lead < 0) t.push('Trailing late: you need chunks. Incompletions stop the clock; sacks and runs don’t.');
+      if (g.down === 4) t.push(g.togo <= 2 && toGoal <= 60 ? '<b>“Go for it.”</b> 4th & short past midfield: by {expected_pts}, a conversion attempt beats a 40-yard punt. Sneak or inside zone.' : toGoal <= 33 ? '<b>“Take the points.”</b> You’re in field-goal range. Go for it only on 4th & 1–2 or if you need a touchdown.' : '<b>“Play the {field_pos|field-position} game.”</b> 4th & medium or long in your own end: punt.');
+      else if (toGoal <= 10) t.push('<b>“Goal-to-go: we’re in the {red_zone|low red zone}.”</b> No room to throw deep, so power runs and {quick} are your tools.');
+      else if (toGoal <= 20) t.push('<b>“{red_zone|Red zone}: touchdowns, not field goals.”</b> The field shrinks and throwing windows tighten.');
+      else if (g.down === 1) t.push('<b>“Stay {schedule|on schedule}.”</b> 1st & 10: 4+ yards is a {success|successful} play.');
+      else if (g.down === 2 && g.togo <= 3) t.push('<b>“{free_play|Free play}: take a shot.”</b> 2nd & short. If the deep ball misses you’re still in 3rd & short. Check {shell|the shell}: one-high means one-on-ones outside.');
+      else if (g.down === 2 && g.togo >= 8) t.push(`<b>“We’re behind the chains.”</b> 2nd & ${g.togo}: about ${Math.ceil(0.6 * g.togo)} yards gets you back {schedule|on schedule}.`);
+      else if (g.down === 3 && g.togo <= 2) t.push('<b>“{money_down|Money down}, short yardage.”</b> Expect {box|the box} to be loaded. Sneaks and inside zone convert most.');
+      else if (g.down === 3 && g.togo <= 6) t.push('<b>“3rd & manageable: expect {pressure}.”</b> FBS teams convert about half of these. {quick|Quick game} and screens beat the blitz.');
+      else if (g.down === 3) t.push('<b>“3rd & long: throw to {sticks|the sticks}.”</b> They’ll sit deep or bring {pressure}. Short completions that end short of the marker are a win for the defense.');
+      if (late && lead > 0) t.push('<b>“{four_minute|Four-minute offense}.”</b> Run it, keep the clock moving, don’t turn it over.');
+      if (late && lead < 0) t.push('<b>“Two-minute mode.”</b> You need {explosive|explosives}. Incompletions stop the clock; sacks and runs don’t.');
     } else {
-      if (g.down === 3 && g.togo >= 7) t.push(`Their 3rd & ${g.togo}: they must throw past the sticks. A two-deep shell keeps everything in front; a blitz can win the down but risks a big play.`);
-      else if (g.togo <= 2) t.push('Short yardage: load the box. If they beat you with a pass, so be it.');
-      else if (g.down === 1) t.push('1st down: they can do anything. Base defense doesn’t guess wrong.');
-      else if (g.down === 2 && g.togo >= 8) t.push('2nd & long: they are behind the chains. Pressure or a two-deep look can force a punt.');
-      if (late && lead > 0 && lead <= 8) t.push('Late with a one-score lead: prevent or two-deep stops the quick touchdown, but gives up yards underneath.');
-      if (100 - g.ball <= 20) t.push('Red zone defense: the field shrinks in your favor. Holding them to a field goal is a win.');
+      if (g.down === 3 && g.togo >= 7) t.push(`<b>“Make them throw it short of {sticks|the sticks}.”</b> Their 3rd & ${g.togo}: a two-high shell keeps everything in front; {pressure} can win the down but risks an {explosive}.`);
+      else if (g.togo <= 2) t.push('<b>“Get {plus1} in the box.”</b> Short yardage: load it up and make them throw.');
+      else if (g.down === 1) t.push('<b>“Line up and play.”</b> 1st & 10: base defense never guesses wrong.');
+      else if (g.down === 2 && g.togo >= 8) t.push('<b>“They’re behind the chains. Get off the field.”</b> Pressure or two-high can force 3rd & long.');
+      if (late && lead > 0 && lead <= 8) t.push('<b>“Nothing over our heads.”</b> Late with a one-score lead, two-high or prevent stops the quick touchdown.');
+      if (100 - g.ball <= 20) t.push('<b>“Bend, don’t break.”</b> {red_zone|Red-zone} defense: holding them to a field goal is a win.');
     }
-    return t.join(' ');
+    return rich(t.join(' '));
+  }
+  function readTip(look, onOffense) {
+    if (onOffense) {
+      const k = look.shown;
+      const hint = k === 'run_stop' ? 'Coaches see eight in the box and think: throw it. They’re +1 against the run and single-high behind it.' : k === 'cover2' ? 'Two-high with six in the box: coaches think run it, or attack the middle hole.' : k === 'blitz' ? 'Looks like {pressure}: screens and quick game get the ball out before it arrives. But it could be a disguise.' : k === 'prevent' ? 'They’re conceding the short stuff. Take it.' : 'Balanced look. No obvious tell.';
+      return rich(`<b>Pre-snap read:</b> ${look.text} ${hint}`);
+    }
+    const hint = look.key === 'heavy' ? 'Heavy {personnel} usually means run: think about loading the box.' : look.key === 'spread' ? 'Four wide usually means pass: two-high or pressure.' : 'Could be anything. Base is the safe answer.';
+    return rich(`<b>Pre-snap read:</b> ${look.text} ${hint}`);
   }
 
   // ---------- after the snap ----------
-  function film(e, me) {
+  function film(e, me, look) {
     if (!e || !e.offKey || ['punt', 'field_goal'].includes(e.offKey)) return '';
     const grp = G(e.offKey), gr = GRADE[grp][e.defKey], ok = success(e);
     const mine = me === 'watch' ? null : e.side === me ? 'off' : 'def';
-    const verdict = gr >= 2 ? 'Great matchup for the offense.' : gr === 1 ? 'Favorable look for the offense.' : gr <= -2 ? 'The defense had this one called.' : gr === -1 ? 'The defense had the edge on this call.' : 'An even matchup.';
+    const verdict = gr >= 2 ? 'Right call: great matchup for the offense.' : gr === 1 ? 'Favorable look for the offense.' : gr <= -2 ? 'The defense had this one called.' : gr === -1 ? 'The defense had the edge on this call.' : 'An even matchup.';
     let s = `<b>${PLAYS[e.offKey].name}</b> vs <b>${DEFS[e.defKey].name.split(' (')[0]}</b>. ${FILM[grp][e.defKey]} <i>${verdict}</i>`;
-    if (ok !== null) s += ` <span class="${ok ? 'succ' : 'fail'}">${ok ? '✓ Successful play' : '✗ Unsuccessful play'}</span>`;
-    if (mine === 'off' && gr <= -2) s += ' Next time this look shows up, try something that attacks it.';
-    if (mine === 'def' && gr >= 2) s += ' That call was exactly what their play wanted to see.';
-    return s;
+    if (look && look.disguised && mine === 'off') s += ` They showed ${DEFS[look.shown].name.split(' (')[0].toLowerCase()} and rotated at the snap: a {rotation} disguise. Defenses do this to bait exactly the call you made.`;
+    if (ok !== null) s += ` <span class="${ok ? 'succ' : 'fail'}">${ok ? '✓ Successful play' : '✗ Unsuccessful play'}</span> ({success}).`;
+    if (e.offKey && ((e.res === 'run' && e.yards >= 10) || (e.res === 'comp' && e.yards >= 15))) s += ' That’s an {explosive}.';
+    return rich(s);
   }
 
   // ---------- postgame coaching report ----------
@@ -526,23 +613,23 @@ const SimCoach = (() => {
     const goodCalls = def.filter((e) => GRADE[G(e.offKey)][e.defKey] <= -1).length;
     const badOff = off.filter((e) => GRADE[G(e.offKey)][e.defKey] <= -2).length;
     const lessons = [];
-    if (off.length) lessons.push(`Your play calls' success rate: <b>${sr}%</b> on ${off.length} snaps (the FBS average is about 42%; elite offenses are 47%+).`);
+    if (off.length) lessons.push(`Your play calls' {success}: <b>${sr}%</b> on ${off.length} snaps (the FBS average is about 42%; elite offenses are 47%+).`);
     if (def.length) lessons.push(`Opponent success rate against your defense: <b>${dsr}%</b>. Your defensive call beat their play call on ${goodCalls} of ${def.length} snaps.`);
-    if (badOff) lessons.push(`${badOff} of your plays ran straight into the defense built to stop them (like a deep shot into two-deep). Look at down and distance: that’s what the defense is guessing from.`);
+    if (badOff) lessons.push(`${badOff} of your plays ran straight into the defense built to stop them (like a deep shot into two-deep). Read {shell|the shell} and count {box|the box} before you call: that’s what coaches do on every snap.`);
     const tl = off.filter((e) => e.down === 3 && e.togo >= 7 && ['short_pass', 'inside_run', 'outside_run'].includes(e.offKey));
-    if (tl.length >= 2) lessons.push(`You called short plays on 3rd & long ${tl.length} times. Those rarely reach the sticks; intermediate routes or a screen against a blitz convert more often.`);
+    if (tl.length >= 2) lessons.push(`You called short plays on 3rd & long ${tl.length} times. Those rarely reach {sticks|the sticks}; intermediate routes or a screen against a blitz convert more often.`);
     const p4 = g.log.filter((e) => e.byUser && e.side === me && e.offKey === 'punt' && e.togo <= 2 && 100 - e.ball0 <= 55);
-    if (p4.length) lessons.push(`You punted on 4th & short past midfield ${p4.length} time${p4.length > 1 ? 's' : ''}. Modern analytics says go for it there.`);
+    if (p4.length) lessons.push(`You punted on 4th & short past midfield ${p4.length} time${p4.length > 1 ? 's' : ''}. By {expected_pts}, going for it is the better bet there.`);
     return `<div class="h2">Coaching report</div><p class="hint">Graded on the snaps you called yourself (simmed plays don’t count). “Success” = gaining 40% of the yards needed on 1st down, 60% on 2nd, all of it on 3rd and 4th. It’s the stat analysts use instead of yards per play.</p>
       <table class="rep"><tr><th>Situation</th><th>Plays</th><th>Success</th><th style="text-align:left">Your go-to call</th></tr>${rows}</table>
-      <ul class="lessons">${lessons.map((l) => `<li>${l}</li>`).join('')}</ul>`;
+      <ul class="lessons">${lessons.map((l) => `<li>${rich(l)}</li>`).join('')}</ul>`;
   }
 
   const card = (k, isDef) => { const I = isDef ? DEFS[k] : PLAYS[k]; const art = isDef ? line(true) + D[k] : (PLAY_ART[k] ? PLAY_ART[k] + D.base.replace(/class="x /g, 'class="x faint ') : '');
-    return `<div class="pb">${art ? svgWrap(art) : ''}<div><b>${I.name}</b><p>${I.what}</p><p><span class="succ">Works against:</span> ${I.good}</p><p><span class="fail">Struggles against:</span> ${I.bad}</p></div></div>`; };
+    return rich(`<div class="pb">${art ? svgWrap(art) : ''}<div><b>${I.name}</b><p class="cs">${I.coach}</p><p>${I.what}</p><p><span class="succ">Works against:</span> ${I.good}</p><p><span class="fail">Struggles against:</span> ${I.bad}</p></div></div>`); };
 
   const snapArt = (off, def) => (PLAY_ART[off] ? svgWrap(PLAY_ART[off] + D[def]) : '');
-  return { PLAYS, DEFS, tip, film, report, success, card, snapArt };
+  return { PLAYS, DEFS, TERMS, rich, tip, readTip, defLook, offLook, film, report, success, card, snapArt };
 })();
 </script>
 <script>
@@ -553,6 +640,13 @@ const SimCoach = (() => {
   const C = SimCoach;
   $('pbOff').innerHTML = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal'].map((k) => C.card(k, false)).join('');
   $('pbDef').innerHTML = Object.keys(C.DEFS).map((k) => C.card(k, true)).join('');
+  $('dict').innerHTML = Object.values(C.TERMS).sort((a, b) => a[0].localeCompare(b[0])).map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('');
+  let pend = null; // pre-snap: { key, side, play | def, look }
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('.term');
+    if (t) { const [nm, df] = C.TERMS[t.dataset.term]; $('gloss').innerHTML = `<button class="x" aria-label="Close">×</button><b>${nm}</b><p style="margin:6px 0 0">${df}</p>`; $('gloss').classList.remove('hidden'); e.stopPropagation(); return; }
+    if (!e.target.closest('#gloss') || e.target.closest('.x')) $('gloss').classList.add('hidden');
+  });
   const opt = (v, t) => `<option value="${v}">${t}</option>`;
   const lab = (n) => `${D.teams[n].rank <= 25 ? '#' + D.teams[n].rank + ' ' : ''}${n}`;
   $('slate').innerHTML = D.games.map((x, i) => opt(i, `${lab(x.away)} ${x.neutral ? 'vs' : 'at'} ${lab(x.home)} · ${x.kickoff || x.date}`)).join('');
@@ -641,11 +735,19 @@ const SimCoach = (() => {
     }
     $('calls').innerHTML = html;
     $('tip').innerHTML = coach && me !== 'watch' ? C.tip(g, userOnOffense()) : '';
+    const key = `${g.log.length}|${g.poss}|${g.down}|${g.ball}`;
+    if (me === 'watch' || g.over) pend = null;
+    else if (!pend || pend.key !== key) {
+      if (userOnOffense()) { const def = E.aiDefense(g); pend = { key, def, look: C.defLook(g, def) }; }
+      else { const play = E.aiOffense(g); pend = { key, play, look: C.offLook(play) }; }
+    }
+    $('read').innerHTML = coach && pend ? C.readTip(pend.look, userOnOffense()) : '';
   }
 
-  function after(entry) {
+  function after(entry, look) {
+    pend = null;
     if (entry) $('last').innerHTML = describe(entry);
-    $('film').innerHTML = coach && entry && entry.offKey ? (C.snapArt(entry.offKey, entry.defKey) + `<div>${C.film(entry, me)}</div>`) : '';
+    $('film').innerHTML = coach && entry && entry.offKey ? (C.snapArt(entry.offKey, entry.defKey) + `<div>${C.film(entry, me, look)}</div>`) : '';
     render();
   }
   function describe(e) {
@@ -656,11 +758,12 @@ const SimCoach = (() => {
   $('calls').onclick = (e) => {
     const b = e.target.closest('button'); if (!b || g.over) return;
     const mark = (e) => { if (e) e.byUser = true; return e; };
-    if (b.dataset.o) after(mark(E.snap(g, b.dataset.o, null)));
-    else if (b.dataset.d) after(mark(E.snap(g, null, b.dataset.d)));
+    const look = pend && pend.look;
+    if (b.dataset.o) after(mark(E.snap(g, b.dataset.o, ['punt', 'field_goal'].includes(b.dataset.o) ? null : pend && pend.def)), look);
+    else if (b.dataset.d) after(mark(E.snap(g, pend && pend.play, b.dataset.d)), look);
     else after(E.snap(g, null, null));
   };
-  $('auto').onclick = () => { if (!g.over) after(E.snap(g, null, null)); };
+  $('auto').onclick = () => { if (g.over) return; const look = pend && pend.look; after(E.snap(g, pend && pend.play || null, pend && pend.def || null), look); };
   $('simDrive').onclick = () => {
     if (g.over) return; const side = g.poss, d0 = g.drive; let last = null, n = 0;
     while (!g.over && g.poss === side && g.drive === d0 && n++ < 40) last = E.snap(g, null, null);
