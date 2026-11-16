@@ -178,6 +178,7 @@ const SimEngine = (() => {
     short_pass: { label: 'Short pass', kind: 'pass' },
     medium_pass: { label: 'Intermediate pass', kind: 'pass' },
     deep_pass: { label: 'Deep shot', kind: 'pass' },
+    play_action: { label: 'Play-action pass', kind: 'pass' },
     punt: { label: 'Punt', kind: 'st' },
     field_goal: { label: 'Field goal', kind: 'st' },
   };
@@ -190,25 +191,29 @@ const SimEngine = (() => {
   };
   // How each defensive call changes each play: [yards multiplier, completion add, sack mult, int mult, big-play mult]
   const MATCH = {
-    base:     { run: [1, 0, 1, 1, 1],       screen: [1, 0, 1, 1, 1],     short: [1, 0, 1, 1, 1],     medium: [1, 0, 1, 1, 1],     deep: [1, 0, 1, 1, 1] },
-    run_stop: { run: [0.7, 0, 1, 1, 0.7],   screen: [1.1, 0.03, 1, 1, 1.2], short: [1.08, 0.04, 1, 1, 1.1], medium: [1.12, 0.05, 1, 1, 1.2], deep: [1.1, 0.05, 1.1, 1, 1.4] },
-    blitz:    { run: [0.85, 0, 1, 1, 1.4],  screen: [1.35, 0.04, 0.5, 1, 1.8], short: [0.95, -0.03, 2.2, 1.2, 1.3], medium: [0.95, -0.08, 2.4, 1.4, 1.3], deep: [1.1, -0.06, 2.6, 1.3, 1.7] },
-    cover2:   { run: [1.12, 0, 1, 1, 1.1],  screen: [1.05, 0.02, 0.9, 1, 0.9], short: [1, 0.03, 0.9, 0.9, 0.8], medium: [0.95, -0.03, 1, 1.2, 0.8], deep: [0.8, -0.14, 1.1, 1.5, 0.5] },
-    prevent:  { run: [1.3, 0, 0.6, 1, 0.6], screen: [1.2, 0.06, 0.4, 0.8, 0.5], short: [1.15, 0.08, 0.4, 0.8, 0.5], medium: [0.9, -0.05, 0.5, 1.2, 0.5], deep: [0.6, -0.2, 0.6, 1.8, 0.3] },
+    base:     { run: [1, 0, 1, 1, 1],       screen: [1, 0, 1, 1, 1],     short: [1, 0, 1, 1, 1],     medium: [1, 0, 1, 1, 1],     deep: [1, 0, 1, 1, 1], pa: [1.05, 0.02, 1, 1, 1.1] },
+    run_stop: { run: [0.7, 0, 1, 1, 0.7],   screen: [1.1, 0.03, 1, 1, 1.2], short: [1.08, 0.04, 1, 1, 1.1], medium: [1.12, 0.05, 1, 1, 1.2], deep: [1.1, 0.05, 1.1, 1, 1.4], pa: [1.3, 0.1, 0.9, 0.8, 1.8] },
+    blitz:    { run: [0.85, 0, 1, 1, 1.4],  screen: [1.35, 0.04, 0.5, 1, 1.8], short: [0.95, -0.03, 2.2, 1.2, 1.3], medium: [0.95, -0.08, 2.4, 1.4, 1.3], deep: [1.1, -0.06, 2.6, 1.3, 1.7], pa: [1, -0.08, 2.8, 1.3, 1.6] },
+    cover2:   { run: [1.12, 0, 1, 1, 1.1],  screen: [1.05, 0.02, 0.9, 1, 0.9], short: [1, 0.03, 0.9, 0.9, 0.8], medium: [0.95, -0.03, 1, 1.2, 0.8], deep: [0.8, -0.14, 1.1, 1.5, 0.5], pa: [0.9, -0.06, 1, 1.3, 0.7] },
+    prevent:  { run: [1.3, 0, 0.6, 1, 0.6], screen: [1.2, 0.06, 0.4, 0.8, 0.5], short: [1.15, 0.08, 0.4, 0.8, 0.5], medium: [0.9, -0.05, 0.5, 1.2, 0.5], deep: [0.6, -0.2, 0.6, 1.8, 0.3], pa: [0.75, -0.12, 0.6, 1.6, 0.4] },
   };
   const BASE = { // national baselines
     screen: { comp: 0.80, shift: -2, mean: 7, intp: 0.008, sack: 0.01 },
     short: { comp: 0.68, shift: 1, mean: 7, intp: 0.016, sack: 0.05 },
     medium: { comp: 0.55, shift: 7, mean: 13, intp: 0.028, sack: 0.07 },
     deep: { comp: 0.36, shift: 18, mean: 32, intp: 0.045, sack: 0.09 },
+    pa: { comp: 0.56, shift: 7, mean: 14.5, intp: 0.03, sack: 0.08 }, // play action: longer drop, bigger shots, needs the run game to sell it
   };
 
 
   // Who's involved (roles; names come from the public depth charts). Primary targets by play type.
   const OFF_ROLES = { inside_run: [['RB', 1]], outside_run: [['RB', 1]], qb_sneak: [['QB', 1]], screen: [['RB', 1]],
-    short_pass: [['SLOT', 0.4], ['TE', 0.3], ['WR2', 0.3]], medium_pass: [['WR2', 0.4], ['WR1', 0.35], ['TE', 0.25]], deep_pass: [['WR1', 0.65], ['WR2', 0.35]] };
+    short_pass: [['SLOT', 0.4], ['TE', 0.3], ['WR2', 0.3]], medium_pass: [['WR2', 0.4], ['WR1', 0.35], ['TE', 0.25]], deep_pass: [['WR1', 0.65], ['WR2', 0.35]],
+    play_action: [['TE', 0.35], ['WR1', 0.35], ['WR2', 0.3]] };
   const DEF_ROLES = { run: [['LB', 0.4], ['LB2', 0.2], ['S', 0.15], ['DT', 0.15], ['EDGE', 0.1]], sack: [['EDGE', 0.5], ['EDGE2', 0.25], ['DT', 0.15], ['LB', 0.1]],
-    screen: [['LB', 0.5], ['NB', 0.3], ['S', 0.2]], short: [['NB', 0.35], ['CB2', 0.35], ['LB', 0.3]], medium: [['LB', 0.25], ['NB', 0.2], ['S', 0.3], ['CB2', 0.25]], deep: [['CB1', 0.45], ['CB2', 0.3], ['S', 0.25]] };
+    screen: [['LB', 0.5], ['NB', 0.3], ['S', 0.2]], short: [['NB', 0.35], ['CB2', 0.35], ['LB', 0.3]], medium: [['LB', 0.25], ['NB', 0.2], ['S', 0.3], ['CB2', 0.25]], deep: [['CB1', 0.45], ['CB2', 0.3], ['S', 0.25]],
+    pa: [['S', 0.35], ['LB', 0.3], ['CB2', 0.35]] };
+  const pkey = (play) => (play === 'play_action' ? 'pa' : play.replace('_pass', ''));
   function pickRole(r, list) { let x = r(), acc = 0; for (const [k, w] of list) { acc += w; if (x < acc) return k; } return list[list.length - 1][0]; }
   function star(T, role) { const p = T.roster && T.roster[role]; if (!p || !p.bb) return 0; return p.bb <= 50 ? 1 : p.bb <= 150 ? 0.6 : p.bb <= 300 ? 0.3 : 0; }
 
@@ -269,19 +274,24 @@ const SimEngine = (() => {
 
   function passPlay(g, play, defCall) {
     const r = g.rng, O = g[g.poss], D = g[other(g.poss)], N = g.nat;
-    const key = play.replace('_pass', '');
+    const key = pkey(play);
     const B = BASE[key];
     const m = matchupMult(g, g.poss);
     const [ym, cadd, sackm, intm, bigm] = MATCH[defCall][key];
     const qual = Math.pow((O.pass_ypa || N.ypa) / N.ypa, K.sexp) * Math.pow((D.pass_ypa_allowed || N.ypa) / N.ypa, K.sexp) * Math.pow(m, K.mexp);
-    const compAdj = ((O.comp_pct || N.comp) - N.comp) / 100 + (qual - 1) * 0.25;
+    let compAdj = ((O.comp_pct || N.comp) - N.comp) / 100 + (qual - 1) * 0.25;
+    let sell = 1;
+    if (key === 'pa') { // the more you've run, the harder the fake bites
+      const S = g.stats[g.poss], tot = S.rushAtt + S.att, rs = tot >= 6 ? S.rushAtt / tot : (O.run_share || 0.5);
+      const v = Math.max(-0.1, Math.min(0.12, (rs - 0.45) * 0.45)); compAdj += v; sell = 1 + v * 1.5;
+    }
     if (r() < B.sack * sackm * (2 - Math.min(1.5, qual))) {
       return { kind: 'sack', yards: -Math.round(4 + r() * 6), fumble: r() < 0.06 };
     }
     let pc = Math.max(0.12, Math.min(0.92, B.comp + cadd + compAdj + K.compAdd + 0.6 * ((g._mod || 1) - 1)));
     if (r() < B.intp * intm * (2 - Math.min(1.5, qual))) return { kind: 'int', yards: 0 };
     if (r() >= pc) return { kind: 'inc', yards: 0 };
-    let y = B.shift + rexp(r, (B.mean - B.shift) * ym * qual * K.ydsMult * (g._mod || 1) * (r() < 0.05 * bigm ? 2.2 : 1));
+    let y = B.shift + rexp(r, (B.mean - B.shift) * ym * sell * qual * K.ydsMult * (g._mod || 1) * (r() < 0.05 * bigm ? 2.2 : 1));
     return { kind: 'comp', yards: Math.round(y), fumble: r() < 0.006 };
   }
 
@@ -342,6 +352,7 @@ const SimEngine = (() => {
     if (g.togo <= 3) pRun += 0.15;
     if (r() < pRun) return r() < 0.6 ? 'inside_run' : 'outside_run';
     const x = r();
+    if (g.down <= 2 && g.togo >= 5 && g.togo <= 12 && r() < 0.16 + 0.2 * ((O.run_share || 0.5) - 0.45)) return 'play_action';
     if (g.togo >= 15) return x < 0.35 ? 'deep_pass' : x < 0.8 ? 'medium_pass' : 'screen';
     if (g.togo >= 7) return x < 0.18 ? 'deep_pass' : x < 0.6 ? 'medium_pass' : x < 0.85 ? 'short_pass' : 'screen';
     return x < 0.1 ? 'deep_pass' : x < 0.35 ? 'medium_pass' : x < 0.85 ? 'short_pass' : 'screen';
@@ -367,12 +378,34 @@ const SimEngine = (() => {
     const entry = { q: g.qtr, clock: g.clock, dd, off, play: OFF_PLAYS[play].label, def: DEF_CALLS[defCall].label, side,
       offKey: play, defKey: defCall, down: g.down, togo: g.togo, ball0: g.ball, lead: g.score[side] - g.score[dside], yards: 0, res: '' };
     let secs = 30;
-    if (play === 'punt') {
-      const net = Math.round(36 + r() * 12 + (g[side].st || 0) * 1.5);
-      let nb = g.ball + net; let txt = `${off} punts ${net} yards.`;
-      if (nb >= 100) { nb = 80; txt = `${off} punts into the end zone. Touchback.`; }
-      S.punts++; entry.text = txt; entry.type = 'play'; g.log.push(entry);
-      tick(g, 10); if (!g.over) changePoss(g, dside, 100 - nb, null);
+    if (play === 'punt') { // punt + return. g.retCall: 'return' | 'fair' | 'block' (receiving team's choice)
+      const RS = g[dside], ret = g.retCall || (r() < 0.38 ? 'fair' : 'return'); g.retCall = null;
+      const stK = g[side].st || 0, stR = RS.st || 0;
+      entry.res = 'punt'; entry.retCall = ret; entry.retSide = dside; entry.retRole = 'SLOT'; entry.type = 'play'; S.punts++;
+      if (r() < (ret === 'block' ? 0.07 : 0.006)) { // blocked
+        entry.res = 'punt_block'; const spot = Math.max(1, g.ball - 6 - Math.round(r() * 8));
+        if (r() < 0.25) { entry.text = `${off} punt is BLOCKED and returned for a TOUCHDOWN by ${RS.name}!`; g.log.push(entry); score(g, dside, 7, `${RS.name} blocked punt TD`); tick(g, 8); if (!g.over) changePoss(g, side, 25, null); }
+        else { entry.text = `${off} punt is BLOCKED! ${RS.name} takes over at the ${spot >= 50 ? 'their own ' + (100 - spot) : 'opp ' + spot}.`; g.log.push(entry); tick(g, 8); if (!g.over) changePoss(g, dside, 100 - spot, null); }
+        return entry;
+      }
+      const gross = Math.round(38 + r() * 12 + stK * 1.5 - (ret === 'block' ? 2 : 0));
+      let nb = g.ball + gross;
+      if (nb >= 100) { entry.text = `${off} punts into the end zone. Touchback.`; g.log.push(entry); tick(g, 10); if (!g.over) changePoss(g, dside, 20, null); return entry; }
+      const deep = nb >= 90; // inside their 10: let it go / fair catch
+      if (ret === 'fair' || deep || ret === 'block') {
+        if (!deep && ret !== 'block' && r() < 0.006) { entry.res = 'punt_muff'; entry.text = `${off} punts ${gross} yards. MUFFED! ${off} recovers!`; entry.type = 'turnover'; g.log.push(entry); tick(g, 10); if (!g.over) startPossession(g, side, nb, null); return entry; }
+        const roll = deep ? 0 : ret === 'block' ? Math.round(rexp(r, 4)) : 0; // nobody back to field it after a rush
+        nb = Math.min(99, nb + roll);
+        entry.text = deep ? `${off} punts ${gross} yards, downed at the ${100 - nb}.` : ret === 'block' ? `${off} punts ${gross + roll} yards; the rush didn't get there and it rolls dead.` : `${off} punts ${gross} yards. Fair catch.`;
+        g.log.push(entry); tick(g, 10); if (!g.over) changePoss(g, dside, 100 - nb, null); return entry;
+      }
+      if (r() < 0.022) { entry.res = 'punt_muff'; entry.text = `${off} punts ${gross} yards. MUFFED on the return! ${off} recovers!`; entry.type = 'turnover'; g.log.push(entry); tick(g, 10); if (!g.over) startPossession(g, side, nb, null); return entry; }
+      let ry = Math.round(rexp(r, 8.5 * (1 + 0.08 * (stR - stK))) * (r() < 0.045 ? 3.5 : 1));
+      const recv = 100 - nb; // receiver's yard line
+      if (recv + ry >= 100) { entry.res = 'punt_td'; entry.yards = 100 - recv; entry.text = `${off} punts ${gross} yards. Returned ${100 - recv} yards for a TOUCHDOWN!`; g.log.push(entry); score(g, dside, 7, `${RS.name} punt return TD`); tick(g, 14); if (!g.over) changePoss(g, side, 25, null); return entry; }
+      entry.yards = ry; entry.res = 'punt_ret';
+      entry.text = `${off} punts ${gross} yards. Returned ${ry} yard${ry === 1 ? '' : 's'}${ry >= 20 ? '!' : '.'}`;
+      g.log.push(entry); tick(g, 12); if (!g.over) changePoss(g, dside, recv + ry, null);
       return entry;
     }
     if (play === 'field_goal') {
@@ -384,7 +417,7 @@ const SimEngine = (() => {
     }
     const kind = OFF_PLAYS[play].kind;
     const offRole = pickRole(r, OFF_ROLES[play]);
-    const grp = kind === 'run' ? 'run' : play.replace('_pass', '');
+    const grp = kind === 'run' ? 'run' : pkey(play);
     let defRole = pickRole(r, DEF_ROLES[grp]);
     g._mod = 1 + 0.06 * (star(g[side], offRole) - star(g[dside], defRole));
     const res = kind === 'run' ? runPlay(g, play, defCall) : passPlay(g, play, defCall);
@@ -465,6 +498,7 @@ const SimCoach = (() => {
     short_pass: line(true) + A('M30 100 L30 88 L55 70') + A('M270 100 L270 82 L262 82') + A('M240 104 L280 98'),
     medium_pass: line(true) + A('M30 100 L30 60 L95 60') + A('M240 104 L240 62 L200 62') + A('M270 100 L270 50 L285 40'),
     deep_pass: line(true) + A('M30 100 L30 10') + A('M270 100 L270 50 L215 12') + A('M150 135 L150 122', 'blk'),
+    play_action: line(true) + A('M150 122 L162 132', 'dash') + A('M210 100 L215 70 L180 45') + A('M30 100 L30 25') + A('M270 100 L270 40 L240 20'),
   };
   // ---------- coach vocabulary: {key} or {key|shown text} in any string becomes a tap-to-define term ----------
   const TERMS = {
@@ -517,6 +551,7 @@ const SimCoach = (() => {
     short_pass: { name: 'Quick game (slant/flat/hitch)', coach: '“Take the easy completion. {quick|Quick game} is an extension of the run game.”', what: '3-step drop, ball out in ~2 seconds. The QB reads one defender’s {leverage} and throws away from it.', good: 'Blitzes (it beats the rush) and soft coverage. Lets you {hot|throw hot}.', bad: 'Cover 2 corners who sit on short outside routes, and long yardage, where it ends short of {sticks|the sticks}.' },
     medium_pass: { name: 'Intermediate (dig/flood)', coach: '“Attack the holes in the zone. Put their {conflict|conflict defender} in a bind.”', what: 'Routes that break 10–18 yards downfield, like a dig across the middle or a {flood} to one side. Needs a clean pocket for about 3 seconds.', good: 'One-high defenses that bring a safety into the box, and the middle hole of Cover 2.', bad: 'Blitzes: the QB doesn’t have time, and sacks and picks go up.' },
     deep_pass: { name: 'Shot play (go/post)', coach: '“They’re {mofc} with an extra man in the box: we have one-on-ones outside. Take the shot.”', what: 'Receivers run vertical routes or post routes 20+ yards downfield. Low completion %, high payoff.', good: 'One-high looks ({cover1}, loaded box, blitz) where a receiver is one-on-one with no help. Best on a {free_play}.', bad: 'Two-high ({mofo}) and prevent: there’s always help over the top. Highest sack and interception risk.' },
+    play_action: { name: 'Play-action pass (boot/shot)', coach: '“They’re cheating up for the run. Fake it, and throw it over the top of the linebackers.”', what: 'The QB fakes the handoff so the linebackers and safety step up for the run, then throws behind them, often to the tight end on a {flood|crosser} or a receiver deep. Longer drop, so it needs protection.', good: 'When you’ve been running the ball well, and against a loaded box: the more you run, the harder the fake bites.', bad: 'Blitzes (the QB turns his back on the rush during the fake) and two-deep shells that don’t bite.' },
     punt: { name: 'Punt', coach: '“Win the {field_pos|field-position} battle.”', what: 'Give the ball back on purpose to flip the field (about 40 net yards).', good: '4th and medium/long in your own territory.', bad: '4th & short near midfield or beyond. By {expected_pts}, going for it is usually worth more than the punt.' },
     field_goal: { name: 'Field goal', coach: '“Come away with points.”', what: 'Distance = yards to the goal line + 17. Make rates fall off quickly past about 45 yards.', good: '4th down inside the opponent’s 30, or when 3 points ties or wins it late.', bad: '50+ yarders: a miss hands the opponent great {field_pos}.' },
   };
@@ -527,15 +562,16 @@ const SimCoach = (() => {
     cover2: { name: 'Two-high shell (Cover 2)', coach: '“Keep a lid on it. Nothing over our heads.”', what: 'Two safeties split the deep field ({mofo}); corners squat on short routes. Only six in {box|the box}.', good: 'Taking away the deep ball and the outside.', bad: 'Runs (light box), the {hole_shot}, and throws up the {seam} into the middle hole.' },
     prevent: { name: 'Prevent', coach: '“Keep everything in front. Make them burn the clock.”', what: 'Rush three, drop eight deep in {zone}.', good: 'Protecting a late lead against a two-minute drill.', bad: 'Any other time: offenses walk down the field underneath.' },
   };
-  const G = (k) => (['inside_run', 'outside_run', 'qb_sneak'].includes(k) ? 'run' : k.replace('_pass', ''));
+  const G = (k) => (['inside_run', 'outside_run', 'qb_sneak'].includes(k) ? 'run' : k === 'play_action' ? 'pa' : k.replace('_pass', ''));
   const FILM = {
     run: { base: 'Seven in {box|the box} vs. seven blockers: even {numbers}. It comes down to who wins up front.', run_stop: 'They were {plus1} in {box|the box}: an extra run defender nobody could block.', blitz: 'The blitzers shot the {gap|gaps}. Run through them and there’s nobody behind; miss and it’s a loss.', cover2: 'Two-high ({mofo}) means only six in {box|the box}: the offense has the {numbers} to run.', prevent: 'Prevent drops eight. The run is wide open underneath.' },
     screen: { base: 'Linebackers stayed home and read it, so the screen had company.', run_stop: 'The box was loaded for the run; the screen got the ball outside of it.', blitz: 'Textbook: the {pressure} ran right past the back and he had blockers in front of him.', cover2: 'Cover 2’s squatting corners and flat defenders sit right where screens go.', prevent: 'Prevent concedes everything short; the screen takes it.' },
     short: { base: 'A {quick} throw against a balanced look: steady, keeps you {schedule|on schedule}.', run_stop: 'With a safety down for the run, the corners play off and the {quick} throws are open.', blitz: 'Ball out fast beats {pressure} before it arrives, but {man} makes the window tight.', cover2: '{cover2} corners squat on short outside routes; those windows close fast.', prevent: 'Prevent gives you everything short. Take it.' },
     medium: { base: 'Intermediate routes stress the seams between {zone} defenders.', run_stop: 'The safety they brought into {box|the box} left a hole 10–20 yards deep.', blitz: 'Intermediate routes need time; the {pressure} got there before the route did.', cover2: 'The hole between the two safeties is there, but the throw has to be on time.', prevent: 'Prevent drops deep enough to wall off the 15-yard throws.' },
+    pa: { base: 'The linebackers took a step for the run fake; the window behind them opened for a beat.', run_stop: 'Textbook play action: the loaded box bit on the fake and the throw went right over their heads.', blitz: 'The fake turned the QB’s back to a blitz that was already coming: sack and pick territory.', cover2: 'Two deep safeties don’t care about the run fake; they stayed home and took the shot away.', prevent: 'Prevent never bites on a run fake; everybody was already deep.' },
     deep: { base: '{cover3} has three deep defenders; a shot needs a perfect throw.', run_stop: '{mofc} with an extra man in the box: one-on-one outside with no help. That’s when you take the shot.', blitz: 'If the QB survives the {pressure}, a receiver is running free: boom or bust.', cover2: 'Two-high ({mofo}): a safety over the top on both sides. The deep ball had nowhere to go.', prevent: 'Eight defenders deep. This is exactly what prevent is built to stop.' },
   };
-  const GRADE = { run: { base: 0, run_stop: -2, blitz: 0, cover2: 1, prevent: 2 }, screen: { base: 0, run_stop: 1, blitz: 2, cover2: -1, prevent: 1 }, short: { base: 0, run_stop: 1, blitz: 0, cover2: -1, prevent: 2 }, medium: { base: 0, run_stop: 1, blitz: -2, cover2: 0, prevent: -1 }, deep: { base: 0, run_stop: 2, blitz: 1, cover2: -2, prevent: -2 } };
+  const GRADE = { run: { base: 0, run_stop: -2, blitz: 0, cover2: 1, prevent: 2 }, screen: { base: 0, run_stop: 1, blitz: 2, cover2: -1, prevent: 1 }, short: { base: 0, run_stop: 1, blitz: 0, cover2: -1, prevent: 2 }, medium: { base: 0, run_stop: 1, blitz: -2, cover2: 0, prevent: -1 }, deep: { base: 0, run_stop: 2, blitz: 1, cover2: -2, prevent: -2 }, pa: { base: 1, run_stop: 2, blitz: -2, cover2: -1, prevent: -2 } };
 
   // ---------- pre-snap reads ----------
   // What the defense shows (25% of the time it disguises and shows a different call's look).
@@ -654,7 +690,7 @@ const SimCoach = (() => {
       <ul class="lessons">${lessons.map((l) => `<li>${rich(l)}</li>`).join('')}</ul>`;
   }
 
-  const card = (k, isDef) => { const I = isDef ? DEFS[k] : PLAYS[k]; const IC = { inside_run: '🏃', outside_run: '💨', qb_sneak: '💪', screen: '🪤', short_pass: '⚡', medium_pass: '📐', deep_pass: '🚀', punt: '🦵', field_goal: '🎯', base: '🧱', run_stop: '🚧', blitz: '🔥', cover2: '🔒', prevent: '🛑' }; const art = isDef ? line(true) + D[k] : (PLAY_ART[k] ? PLAY_ART[k] + D.base.replace(/class="x /g, 'class="x faint ') : '');
+  const card = (k, isDef) => { const I = isDef ? DEFS[k] : PLAYS[k]; const IC = { inside_run: '🏃', outside_run: '💨', qb_sneak: '💪', screen: '🪤', short_pass: '⚡', medium_pass: '📐', deep_pass: '🚀', play_action: '🎭', punt: '🦵', field_goal: '🎯', base: '🧱', run_stop: '🚧', blitz: '🔥', cover2: '🔒', prevent: '🛑' }; const art = isDef ? line(true) + D[k] : (PLAY_ART[k] ? PLAY_ART[k] + D.base.replace(/class="x /g, 'class="x faint ') : '');
     return rich(`<div class="pb">${art ? svgWrap(art) : ''}<div><b>${IC[k]} ${I.name}</b><p class="cs">🗣️ ${I.coach}</p><p>${I.what}</p><p><span class="succ">✅ Works against:</span> ${I.good}</p><p><span class="fail">⚠️ Struggles against:</span> ${I.bad}</p></div></div>`); };
 
   const snapArt = (off, def) => (PLAY_ART[off] ? svgWrap(PLAY_ART[off] + D[def]) : '');
@@ -667,8 +703,8 @@ const SimCoach = (() => {
   const names = Object.keys(D.teams).sort();
   let mode = 'slate', me = 'home', g = null, coach = true;
   const C = SimCoach;
-  const ICON = { inside_run: '🏃', outside_run: '💨', qb_sneak: '💪', screen: '🪤', short_pass: '⚡', medium_pass: '📐', deep_pass: '🚀', punt: '🦵', field_goal: '🎯', base: '🧱', run_stop: '🚧', blitz: '🔥', cover2: '🔒', prevent: '🛑' };
-  $('pbOff').innerHTML = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal'].map((k) => C.card(k, false)).join('');
+  const ICON = { inside_run: '🏃', outside_run: '💨', qb_sneak: '💪', screen: '🪤', short_pass: '⚡', medium_pass: '📐', deep_pass: '🚀', play_action: '🎭', punt: '🦵', return: '🏃‍♂️', fair: '🙌', block: '🛡️', field_goal: '🎯', base: '🧱', run_stop: '🚧', blitz: '🔥', cover2: '🔒', prevent: '🛑' };
+  $('pbOff').innerHTML = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass', 'play_action', 'punt', 'field_goal'].map((k) => C.card(k, false)).join('');
   $('pbDef').innerHTML = Object.keys(C.DEFS).map((k) => C.card(k, true)).join('');
   $('dict').innerHTML = Object.entries(C.TERMS).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, [t, d]]) => `<dt id="term-${k}">📌 ${t}</dt><dd>${d}</dd>`).join('');
   let pend = null; // pre-snap: { key, side, play | def, look }
@@ -753,18 +789,30 @@ const SimCoach = (() => {
     const card = $('callCard');
     if (g.over) { card.classList.add('hidden'); return; }
     card.classList.remove('hidden');
+    const key = `${g.log.length}|${g.poss}|${g.down}|${g.ball}`;
+    if (me === 'watch' || g.over) pend = null;
+    else if (!pend || pend.key !== key) {
+      if (userOnOffense()) { const def = E.aiDefense(g); pend = { key, def, look: C.defLook(g, def) }; }
+      else { const play = E.aiOffense(g); pend = { key, play, look: C.offLook(play) }; }
+    }
     let html = '';
     if (userOnOffense()) {
       $('callTitle').textContent = '📋 Your offense: call a play';
       const fgDist = 100 - g.ball + 17, p = E.fgProb(g, g.poss);
-      const list = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass'];
-      const tips = { inside_run: 'Steady, few negatives', outside_run: 'Boom or bust', qb_sneak: 'Best on 3rd/4th & 1', screen: 'Beats the blitz', short_pass: 'High percentage', medium_pass: '10–20 yards', deep_pass: 'Low %, big payoff' };
+      const list = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass', 'play_action'];
+      const tips = { inside_run: 'Steady, few negatives', outside_run: 'Boom or bust', qb_sneak: 'Best on 3rd/4th & 1', screen: 'Beats the blitz', short_pass: 'High percentage', medium_pass: '10–20 yards', deep_pass: 'Low %, big payoff', play_action: 'Fake the run, throw behind it' };
       const O = g[g.poss];
       html = list.map((k) => `<button class="btn" data-o="${k}">${ICON[k]} ${E.OFF_PLAYS[k].label}<small>${tips[k]}</small><small class="who">→ ${nm(O, E.OFF_ROLES[k][0][0], { last: true })}</small></button>`).join('');
       if (g.down === 4 || g.ot === 0 && g.qtr >= 2 && g.clock < 30) {
         if (!g.ot) html += `<button class="btn" data-o="punt">🦵 Punt<small>Flip the field</small></button>`;
         if (fgDist <= 65) html += `<button class="btn" data-o="field_goal">🎯 Field goal (${fgDist} yds)<small>~${Math.round(p * 100)}% to make</small></button>`;
       }
+    } else if (userOnDefense() && pend && pend.play === 'punt') {
+      $('callTitle').textContent = `🦵 ${g[g.poss].name} is punting: your return call`;
+      const R = g[me];
+      html = `<button class="btn" data-r="return">🏃‍♂️ Set up the return<small>${nm(R, 'SLOT', { last: true })} brings it back. More yards, small muff risk</small></button>`
+        + `<button class="btn" data-r="fair">🙌 Fair catch<small>Safe: no return, almost no risk</small></button>`
+        + `<button class="btn" data-r="block">🛡️ Punt block<small>Send everyone. Rare block, but no return if it misses</small></button>`;
     } else if (userOnDefense()) {
       $('callTitle').textContent = '🛡️ Your defense: make a call';
       const tips = { base: 'Balanced', run_stop: 'Stuffs runs, softer vs pass', blitz: 'Sacks, but big-play risk', cover2: 'Takes away deep shots', prevent: 'Nothing deep, gives underneath' };
@@ -776,13 +824,8 @@ const SimCoach = (() => {
     }
     $('calls').innerHTML = html;
     $('tip').innerHTML = coach && me !== 'watch' ? C.tip(g, userOnOffense()) : '';
-    const key = `${g.log.length}|${g.poss}|${g.down}|${g.ball}`;
-    if (me === 'watch' || g.over) pend = null;
-    else if (!pend || pend.key !== key) {
-      if (userOnOffense()) { const def = E.aiDefense(g); pend = { key, def, look: C.defLook(g, def) }; }
-      else { const play = E.aiOffense(g); pend = { key, play, look: C.offLook(play) }; }
-    }
     const kp = pend ? keyPlayer(g[userOnOffense() ? (g.poss === 'home' ? 'away' : 'home') : g.poss], userOnOffense() ? 'def' : 'off') : '';
+    if (pend && pend.play === 'punt' && userOnDefense()) { $('read').innerHTML = ''; $('tip').innerHTML = coach ? '🧢 <b>Return call.</b> Fair catch when the punt is high and the coverage is close; set up the return when you have a good returner and need field position; go for the block only when you need a big play.' : ''; return; }
     $('read').innerHTML = coach && pend ? C.readTip(pend.look, userOnOffense()) + (kp ? `<br>${kp}` : '') : (kp && me !== 'watch' ? kp : '');
   }
 
@@ -922,12 +965,18 @@ const SimCoach = (() => {
     const txt = entry ? (entry.text || '') : '';
     const homeGood = (side) => side === 'home'; // the crowd is the home crowd
     if (entry && entry.dd) whistle();
+    if (entry && entry.retSide && /TOUCHDOWN/.test(txt)) entry = Object.assign({}, entry, { side: entry.retSide }); // special-teams score for the return team
     if (entry && /TOUCHDOWN/.test(txt)) {
       const O = g[entry.side]; roar(4, homeGood(entry.side) ? 0.45 : 0.15); bedSwell(homeGood(entry.side) ? 0.16 : 0.03, 4);
       if (!homeGood(entry.side)) groan();
       band('fanfare'); setTimeout(() => fightSong(O), 2400); return;
     }
     if (g.over) { bedStop(); setTimeout(() => { roar(3, 0.3); band('fanfare'); }, 400); return; }
+    if (entry && entry.retSide) { // punts: the crowd reacts from the home team's point of view
+      const retHome = entry.retSide === 'home', big = entry.res === 'punt_muff' || entry.res === 'punt_block' || (entry.res === 'punt_ret' && entry.yards >= 20);
+      if (big) { const goodForHome = entry.res === 'punt_muff' ? !retHome : retHome; if (goodForHome) { roar(2.4, 0.35); band('hey'); } else groan(); }
+      SND.lastSit = ''; return;
+    }
     const offHome = entry && entry.side === 'home';
     if (entry && (entry.res === 'int' || entry.res === 'fumble')) { if (offHome) groan(); else { roar(2.5, 0.35); band('hey'); } }
     else if (entry && entry.res === 'sack') { if (offHome) groan(); else { roar(1.8, 0.28); band('hey', { drums: false }); } }
@@ -956,6 +1005,14 @@ const SimCoach = (() => {
     return `${opts.full ? `#${p.num} ${p.n}` : `#${p.num} ${opts.last ? last : p.n}`}${starTag(p)}`;
   }
   function playText(e) {
+    if (e.offKey === 'punt' && e.retSide) {
+      const R = g[e.retSide], who = nm(R, e.retRole || 'SLOT');
+      if (e.res === 'punt_ret') return e.text.replace(/Returned/, `${who} returns it`) + (e.yards >= 20 ? ' 💨' : '');
+      if (e.res === 'punt_td') return e.text.replace(/Returned/, `${who} takes it back`) + ' 🏈';
+      if (e.res === 'punt_muff') return e.text + ' 🚨';
+      if (e.res === 'punt_block') return e.text + ' 🛡️';
+      return e.text;
+    }
     if (!e.offRole) return e.text;
     const O = g[e.side], Dd = g[e.side === 'home' ? 'away' : 'home'];
     const qb = nm(O, 'QB', { last: true }), who = nm(O, e.offRole), d = nm(Dd, e.defRole);
@@ -999,6 +1056,7 @@ const SimCoach = (() => {
 
   function describe(e) {
     if (!e.dd) return e.text;
+    if (e.offKey === 'punt') return (me !== 'watch' && e.retSide === me ? `You called <b>${{ return: 'set up the return', fair: 'fair catch', block: 'punt block' }[e.retCall] || 'return'}</b>. ` : '') + playText(e);
     const you = me === 'watch' ? '' : (e.side === me ? `You called <b>${e.play}</b>; they showed <b>${e.def}</b>.` : `They ran <b>${e.play}</b> into your <b>${e.def}</b>.`);
     return `${you} ${playText(e)}`;
   }
@@ -1007,6 +1065,7 @@ const SimCoach = (() => {
     const mark = (e) => { if (e) e.byUser = true; return e; };
     const look = pend && pend.look;
     if (b.dataset.o) after(mark(E.snap(g, b.dataset.o, ['punt', 'field_goal'].includes(b.dataset.o) ? null : pend && pend.def)), look);
+    else if (b.dataset.r) { g.retCall = b.dataset.r; after(mark(E.snap(g, 'punt', 'base')), look); }
     else if (b.dataset.d) after(mark(E.snap(g, pend && pend.play, b.dataset.d)), look);
     else after(E.snap(g, null, null));
   };
