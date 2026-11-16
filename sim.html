@@ -278,7 +278,7 @@ const SimEngine = (() => {
     let y = shift + rexp(r, tail * (r() < 0.04 * bigm ? 3 : 1));
     if (play === 'qb_sneak' && g.togo <= 2 && r() < 0.68 * Math.pow(m, 0.3) * (defCall === 'run_stop' ? 0.85 : 1)) y = Math.max(y, g.togo);
     y = Math.round(y);
-    const fumble = r() < 0.011;
+    const fumble = r() < 0.018; // ~55% are lost: matches FBS fumbles lost per game
     return { kind: 'run', yards: y, fumble };
   }
 
@@ -296,13 +296,13 @@ const SimEngine = (() => {
       const v = Math.max(-0.1, Math.min(0.12, (rs - 0.45) * 0.45)); compAdj += v; sell = 1 + v * 1.5;
     }
     if (r() < B.sack * sackm * (2 - Math.min(1.5, qual))) {
-      return { kind: 'sack', yards: -Math.round(4 + r() * 6), fumble: r() < 0.06 };
+      return { kind: 'sack', yards: -Math.round(4 + r() * 6), fumble: r() < 0.1 };
     }
     let pc = Math.max(0.12, Math.min(0.92, B.comp + cadd + compAdj + K.compAdd + 0.6 * ((g._mod || 1) - 1)));
-    if (r() < B.intp * intm * (2 - Math.min(1.5, qual))) return { kind: 'int', yards: 0 };
+    if (r() < 0.78 * B.intp * intm * (2 - Math.min(1.5, qual))) return { kind: 'int', yards: 0 }; // 0.78: tuned to the FBS interception rate
     if (r() >= pc) return { kind: 'inc', yards: 0 };
     let y = B.shift + rexp(r, (B.mean - B.shift) * ym * sell * qual * K.ydsMult * (g._mod || 1) * (r() < 0.05 * bigm ? 2.2 : 1));
-    return { kind: 'comp', yards: Math.round(y), fumble: r() < 0.006 };
+    return { kind: 'comp', yards: Math.round(y), fumble: r() < 0.011 };
   }
 
   function fgProb(g, side) {
