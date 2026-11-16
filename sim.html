@@ -170,7 +170,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 <script>// Horick Index game sim engine. Pure JS (browser + node). Uses public data only
 // (ratings off/def/st from teams.csv, rushing/passing rates from team_stats.csv). Never PFF.
 const SimEngine = (() => {
-  const K = { sexp: 0.3, mexp: 0.35, runMult: 1.35, compAdd: 0.06, ydsMult: 1.3 }; // calibration (see build notes)
+  const K = { sexp: 0.3, mexp: 0.35, runMult: 1.32, compAdd: 0.05, ydsMult: 1.27 }; // calibration (see build notes)
   const OFF_PLAYS = {
     inside_run: { label: 'Inside run', kind: 'run' },
     outside_run: { label: 'Outside run', kind: 'run' },
@@ -182,6 +182,9 @@ const SimEngine = (() => {
     play_action: { label: 'Play-action pass', kind: 'pass' },
     punt: { label: 'Punt', kind: 'st' },
     field_goal: { label: 'Field goal', kind: 'st' },
+    ko_deep: { label: 'Deep kickoff', kind: 'st' },
+    ko_squib: { label: 'Squib kick', kind: 'st' },
+    ko_onside: { label: 'Onside kick', kind: 'st' },
     pat_kick: { label: 'Extra point', kind: 'st' },
     two_run: { label: '2-point run', kind: 'st' },
     two_pass: { label: '2-point pass', kind: 'st' },
@@ -192,6 +195,9 @@ const SimEngine = (() => {
     blitz: { label: 'Blitz' },
     cover2: { label: 'Two-deep shell (take away deep)' },
     prevent: { label: 'Prevent' },
+    ko_return: { label: 'Return set' },
+    ko_kneel: { label: 'Fair catch / touchback' },
+    ko_hands: { label: 'Hands team' },
   };
   // How each defensive call changes each play: [yards multiplier, completion add, sack mult, int mult, big-play mult]
   const MATCH = {
@@ -238,7 +244,7 @@ const SimEngine = (() => {
     };
     const firstRecv = g.rng() < 0.5 ? 'home' : 'away';
     g.half2Kick = firstRecv; // team that received first kicks in 2nd half... i.e. other team receives
-    startPossession(g, firstRecv, 25, 'Opening kickoff: touchback.');
+    kickoff(g, other(firstRecv), 35);
     return g;
   }
   function newStats() { return { plays: 0, yards: 0, rushYds: 0, rushAtt: 0, passYds: 0, comp: 0, att: 0, to: 0, sacks: 0, fd: 0, td: 0, fg: 0, punts: 0 }; }
@@ -307,7 +313,7 @@ const SimEngine = (() => {
   function tick(g, secs) {
     g.clock -= secs;
     if (g.clock > 0) return;
-    if (g.qtr === 2) { g.qtr = 3; g.clock = 900; g.log.push({ q: 3, clock: 900, text: 'Halftime.', type: 'info' }); startPossession(g, other(g.half2Kick), 25, 'Second-half kickoff: touchback.'); return 'half'; }
+    if (g.qtr === 2) { g.qtr = 3; g.clock = 900; g.log.push({ q: 3, clock: 900, text: 'Halftime.', type: 'info' }); g.pat = null; kickoff(g, g.half2Kick, 35); g.halfFlag = true; return 'half'; }
     if (g.qtr >= 4) { g.clock = 0; return endRegulation(g); }
     g.qtr += 1; g.clock = 900; g.log.push({ q: g.qtr, clock: 900, text: `End of quarter ${g.qtr - 1}.`, type: 'info' });
     return 'qtr';
@@ -322,6 +328,7 @@ const SimEngine = (() => {
     return 'ot';
   }
   function changePoss(g, side, ball, note) {
+    if (g.halfFlag) { g.halfFlag = false; return; } // the second-half kickoff already took over
     if (g.ot) {
       g.otIdx += 1;
       if (g.otIdx >= 2) {
@@ -361,12 +368,63 @@ const SimEngine = (() => {
     g.log.push(entry);
     if (ok) score(g, side, play === 'pat_kick' ? 1 : 2, `${off} ${play === 'pat_kick' ? 'PAT' : '2-pt conversion'}`);
     g.pat = null;
-    tick(g, secs); if (!g.over) changePoss(g, dside, 25, null);
+    tick(g, secs); if (!g.over) kickoff(g, side, 35);
     return entry;
+  }
+
+  // ---------- kickoffs ----------
+  // g.ko = { kicker, from }: the next snap is a kickoff. Kicker calls ko_deep | ko_squib | ko_onside;
+  // receiver calls ko_return | ko_kneel (fair catch / touchback to the 25) | ko_hands (hands team for an onside).
+  function kickoff(g, kicker, from = 35) {
+    if (g.halfFlag) { g.halfFlag = false; return; }
+    if (g.ot) return changePoss(g, other(kicker), 75, null);
+    g.ko = { kicker, from }; g.poss = kicker; g.ball = from; g.down = 1; g.togo = 10;
+  }
+  function aiKick(g) {
+    const k = g.ko.kicker, diff = g.score[k] - g.score[other(k)];
+    if (g.qtr >= 4 && g.clock < 240 && diff < 0 && diff >= -16 && g.ko.from === 35) return 'ko_onside';
+    if (g.rng() < 0.015 && g.ko.from === 35) return 'ko_onside'; // the surprise onside
+    if ((g[other(k)].st || 0) - (g[k].st || 0) > 1.5 && g.rng() < 0.35) return 'ko_squib';
+    return 'ko_deep';
+  }
+  function aiRecv(g) {
+    const k = g.ko.kicker, diff = g.score[k] - g.score[other(k)];
+    return g.qtr >= 4 && g.clock < 240 && diff < 0 && diff >= -16 ? 'ko_hands' : 'ko_return';
+  }
+  function resolveKick(g, kc, rc) {
+    const r = g.rng, k = g.ko.kicker, rv = other(k), K = g[k], R = g[rv], from = g.ko.from;
+    if (!['ko_deep', 'ko_squib', 'ko_onside'].includes(kc)) kc = aiKick(g);
+    if (!['ko_return', 'ko_kneel', 'ko_hands'].includes(rc)) rc = aiRecv(g);
+    const entry = { q: g.qtr, clock: g.clock, dd: from === 20 ? 'Free kick' : 'Kickoff', off: K.name, play: OFF_PLAYS[kc].label, def: DEF_CALLS[rc].label, side: k,
+      offKey: kc, defKey: rc, down: 0, togo: 0, ball0: from, yards: 0, retSide: rv, retRole: 'SLOT', type: 'play' };
+    g.ko = null;
+    const stK = K.st || 0, stR = R.st || 0;
+    const done = (recvBall, secs) => { g.log.push(entry); tick(g, secs); if (!g.over) changePoss(g, rv, Math.max(1, Math.min(99, recvBall)), null); return entry; };
+    if (kc === 'ko_onside') {
+      const p = rc === 'ko_hands' ? 0.1 : rc === 'ko_kneel' ? 0.3 : 0.42; // surprise onsides work far more often
+      const spot = from + 10 + Math.round(r() * 5); // kicker's yard line where it's recovered
+      if (r() < p) { entry.res = 'ko_onside_rec'; entry.type = 'turnover'; entry.text = `${K.name} ONSIDE KICK... RECOVERED by ${K.name}!`; g.log.push(entry); tick(g, 4); if (!g.over) startPossession(g, k, spot, null); return entry; }
+      entry.res = 'ko_onside_lost'; entry.text = `${K.name} tries the onside kick; ${R.name} recovers.`; return done(100 - spot, 4);
+    }
+    if (r() < 0.02 && kc === 'ko_deep') { entry.res = 'ko_oob'; entry.text = `${K.name} kicks it out of bounds. ${R.name} takes over at the 35.`; return done(35, 0); }
+    // where it lands, from the receiving team's view (≤0 = in the end zone)
+    const land = kc === 'ko_squib' ? Math.round(14 + r() * 14) : Math.round(100 - (from + 57 + r() * 14 + stK * 1.2));
+    if (kc === 'ko_deep' && (land <= -2 || (rc === 'ko_kneel' && land <= 0))) { entry.res = 'ko_tb'; entry.text = `${K.name} kicks deep into the end zone. Touchback.`; return done(25, 0); }
+    if (kc === 'ko_deep' && rc === 'ko_kneel' && land <= 25) { entry.res = 'ko_fc'; entry.text = `${K.name} kicks to the ${Math.max(1, land)}. Fair catch: ${R.name} starts at the 25.`; return done(25, 0); }
+    const muff = r() < (kc === 'ko_squib' ? 0.03 : 0.009);
+    let ry = Math.round(rexp(r, (kc === 'ko_squib' ? 9 : 19) * (1 + 0.07 * (stR - stK))) * (r() < 0.008 ? 2.6 : 1));
+    const catchAt = Math.max(-4, land);
+    if (muff) { const spot = Math.max(1, catchAt + Math.round(r() * 6)); entry.res = 'ko_fumble'; entry.type = 'turnover'; entry.text = `${K.name} kicks off... FUMBLE on the return! ${K.name} recovers!`; g.log.push(entry); tick(g, 6); if (!g.over) startPossession(g, k, 100 - spot, null); return entry; }
+    const end = catchAt + ry;
+    if (end >= 100) { entry.res = 'ko_td'; entry.yards = 100 - catchAt; entry.text = `${K.name} kicks off... returned ${100 - catchAt} yards for a TOUCHDOWN!`; g.log.push(entry); score(g, rv, 7, `${R.name} kickoff return TD`); tick(g, 12); if (!g.over) kickoff(g, rv, 35); return entry; }
+    entry.res = 'ko_ret'; entry.yards = Math.max(0, end) - catchAt;
+    entry.text = `${K.name} ${kc === 'ko_squib' ? 'squibs it' : 'kicks off'} to the ${catchAt <= 0 ? 'end zone' : catchAt}. Returned to the ${Math.max(1, end) <= 50 ? Math.max(1, end) : 'opp ' + (100 - end)}${end - catchAt >= 35 ? '!' : '.'}`;
+    return done(Math.max(1, end), 6);
   }
 
   // AI offense
   function aiOffense(g) {
+    if (g.ko) return aiKick(g);
     if (g.pat) return aiPat(g);
     const r = g.rng, side = g.poss, O = g[side], N = g.nat;
     const lead = g.score[side] - g.score[other(side)];
@@ -393,6 +451,7 @@ const SimEngine = (() => {
   }
   // AI defense
   function aiDefense(g) {
+    if (g.ko) return aiRecv(g);
     const r = g.rng, side = other(g.poss);
     const lead = g.score[side] - g.score[g.poss];
     if (g.qtr >= 4 && g.clock < 120 && lead > 0 && lead <= 8) return r() < 0.6 ? 'prevent' : 'cover2';
@@ -405,6 +464,7 @@ const SimEngine = (() => {
   // Run one snap. play/defCall may be null for AI.
   function snap(g, play, defCall) {
     if (g.over) return null;
+    if (g.ko) return resolveKick(g, play, defCall);
     if (g.pat) return resolvePat(g, play || aiPat(g), defCall || aiDefense(g));
     play = play || aiOffense(g); defCall = defCall || aiDefense(g);
     const side = g.poss, dside = other(side), S = g.stats[side], r = g.rng;
@@ -419,7 +479,7 @@ const SimEngine = (() => {
       entry.res = 'punt'; entry.retCall = ret; entry.retSide = dside; entry.retRole = 'SLOT'; entry.type = 'play'; S.punts++;
       if (r() < (ret === 'block' ? 0.07 : 0.006)) { // blocked
         entry.res = 'punt_block'; const spot = Math.max(1, g.ball - 6 - Math.round(r() * 8));
-        if (r() < 0.25) { entry.text = `${off} punt is BLOCKED and returned for a TOUCHDOWN by ${RS.name}!`; g.log.push(entry); score(g, dside, 7, `${RS.name} blocked punt TD`); tick(g, 8); if (!g.over) changePoss(g, side, 25, null); }
+        if (r() < 0.25) { entry.text = `${off} punt is BLOCKED and returned for a TOUCHDOWN by ${RS.name}!`; g.log.push(entry); score(g, dside, 7, `${RS.name} blocked punt TD`); tick(g, 8); if (!g.over) kickoff(g, dside, 35); }
         else { entry.text = `${off} punt is BLOCKED! ${RS.name} takes over at the ${spot >= 50 ? 'their own ' + (100 - spot) : 'opp ' + spot}.`; g.log.push(entry); tick(g, 8); if (!g.over) changePoss(g, dside, 100 - spot, null); }
         return entry;
       }
@@ -437,7 +497,7 @@ const SimEngine = (() => {
       if (r() < 0.022) { entry.res = 'punt_muff'; entry.text = `${off} punts ${gross} yards. MUFFED on the return! ${off} recovers!`; entry.type = 'turnover'; g.log.push(entry); tick(g, 10); if (!g.over) startPossession(g, side, nb, null); return entry; }
       let ry = Math.round(rexp(r, 8.5 * (1 + 0.08 * (stR - stK))) * (r() < 0.045 ? 3.5 : 1));
       const recv = 100 - nb; // receiver's yard line
-      if (recv + ry >= 100) { entry.res = 'punt_td'; entry.yards = 100 - recv; entry.text = `${off} punts ${gross} yards. Returned ${100 - recv} yards for a TOUCHDOWN!`; g.log.push(entry); score(g, dside, 7, `${RS.name} punt return TD`); tick(g, 14); if (!g.over) changePoss(g, side, 25, null); return entry; }
+      if (recv + ry >= 100) { entry.res = 'punt_td'; entry.yards = 100 - recv; entry.text = `${off} punts ${gross} yards. Returned ${100 - recv} yards for a TOUCHDOWN!`; g.log.push(entry); score(g, dside, 7, `${RS.name} punt return TD`); tick(g, 14); if (!g.over) kickoff(g, dside, 35); return entry; }
       entry.yards = ry; entry.res = 'punt_ret';
       entry.text = `${off} punts ${gross} yards. Returned ${ry} yard${ry === 1 ? '' : 's'}${ry >= 20 ? '!' : '.'}`;
       g.log.push(entry); tick(g, 12); if (!g.over) changePoss(g, dside, recv + ry, null);
@@ -446,7 +506,7 @@ const SimEngine = (() => {
     if (play === 'field_goal') {
       const dist = 100 - g.ball + 17, p = fgProb(g, side);
       entry.type = 'play';
-      if (r() < p) { S.fg++; entry.text = `${off} ${dist}-yard field goal is GOOD.`; g.log.push(entry); score(g, side, 3, `${off} FG (${dist} yds)`); tick(g, 6); if (!g.over) changePoss(g, dside, 25, null); }
+      if (r() < p) { S.fg++; entry.text = `${off} ${dist}-yard field goal is GOOD.`; g.log.push(entry); score(g, side, 3, `${off} FG (${dist} yds)`); tick(g, 6); if (!g.over) kickoff(g, side, 35); }
       else { entry.text = `${off} ${dist}-yard field goal is NO GOOD.`; g.log.push(entry); tick(g, 6); if (!g.over) changePoss(g, dside, Math.max(20, 100 - g.ball - 7), null); }
       return entry;
     }
@@ -490,7 +550,7 @@ const SimEngine = (() => {
     }
     if (g.ball <= 0) {
       entry.text += ' SAFETY!'; g.log.push(entry); score(g, dside, 2, `${g[dside].name} safety`);
-      tick(g, secs); if (!g.over) changePoss(g, dside, 35, null);
+      tick(g, secs); if (!g.over) kickoff(g, side, 20); // safety: free kick from the 20
       return entry;
     }
     g.log.push(entry);
@@ -503,7 +563,7 @@ const SimEngine = (() => {
 
   function simToEnd(g) { let n = 0; while (!g.over && n++ < 600) snap(g); return g; }
 
-  return { K, OFF_ROLES, init, snap, simToEnd, aiOffense, aiDefense, OFF_PLAYS, DEF_CALLS, fgProb, matchupMult, patProb, aiPat };
+  return { K, OFF_ROLES, init, snap, simToEnd, aiOffense, aiDefense, OFF_PLAYS, DEF_CALLS, fgProb, matchupMult, patProb, aiPat, aiKick, aiRecv };
 })();
 if (typeof module !== 'undefined') module.exports = SimEngine;
 </script>
@@ -638,7 +698,7 @@ const SimCoach = (() => {
 
   // ---------- success rate (the stat analysts use) ----------
   function success(e) {
-    if (!e || !e.offKey || ['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass'].includes(e.offKey)) return null;
+    if (!e || !e.offKey || ['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass', 'ko_deep', 'ko_squib', 'ko_onside'].includes(e.offKey)) return null;
     if (['int', 'fumble'].includes(e.res)) return false;
     const need = e.down === 1 ? 0.4 * e.togo : e.down === 2 ? 0.6 * e.togo : e.togo;
     return e.yards >= need || /TOUCHDOWN/.test(e.text || '');
@@ -688,7 +748,7 @@ const SimCoach = (() => {
 
   // ---------- after the snap ----------
   function film(e, me, look) {
-    if (!e || !e.offKey || ['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass'].includes(e.offKey)) return '';
+    if (!e || !e.offKey || ['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass', 'ko_deep', 'ko_squib', 'ko_onside'].includes(e.offKey)) return '';
     const grp = G(e.offKey), gr = GRADE[grp][e.defKey], ok = success(e);
     const mine = me === 'watch' ? null : e.side === me ? 'off' : 'def';
     const verdict = gr >= 2 ? 'Right call: great matchup for the offense.' : gr === 1 ? 'Favorable look for the offense.' : gr <= -2 ? 'The defense had this one called.' : gr === -1 ? 'The defense had the edge on this call.' : 'An even matchup.';
@@ -702,8 +762,8 @@ const SimCoach = (() => {
   // ---------- postgame coaching report ----------
   function report(g, me) {
     if (me === 'watch') return '';
-    const off = g.log.filter((e) => e.byUser && e.offKey && e.side === me && !['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass'].includes(e.offKey));
-    const def = g.log.filter((e) => e.byUser && e.offKey && e.side !== me && !['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass'].includes(e.offKey));
+    const off = g.log.filter((e) => e.byUser && e.offKey && e.side === me && !['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass', 'ko_deep', 'ko_squib', 'ko_onside'].includes(e.offKey));
+    const def = g.log.filter((e) => e.byUser && e.offKey && e.side !== me && !['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass', 'ko_deep', 'ko_squib', 'ko_onside'].includes(e.offKey));
     if (!off.length && !def.length) return '<div class="h2">🏆 Coaching report</div><p class="hint">You let the AI call every snap, so there’s nothing to grade. Call some plays yourself next game and you’ll get a breakdown here.</p>';
     const by = {};
     for (const e of off) { const k = sitKey(e); (by[k] = by[k] || { n: 0, s: 0, calls: {} }).n++; if (success(e)) by[k].s++; by[k].calls[e.offKey] = (by[k].calls[e.offKey] || 0) + 1; }
@@ -740,7 +800,7 @@ const SimCoach = (() => {
   const names = Object.keys(D.teams).sort();
   let mode = 'slate', me = 'home', g = null, coach = true;
   const C = SimCoach;
-  const ICON = { inside_run: '🏃', outside_run: '💨', qb_sneak: '💪', screen: '🪤', short_pass: '⚡', medium_pass: '📐', deep_pass: '🚀', play_action: '🎭', punt: '🦵', return: '🏃‍♂️', fair: '🙌', block: '🛡️', field_goal: '🎯', base: '🧱', run_stop: '🚧', blitz: '🔥', cover2: '🔒', prevent: '🛑' };
+  const ICON = { inside_run: '🏃', outside_run: '💨', qb_sneak: '💪', screen: '🪤', short_pass: '⚡', medium_pass: '📐', deep_pass: '🚀', play_action: '🎭', ko_deep: '🚀', ko_squib: '🥎', ko_onside: '🎲', punt: '🦵', return: '🏃‍♂️', fair: '🙌', block: '🛡️', field_goal: '🎯', base: '🧱', run_stop: '🚧', blitz: '🔥', cover2: '🔒', prevent: '🛑' };
   $('pbOff').innerHTML = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass', 'play_action', 'punt', 'field_goal'].map((k) => C.card(k, false)).join('');
   $('pbDef').innerHTML = Object.keys(C.DEFS).map((k) => C.card(k, true)).join('');
   $('dict').innerHTML = Object.entries(C.TERMS).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, [t, d]]) => `<dt id="term-${k}">📌 ${t}</dt><dd>${d}</dd>`).join('');
@@ -807,7 +867,7 @@ const SimCoach = (() => {
     for (const s of ['away', 'home']) $(s + 'Sub').innerHTML = g[s].record + (me === s ? ' · you' : '') + (!g.over && g.poss === s ? ' <span class="poss">● ball</span>' : '');
     if (!g.over) {
       const toGoal = 100 - g.ball, yl = g.ball < 50 ? `own ${g.ball}` : g.ball === 50 ? 'the 50' : `opp ${toGoal}`;
-      $('sit').textContent = g.pat ? `${g[g.poss].name}: try after touchdown (extra point or 2-point try from the 3)` : `${g[g.poss].name}: ${['', '1st', '2nd', '3rd', '4th'][g.down]} & ${g.togo >= toGoal ? 'goal' : g.togo} at ${yl}`;
+      $('sit').textContent = g.ko ? `${g[g.poss].name} ${g.ko.from === 20 ? 'free kick from the 20 (after the safety)' : 'kicking off from the 35'}` : g.pat ? `${g[g.poss].name}: try after touchdown (extra point or 2-point try from the 3)` : `${g[g.poss].name}: ${['', '1st', '2nd', '3rd', '4th'][g.down]} & ${g.togo >= toGoal ? 'goal' : g.togo} at ${yl}`;
       $('ballDot').style.left = xPct(g.poss, g.ball) + '%'; $('los').style.left = xPct(g.poss, g.ball) + '%';
       $('fd').style.left = xPct(g.poss, Math.min(100, g.ball + g.togo)) + '%';
     } else {
@@ -833,7 +893,20 @@ const SimCoach = (() => {
       else { const play = E.aiOffense(g); pend = { key, play, look: C.offLook(play) }; }
     }
     let html = '';
-    if (g.pat && userOnOffense()) {
+    if (g.ko && me !== 'watch') {
+      const kicking = g.ko.kicker === me, R = g[me === 'home' ? 'away' : 'home'];
+      if (kicking) {
+        $('callTitle').textContent = '🦶 Your kickoff';
+        html = `<button class="btn" data-k="ko_deep">🚀 Kick it deep<small>Touchback about a third of the time, otherwise a return</small><small class="who">→ ${nm(g[me], 'K', { last: true })}</small></button>`
+          + `<button class="btn" data-k="ko_squib">🥎 Squib kick<small>Low and bouncing: keeps it away from ${nm(R, 'SLOT', { last: true })}, but gives up field position</small></button>`
+          + (g.ko.from === 35 ? `<button class="btn" data-k="ko_onside">🎲 Onside kick<small>Recover it ~10% when they expect it, ~40% as a surprise</small></button>` : '');
+      } else {
+        $('callTitle').textContent = `🦶 ${g[g.poss].name} is kicking off: your return call`;
+        html = `<button class="btn" data-kr="ko_return">🏃‍♂️ Set up the return<small>${nm(g[me], 'SLOT', { last: true })} brings it out</small></button>`
+          + `<button class="btn" data-kr="ko_kneel">🙌 Fair catch / touchback<small>Take the ball at the 25, no risk</small></button>`
+          + `<button class="btn" data-kr="ko_hands">🧤 Hands team<small>Expecting an onside kick</small></button>`;
+      }
+    } else if (g.pat && userOnOffense()) {
       $('callTitle').textContent = '🏈 Touchdown! Now the try';
       const pk = E.patProb(g, 'pat_kick', 'base'), pr = E.patProb(g, 'two_run', 'base'), pp = E.patProb(g, 'two_pass', 'base');
       html = `<button class="btn" data-o="pat_kick">🎯 Kick the extra point<small>~${Math.round(pk * 100)}% · 1 point</small><small class="who">→ ${nm(g[me], 'K', { last: true })}</small></button>`
@@ -872,6 +945,8 @@ const SimCoach = (() => {
     $('calls').innerHTML = html;
     $('tip').innerHTML = coach && me !== 'watch' ? (g.pat ? C.rich(`🗣️ <b>“Check the chart.”</b> Kick unless the score says two points changes what the next score means. Go for 2 when you're down 2 (to tie), down 5 (to get within a field goal), up 1 (to go up 3) or up 5 (to go up 7). Run plays beat a light box; throws beat a {plus1|loaded box}.`) : C.tip(g, userOnOffense())) : '';
     const kp = pend ? keyPlayer(g[userOnOffense() ? (g.poss === 'home' ? 'away' : 'home') : g.poss], userOnOffense() ? 'def' : 'off') : '';
+    if (g.ko) { $('read').innerHTML = ''; $('tip').innerHTML = coach && me !== 'watch' ? C.rich(g.ko.kicker === me ? '🧢 <b>Kickoff.</b> A deep kick usually means a touchback or a short return. Squib it against a dangerous returner. Onside kicks are for when you need the ball back late, or as a surprise when they won’t see it coming.' : '🧢 <b>Kickoff return.</b> A fair catch or touchback gives you the 25 with no risk. Set up the return to try to beat that; bring the hands team if they’re trailing late and might onside it.') : ''; return; }
+    if (g.ko) { $('read').innerHTML = ''; $('tip').innerHTML = coach && me !== 'watch' ? C.rich(g.ko.kicker === me ? '🧢 <b>Kickoff.</b> A deep kick usually means a touchback or a short return. Squib it against a dangerous returner. Onside kicks are for when you need the ball back late, or as a surprise when they won’t see it coming.' : '🧢 <b>Kickoff return.</b> A fair catch or touchback gives you the 25 with no risk. Set up the return to try to beat that; bring the hands team if they’re trailing late and might onside it.') : ''; return; }
     if (pend && pend.play === 'punt' && userOnDefense()) { $('read').innerHTML = ''; $('tip').innerHTML = coach ? '🧢 <b>Return call.</b> Fair catch when the punt is high and the coverage is close; set up the return when you have a good returner and need field position; go for the block only when you need a big play.' : ''; return; }
     $('read').innerHTML = coach && pend ? C.readTip(pend.look, userOnOffense()) + (kp ? `<br>${kp}` : '') : (kp && me !== 'watch' ? kp : '');
   }
@@ -1030,9 +1105,9 @@ const SimCoach = (() => {
     }
     if (g.over) { bedStop(); setTimeout(() => { roar(3, 0.3); band('fanfare'); }, 400); return; }
     if (entry && entry.retSide) { // punts: the crowd reacts from the home team's point of view
-      const retHome = entry.retSide === 'home', big = entry.res === 'punt_muff' || entry.res === 'punt_block' || (entry.res === 'punt_ret' && entry.yards >= 20);
-      if (big) { const goodForHome = entry.res === 'punt_muff' ? !retHome : retHome; if (goodForHome) { roar(2.4, 0.35); band('hey'); } else groan(); }
-      const ps = me !== 'watch' && g[me].songs, pt = (entry.res === 'punt_muff' && entry.side === me) || (entry.res === 'punt_block' && entry.retSide === me);
+      const retHome = entry.retSide === 'home', kickWin = ['punt_muff', 'ko_fumble', 'ko_onside_rec'].includes(entry.res), big = kickWin || entry.res === 'punt_block' || (entry.res === 'punt_ret' && entry.yards >= 20) || (entry.res === 'ko_ret' && entry.yards >= 35);
+      if (big) { const goodForHome = kickWin ? !retHome : retHome; if (goodForHome) { roar(2.4, 0.35); band('hey'); } else groan(); }
+      const ps = me !== 'watch' && g[me].songs, pt = (['punt_muff', 'ko_fumble', 'ko_onside_rec'].includes(entry.res) && entry.side === me) || (entry.res === 'punt_block' && entry.retSide === me);
       if (pt) setTimeout(() => (ps && ps.turnover ? playTrack(ps.turnover.id, `🔄 Takeaway! Tap ▶️ for ${ps.turnover.t}`) : (([id, t]) => playTrack(id, `🔄 Takeaway! Tap ▶️ for ${t} by the Sonic Boom of the South`))(jsu())), 500);
       SND.lastSit = ''; return;
     }
@@ -1077,6 +1152,13 @@ const SimCoach = (() => {
     return `${opts.full ? `#${p.num} ${p.n}` : `#${p.num} ${opts.last ? last : p.n}`}${starTag(p)}`;
   }
   function playText(e) {
+    if (e.offKey && e.offKey.startsWith('ko_')) {
+      const who = nm(g[e.retSide], e.retRole || 'SLOT');
+      if (e.res === 'ko_ret') return e.text.replace(/Returned/, `${who} returns it`) + (e.yards >= 35 ? ' 💨' : '');
+      if (e.res === 'ko_td') return e.text.replace(/returned/, `${who} takes it back`) + ' 🏈';
+      if (e.res === 'ko_onside_rec' || e.res === 'ko_fumble') return e.text + ' 🚨';
+      return e.text;
+    }
     if (e.offKey === 'punt' && e.retSide) {
       const R = g[e.retSide], who = nm(R, e.retRole || 'SLOT');
       if (e.res === 'punt_ret') return e.text.replace(/Returned/, `${who} returns it`) + (e.yards >= 20 ? ' 💨' : '');
@@ -1128,6 +1210,7 @@ const SimCoach = (() => {
 
   function describe(e) {
     if (!e.dd) return e.text;
+    if (e.offKey && e.offKey.startsWith('ko_')) return (me !== 'watch' ? (e.side === me ? `You called <b>${e.play.toLowerCase()}</b>. ` : `You called <b>${e.def.toLowerCase()}</b>. `) : '') + playText(e);
     if (e.offKey === 'punt') return (me !== 'watch' && e.retSide === me ? `You called <b>${{ return: 'set up the return', fair: 'fair catch', block: 'punt block' }[e.retCall] || 'return'}</b>. ` : '') + playText(e);
     const you = me === 'watch' ? '' : (e.side === me ? `You called <b>${e.play}</b>; they showed <b>${e.def}</b>.` : `They ran <b>${e.play}</b> into your <b>${e.def}</b>.`);
     return `${you} ${playText(e)}`;
@@ -1137,6 +1220,8 @@ const SimCoach = (() => {
     const mark = (e) => { if (e) e.byUser = true; return e; };
     const look = pend && pend.look;
     if (b.dataset.o) after(mark(E.snap(g, b.dataset.o, ['punt', 'field_goal'].includes(b.dataset.o) ? null : pend && pend.def)), look);
+    else if (b.dataset.k) after(mark(E.snap(g, b.dataset.k, null)), look);
+    else if (b.dataset.kr) after(mark(E.snap(g, null, b.dataset.kr)), look);
     else if (b.dataset.r) { g.retCall = b.dataset.r; after(mark(E.snap(g, 'punt', 'base')), look); }
     else if (b.dataset.d) after(mark(E.snap(g, pend && pend.play, b.dataset.d)), look);
     else after(E.snap(g, null, null));
@@ -1160,7 +1245,7 @@ const SimCoach = (() => {
   }
   // ---------- box score: per-player lines built from the play-by-play ----------
   function renderBox() {
-    const P = {}, get = (side, role) => (P[side + '|' + role] = P[side + '|' + role] || { side, role, att: 0, comp: 0, py: 0, ptd: 0, int: 0, sk: 0, car: 0, ry: 0, rtd: 0, rlg: 0, rec: 0, recy: 0, rectd: 0, reclg: 0, tk: 0, dsk: 0, dint: 0, fgm: 0, fga: 0, xpm: 0, xpa: 0, pun: 0, puny: 0, pr: 0, pry: 0, prtd: 0 });
+    const P = {}, get = (side, role) => (P[side + '|' + role] = P[side + '|' + role] || { side, role, att: 0, comp: 0, py: 0, ptd: 0, int: 0, sk: 0, car: 0, ry: 0, rtd: 0, rlg: 0, rec: 0, recy: 0, rectd: 0, reclg: 0, tk: 0, dsk: 0, dint: 0, fgm: 0, fga: 0, xpm: 0, xpa: 0, pun: 0, puny: 0, pr: 0, pry: 0, prtd: 0, kr: 0, kry: 0, krtd: 0 });
     const line = { home: {}, away: {} };
     for (const e of g.log) {
       if (e.type === 'score') {
@@ -1169,6 +1254,7 @@ const SimCoach = (() => {
       }
       if (!e.offKey || !e.dd) continue;
       const ds = e.side === 'home' ? 'away' : 'home', td = /TOUCHDOWN/.test(e.text || '');
+      if (e.offKey.startsWith('ko_')) { if (e.res === 'ko_ret' || e.res === 'ko_td') { const r = get(e.retSide, e.retRole || 'SLOT'); r.kr++; r.kry += e.yards || 0; if (e.res === 'ko_td') r.krtd++; } continue; }
       if (e.offKey === 'punt') {
         const pt = get(e.side, 'P'); pt.pun++; const m = /punts (\d+)/.exec(e.text || ''); if (m) pt.puny += +m[1];
         if (e.res === 'punt_ret' || e.res === 'punt_td') { const r = get(e.retSide, e.retRole || 'SLOT'); r.pr++; r.pry += e.yards || 0; if (e.res === 'punt_td') r.prtd++; }
@@ -1209,6 +1295,7 @@ const SimCoach = (() => {
       h += tbl(['Defense', 'Tkl', 'Sacks', 'Int'], mine.filter((x) => x.tk || x.dsk || x.dint).sort((a, b) => b.tk - a.tk).map((x) => tr([who(x), x.tk, x.dsk, x.dint])));
       h += tbl(['Kicking', 'FG', 'XP', 'Pts'], mine.filter((x) => x.fga || x.xpa).map((x) => tr([who(x), `${x.fgm}/${x.fga}`, `${x.xpm}/${x.xpa}`, x.fgm * 3 + x.xpm])));
       h += tbl(['Punting', 'Punts', 'Avg'], mine.filter((x) => x.pun).map((x) => tr([who(x), x.pun, (x.puny / x.pun).toFixed(1)])));
+      h += tbl(['Kick returns', 'Ret', 'Yds', 'Avg', 'TD'], mine.filter((x) => x.kr).map((x) => tr([who(x), x.kr, x.kry, (x.kry / x.kr).toFixed(1), x.krtd])));
       h += tbl(['Punt returns', 'Ret', 'Yds', 'TD'], mine.filter((x) => x.pr).map((x) => tr([who(x), x.pr, x.pry, x.prtd])));
     }
     $('box').innerHTML = `<div class="box">${h}</div><p class="hint">Tackles are credited to the defender who made the stop on each play; the sim tracks the key player on every snap, not all 22.</p>`;
