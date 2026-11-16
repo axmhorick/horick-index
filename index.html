@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Horick Index</title>
-<meta name="description" content="The Horick Index: college football power rankings, team profiles and weekly picks vs. the spread.">
+<title>Horick Football Lab</title>
+<meta name="description" content="Horick Football Lab: The Horick Index college football power rankings, team profiles, weekly picks vs. the spread and a play-calling game sim.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏈</text></svg>">
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <style>
@@ -268,7 +268,8 @@ window.__DATA__ = {"rankings":[{"week":"12","rank":"1","team":"Georgia","wins":"
 
 <div class="pr">
   <header id="header">
-    <h1 class="pr-title">The Horick Index</h1>
+    <h1 class="pr-title">🏈 Horick Football Lab</h1>
+    <p class="pr-take">Home of <b>The Horick Index</b> power rankings, weekly picks against the spread, and a play-calling game sim that teaches you to see football like a coach.</p>
     <details class="pr-new" id="whats-new" data-draw="changes"></details>
     <nav class="pr-nav"><a href="#rankings-table">📊 Rankings</a><a href="#ats">🎯 Picks</a><a href="#team-trend">🔎 Teams</a><a href="sim.html" class="hot">🎮 Game Sim</a></nav>
     <a class="pr-play" href="sim.html">
@@ -276,11 +277,11 @@ window.__DATA__ = {"rankings":[{"week":"12","rank":"1","team":"Georgia","wins":"
       <span class="pr-play-tx"><b>New: play this week's games yourself</b><span>Pick any matchup, call every play, and learn to read a defense like a coach: pre-snap reads, play diagrams and a postgame report card.</span></span>
       <span class="pr-play-go">Play now →</span>
     </a>
-    <p class="pr-foot">Updated Mon Nov 16, 2026, 4:44 PM ET</p>
+    <p class="pr-foot">Updated Mon Nov 16, 2026, 4:45 PM ET</p>
   </header>
 
   <section class="pr-card" id="ats">
-    <h2 class="pr-h2">Model vs. the spread</h2>
+    <h2 class="pr-h2">🎯 Picks: model vs. the spread</h2>
     <span hidden data-draw="colorsReady"></span>
     <div class="pr-stats" id="ats-tiles" data-draw="atsTiles">—</div>
     <div class="pr-teamrow" style="margin-top:var(--cds-gap-md)">
@@ -303,7 +304,7 @@ window.__DATA__ = {"rankings":[{"week":"12","rank":"1","team":"Georgia","wins":"
   </section>
 
   <section class="pr-card" id="team-trend">
-    <h2 class="pr-h2">Team profile</h2>
+    <h2 class="pr-h2">🔎 Team profile</h2>
     <p class="pr-sub">Pick a team, tap a team name in the picks, or tap a row in the rankings.</p>
     <div class="pr-teamrow">
       <select class="dash-select" data-draw="teamPick" aria-label="Team"></select>
@@ -336,7 +337,7 @@ window.__DATA__ = {"rankings":[{"week":"12","rank":"1","team":"Georgia","wins":"
   </section>
 
   <section id="rankings-table">
-    <h2 class="pr-h2">Full rankings: all 138 FBS teams</h2>
+    <h2 class="pr-h2">📊 The Horick Index: all 138 FBS teams</h2>
     <p class="pr-sub">Rating blends Quality (35%: how good a team is right now), Efficiency (15%: points added per play, adjusted for opponent), Résumé (25%: who you beat and who you lost to, and how), schedule strength (15%) and roster talent (10%). Then it adds road-win bonuses, recent form, the coaching adjustment, the toughness edge and My adj, and subtracts this week's injury hit. Ratings update Sunday after games and again Thursday with new injury reports. Tap a column header to sort. CFP = the playoff committee's latest top 25 (<span data-draw="cfpDate"></span>).</p>
     <div class="pr-teamrow">
       <input class="pr-search" type="search" placeholder="Search teams" aria-label="Search teams">
