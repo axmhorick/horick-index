@@ -903,7 +903,10 @@ const SimCoach = (() => {
   }
   const fightSong = (T) => T.song ? playTrack(T.song.id, `🎺 Touchdown ${T.name}! Tap ▶️ for ${T.song.t}`) : playTrack('7dw9u0NXfdJVEpHqxTafr9', `🎺 Touchdown ${T.name}! Tap ▶️ for the band`); // generic marching-band cut for schools without a listed fight song
   // 3rd-down stadium anthems: play while your defense lines up, cut at the snap
-  const HYPE = [['51muf5qADRkxOVtLnD97NN', 'Joker & The Thief'], ['3dPQuX8Gs42Y7b454ybpMR', 'Seven Nation Army'], ['3f2fyR55BFMl3ZWS5S3BUZ', 'Zombie Nation']];
+  const HYPE = [['7ISL3LO8AWP3fKIXunvqTa', 'Joker And The Thief'], ['3dPQuX8Gs42Y7b454ybpMR', 'Seven Nation Army'], ['3f2fyR55BFMl3ZWS5S3BUZ', 'Zombie Nation'],
+    ['7ACxUo21jtTHzy7ZEV56vU', 'Crazy Train'], ['57bgtoPSgt236HzfBOd8kj', 'Thunderstruck'], ['3VqHuw0wFlIHcIPWkhIbdQ', 'Enter Sandman'], ['6Sy9BUbgFse0n0LPA5lwy5', 'Sandstorm'],
+    ['6JymsaWDHk2Yj4e0yNBIFH', 'Jump Around'], ['6ndmKwWqMozN2tcZqzCX4K', 'Remember the Name'], ['12sXrSIdiqCtB0vKYHNH29', 'All I Do Is Win'], ['6Vjk8MNXpQpi0F4BefdTyq', 'Kashmir']];
+  for (let i = HYPE.length - 1; i > 1; i--) { const j = 1 + Math.floor(Math.random() * i); [HYPE[i], HYPE[j]] = [HYPE[j], HYPE[i]]; } // Joker leads off, the rest shuffled each visit
   let hypeI = 0;
   // home-team first-down stingers (~8 seconds), like the stadium DJ
   const STING = [['6Sy9BUbgFse0n0LPA5lwy5', 'Sandstorm'], ['6JymsaWDHk2Yj4e0yNBIFH', 'Jump Around'], ['57bgtoPSgt236HzfBOd8kj', 'Thunderstruck'], ['7ACxUo21jtTHzy7ZEV56vU', 'Crazy Train'], ['3VqHuw0wFlIHcIPWkhIbdQ', 'Enter Sandman']];
