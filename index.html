@@ -133,6 +133,16 @@ window.__DATA__ = {"rankings":[{"week":"12","rank":"1","team":"Georgia","wins":"
 .pr-new li { display: flex; gap: 8px; align-items: baseline; padding: 5px 0; border-top: 1px solid var(--color-border-line); font-size: var(--cds-font-size-caption); line-height: 1.45; color: var(--color-fg); }
 .pr-new li:first-child { border-top: 0; }
 .pr-new .k { flex: 0 0 92px; font-size: 11px; font-weight: var(--cds-font-weight-medium); text-transform: uppercase; letter-spacing: .05em; color: var(--color-fg-muted); }
+.pr-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+.pr-nav a { text-decoration: none; color: var(--color-fg); border: 1px solid var(--color-border-line); border-radius: 999px; padding: 5px 12px; font-size: var(--cds-font-size-caption); background: var(--color-panel); }
+.pr-nav a.hot { background: #c96442; border-color: #c96442; color: #fff; font-weight: var(--cds-font-weight-medium); }
+.pr-play { display: flex; align-items: center; gap: 12px; margin-top: var(--cds-gap-md); padding: 14px 16px; border-radius: var(--cds-radius); text-decoration: none; color: #fff; background: linear-gradient(120deg, #24452f, #2f6b45 60%, #c96442); box-shadow: 0 4px 14px rgba(0,0,0,.15); }
+.pr-play:hover { filter: brightness(1.06); }
+.pr-play-ic { font-size: 34px; line-height: 1; }
+.pr-play-tx { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; font-size: var(--cds-font-size-caption); line-height: 1.4; }
+.pr-play-tx b { font-size: var(--cds-font-size-body); }
+.pr-play-go { white-space: nowrap; font-weight: var(--cds-font-weight-medium); background: rgba(255,255,255,.18); padding: 6px 10px; border-radius: 999px; }
+@media (max-width: 520px) { .pr-play { flex-wrap: wrap; } .pr-play-go { width: 100%; text-align: center; } }
 .pr-foot { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
 /* ---- Game breakdown infographic (print-newspaper graphics-desk look) ---- */
 .pr-mx-btn { font: 700 11px/1 Arial, Helvetica, sans-serif; text-transform: uppercase; letter-spacing: .05em; color: var(--color-fg); background: none; border: 1px solid currentColor; padding: 4px 7px; margin-top: 5px; cursor: pointer; }
@@ -260,7 +270,13 @@ window.__DATA__ = {"rankings":[{"week":"12","rank":"1","team":"Georgia","wins":"
   <header id="header">
     <h1 class="pr-title">The Horick Index</h1>
     <details class="pr-new" id="whats-new" data-draw="changes"></details>
-    <p class="pr-foot">Updated Mon Nov 16, 2026, 3:54 PM ET · <a href="sim.html" style="color:inherit">Play the game sim: call the plays yourself →</a></p>
+    <nav class="pr-nav"><a href="#rankings-table">📊 Rankings</a><a href="#ats">🎯 Picks</a><a href="#team-trend">🔎 Teams</a><a href="sim.html" class="hot">🎮 Game Sim</a></nav>
+    <a class="pr-play" href="sim.html">
+      <span class="pr-play-ic" aria-hidden="true">🎮</span>
+      <span class="pr-play-tx"><b>New: play this week's games yourself</b><span>Pick any matchup, call every play, and learn to read a defense like a coach: pre-snap reads, play diagrams and a postgame report card.</span></span>
+      <span class="pr-play-go">Play now →</span>
+    </a>
+    <p class="pr-foot">Updated Mon Nov 16, 2026, 4:44 PM ET</p>
   </header>
 
   <section class="pr-card" id="ats">
