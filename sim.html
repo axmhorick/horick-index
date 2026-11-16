@@ -182,6 +182,9 @@ const SimEngine = (() => {
     play_action: { label: 'Play-action pass', kind: 'pass' },
     punt: { label: 'Punt', kind: 'st' },
     field_goal: { label: 'Field goal', kind: 'st' },
+    pat_kick: { label: 'Extra point', kind: 'st' },
+    two_run: { label: '2-point run', kind: 'st' },
+    two_pass: { label: '2-point pass', kind: 'st' },
   };
   const DEF_CALLS = {
     base: { label: 'Base defense' },
@@ -333,8 +336,38 @@ const SimEngine = (() => {
     g.score[side] += pts; g.log.push({ q: g.qtr, clock: g.clock, text: `${text} · ${g.away.name} ${g.score.away}, ${g.home.name} ${g.score.home}`, type: 'score', side, pts });
   }
 
+  // Try after a touchdown: kick (≈97%) or go for 2 (≈45%). AI uses the standard two-point chart late.
+  function aiPat(g) {
+    const side = g.pat.side, diff = g.score[side] - g.score[other(side)], late = g.qtr >= 4 && g.clock < 720;
+    if (g.ot >= 3) return g.rng() < 0.55 ? 'two_run' : 'two_pass';
+    if (late && [-10, -5, -2, 1, 5, 12].includes(diff)) return g.rng() < 0.55 ? 'two_run' : 'two_pass';
+    return 'pat_kick';
+  }
+  function patProb(g, play, defCall) {
+    const side = g.pat.side, m = matchupMult(g, side);
+    if (play === 'pat_kick') return Math.max(0.85, Math.min(0.995, 0.965 + (g[side].st || 0) * 0.005));
+    const adj = { base: [0, 0], run_stop: [-0.1, 0.06], blitz: [0.03, -0.04], cover2: [0.07, -0.06], prevent: [0.1, 0.06] }[defCall] || [0, 0];
+    return Math.max(0.2, Math.min(0.75, 0.45 * Math.pow(m, 0.5) + (play === 'two_run' ? adj[0] : adj[1])));
+  }
+  function resolvePat(g, play, defCall) {
+    const side = g.pat.side, dside = other(side), off = g[side].name, r = g.rng, secs = g.pat.secs;
+    if (!['pat_kick', 'two_run', 'two_pass'].includes(play)) play = aiPat(g);
+    if (play === 'pat_kick') defCall = 'base';
+    const entry = { q: g.qtr, clock: g.clock, dd: play === 'pat_kick' ? 'PAT try' : '2-pt try', off, play: OFF_PLAYS[play].label, def: DEF_CALLS[defCall].label, side,
+      offKey: play, defKey: defCall, down: 1, togo: 3, ball0: 97, lead: g.score[side] - g.score[dside], yards: 0, type: 'play' };
+    const ok = r() < patProb(g, play, defCall);
+    if (play === 'pat_kick') { entry.res = ok ? 'pat_good' : 'pat_miss'; entry.text = ok ? `${off} extra point is GOOD.` : `${off} extra point is NO GOOD.`; }
+    else { entry.res = ok ? 'two_good' : 'two_fail'; entry.text = ok ? `${off} ${play === 'two_run' ? 'runs' : 'throws'} it in: 2-point conversion is GOOD!` : `${off} 2-point try ${play === 'two_run' ? 'is stuffed' : 'falls incomplete'}. No good.`; }
+    g.log.push(entry);
+    if (ok) score(g, side, play === 'pat_kick' ? 1 : 2, `${off} ${play === 'pat_kick' ? 'PAT' : '2-pt conversion'}`);
+    g.pat = null;
+    tick(g, secs); if (!g.over) changePoss(g, dside, 25, null);
+    return entry;
+  }
+
   // AI offense
   function aiOffense(g) {
+    if (g.pat) return aiPat(g);
     const r = g.rng, side = g.poss, O = g[side], N = g.nat;
     const lead = g.score[side] - g.score[other(side)];
     const late = g.qtr >= 4 && g.clock < 300;
@@ -372,6 +405,7 @@ const SimEngine = (() => {
   // Run one snap. play/defCall may be null for AI.
   function snap(g, play, defCall) {
     if (g.over) return null;
+    if (g.pat) return resolvePat(g, play || aiPat(g), defCall || aiDefense(g));
     play = play || aiOffense(g); defCall = defCall || aiDefense(g);
     const side = g.poss, dside = other(side), S = g.stats[side], r = g.rng;
     const off = g[side].name, yl = () => (g.ball < 50 ? `own ${g.ball}` : g.ball === 50 ? 'midfield' : `opp ${100 - g.ball}`);
@@ -450,9 +484,8 @@ const SimEngine = (() => {
     entry.type = 'play';
     if (g.ball >= 100) {
       S.td++; entry.text += ' TOUCHDOWN!'; g.log.push(entry);
-      const xp = r() < 0.965;
-      score(g, side, xp ? 7 : 6, `${off} TD${xp ? '' : ' (XP missed)'}`);
-      tick(g, secs); if (!g.over) changePoss(g, dside, 25, null);
+      score(g, side, 6, `${off} TD`);
+      g.pat = { side, secs }; g.ball = 97; g.down = 1; g.togo = 3; // untimed try: extra point or go for 2
       return entry;
     }
     if (g.ball <= 0) {
@@ -470,7 +503,7 @@ const SimEngine = (() => {
 
   function simToEnd(g) { let n = 0; while (!g.over && n++ < 600) snap(g); return g; }
 
-  return { K, OFF_ROLES, init, snap, simToEnd, aiOffense, aiDefense, OFF_PLAYS, DEF_CALLS, fgProb, matchupMult };
+  return { K, OFF_ROLES, init, snap, simToEnd, aiOffense, aiDefense, OFF_PLAYS, DEF_CALLS, fgProb, matchupMult, patProb, aiPat };
 })();
 if (typeof module !== 'undefined') module.exports = SimEngine;
 </script>
@@ -554,6 +587,9 @@ const SimCoach = (() => {
     deep_pass: { name: 'Shot play (go/post)', coach: '“They’re {mofc} with an extra man in the box: we have one-on-ones outside. Take the shot.”', what: 'Receivers run vertical routes or post routes 20+ yards downfield. Low completion %, high payoff.', good: 'One-high looks ({cover1}, loaded box, blitz) where a receiver is one-on-one with no help. Best on a {free_play}.', bad: 'Two-high ({mofo}) and prevent: there’s always help over the top. Highest sack and interception risk.' },
     play_action: { name: 'Play-action pass (boot/shot)', coach: '“They’re cheating up for the run. Fake it, and throw it over the top of the linebackers.”', what: 'The QB fakes the handoff so the linebackers and safety step up for the run, then throws behind them, often to the tight end on a {flood|crosser} or a receiver deep. Longer drop, so it needs protection.', good: 'When you’ve been running the ball well, and against a loaded box: the more you run, the harder the fake bites.', bad: 'Blitzes (the QB turns his back on the rush during the fake) and two-deep shells that don’t bite.' },
     punt: { name: 'Punt', coach: '“Win the {field_pos|field-position} battle.”', what: 'Give the ball back on purpose to flip the field (about 40 net yards).', good: '4th and medium/long in your own territory.', bad: '4th & short near midfield or beyond. By {expected_pts}, going for it is usually worth more than the punt.' },
+    pat_kick: { name: 'Extra point (PAT)', coach: '“Kick it and take the point.”', what: 'A 20-yard kick after a touchdown. College kickers make about 97% of them.', good: 'Almost always, unless the score says you need two.', bad: 'Late, when the math says two points changes what the next score means (down 2, down 5, up 1, up 5).' },
+    two_run: { name: '2-point run', coach: '“Three yards. Run it in.”', what: 'Go for two from the 3-yard line with a power run. Converts a bit under half the time.', good: 'Late when the two-point chart says go, and against light boxes (two-high looks).', bad: 'A defense loaded up to stop the run.' },
+    two_pass: { name: '2-point pass', coach: '“Find the matchup at the goal line.”', what: 'Go for two with a quick throw: rub routes and fades in a tight space.', good: 'Against a loaded box or a team that sells out for the run.', bad: 'Two-high coverage that squeezes the end zone.' },
     field_goal: { name: 'Field goal', coach: '“Come away with points.”', what: 'Distance = yards to the goal line + 17. Make rates fall off quickly past about 45 yards.', good: '4th down inside the opponent’s 30, or when 3 points ties or wins it late.', bad: '50+ yarders: a miss hands the opponent great {field_pos}.' },
   };
   const DEFS = {
@@ -602,7 +638,7 @@ const SimCoach = (() => {
 
   // ---------- success rate (the stat analysts use) ----------
   function success(e) {
-    if (!e || !e.offKey || ['punt', 'field_goal'].includes(e.offKey)) return null;
+    if (!e || !e.offKey || ['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass'].includes(e.offKey)) return null;
     if (['int', 'fumble'].includes(e.res)) return false;
     const need = e.down === 1 ? 0.4 * e.togo : e.down === 2 ? 0.6 * e.togo : e.togo;
     return e.yards >= need || /TOUCHDOWN/.test(e.text || '');
@@ -652,7 +688,7 @@ const SimCoach = (() => {
 
   // ---------- after the snap ----------
   function film(e, me, look) {
-    if (!e || !e.offKey || ['punt', 'field_goal'].includes(e.offKey)) return '';
+    if (!e || !e.offKey || ['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass'].includes(e.offKey)) return '';
     const grp = G(e.offKey), gr = GRADE[grp][e.defKey], ok = success(e);
     const mine = me === 'watch' ? null : e.side === me ? 'off' : 'def';
     const verdict = gr >= 2 ? 'Right call: great matchup for the offense.' : gr === 1 ? 'Favorable look for the offense.' : gr <= -2 ? 'The defense had this one called.' : gr === -1 ? 'The defense had the edge on this call.' : 'An even matchup.';
@@ -666,8 +702,8 @@ const SimCoach = (() => {
   // ---------- postgame coaching report ----------
   function report(g, me) {
     if (me === 'watch') return '';
-    const off = g.log.filter((e) => e.byUser && e.offKey && e.side === me && !['punt', 'field_goal'].includes(e.offKey));
-    const def = g.log.filter((e) => e.byUser && e.offKey && e.side !== me && !['punt', 'field_goal'].includes(e.offKey));
+    const off = g.log.filter((e) => e.byUser && e.offKey && e.side === me && !['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass'].includes(e.offKey));
+    const def = g.log.filter((e) => e.byUser && e.offKey && e.side !== me && !['punt', 'field_goal', 'pat_kick', 'two_run', 'two_pass'].includes(e.offKey));
     if (!off.length && !def.length) return '<div class="h2">🏆 Coaching report</div><p class="hint">You let the AI call every snap, so there’s nothing to grade. Call some plays yourself next game and you’ll get a breakdown here.</p>';
     const by = {};
     for (const e of off) { const k = sitKey(e); (by[k] = by[k] || { n: 0, s: 0, calls: {} }).n++; if (success(e)) by[k].s++; by[k].calls[e.offKey] = (by[k].calls[e.offKey] || 0) + 1; }
@@ -771,7 +807,7 @@ const SimCoach = (() => {
     for (const s of ['away', 'home']) $(s + 'Sub').innerHTML = g[s].record + (me === s ? ' · you' : '') + (!g.over && g.poss === s ? ' <span class="poss">● ball</span>' : '');
     if (!g.over) {
       const toGoal = 100 - g.ball, yl = g.ball < 50 ? `own ${g.ball}` : g.ball === 50 ? 'the 50' : `opp ${toGoal}`;
-      $('sit').textContent = `${g[g.poss].name}: ${['', '1st', '2nd', '3rd', '4th'][g.down]} & ${g.togo >= toGoal ? 'goal' : g.togo} at ${yl}`;
+      $('sit').textContent = g.pat ? `${g[g.poss].name}: try after touchdown (extra point or 2-point try from the 3)` : `${g[g.poss].name}: ${['', '1st', '2nd', '3rd', '4th'][g.down]} & ${g.togo >= toGoal ? 'goal' : g.togo} at ${yl}`;
       $('ballDot').style.left = xPct(g.poss, g.ball) + '%'; $('los').style.left = xPct(g.poss, g.ball) + '%';
       $('fd').style.left = xPct(g.poss, Math.min(100, g.ball + g.togo)) + '%';
     } else {
@@ -797,7 +833,17 @@ const SimCoach = (() => {
       else { const play = E.aiOffense(g); pend = { key, play, look: C.offLook(play) }; }
     }
     let html = '';
-    if (userOnOffense()) {
+    if (g.pat && userOnOffense()) {
+      $('callTitle').textContent = '🏈 Touchdown! Now the try';
+      const pk = E.patProb(g, 'pat_kick', 'base'), pr = E.patProb(g, 'two_run', 'base'), pp = E.patProb(g, 'two_pass', 'base');
+      html = `<button class="btn" data-o="pat_kick">🎯 Kick the extra point<small>~${Math.round(pk * 100)}% · 1 point</small><small class="who">→ ${nm(g[me], 'K', { last: true })}</small></button>`
+        + `<button class="btn" data-o="two_run">🏃 Go for 2: run<small>~${Math.round(pr * 100)}% vs a base look · 2 points</small><small class="who">→ ${nm(g[me], 'RB', { last: true })}</small></button>`
+        + `<button class="btn" data-o="two_pass">🎯 Go for 2: pass<small>~${Math.round(pp * 100)}% vs a base look · 2 points</small><small class="who">→ ${nm(g[me], 'QB', { last: true })}</small></button>`;
+    } else if (g.pat && userOnDefense()) {
+      const two = pend && pend.play !== 'pat_kick';
+      $('callTitle').textContent = two ? `🚨 ${g[g.poss].name} is going for 2: make a call` : `🎯 ${g[g.poss].name} is kicking the extra point`;
+      html = two ? Object.keys(E.DEF_CALLS).map((k) => `<button class="btn" data-d="${k}">${ICON[k]} ${E.DEF_CALLS[k].label}</button>`).join('') : `<button class="btn" data-d="base">▶️ Line up for the kick<small>They make ~${Math.round(E.patProb(g, 'pat_kick', 'base') * 100)}%</small></button>`;
+    } else if (userOnOffense()) {
       $('callTitle').textContent = '📋 Your offense: call a play';
       const fgDist = 100 - g.ball + 17, p = E.fgProb(g, g.poss);
       const list = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass', 'play_action'];
@@ -824,7 +870,7 @@ const SimCoach = (() => {
       html = `<button class="btn" data-n="1">▶️ Next play<small>Step through one snap</small></button>`;
     }
     $('calls').innerHTML = html;
-    $('tip').innerHTML = coach && me !== 'watch' ? C.tip(g, userOnOffense()) : '';
+    $('tip').innerHTML = coach && me !== 'watch' ? (g.pat ? C.rich(`🗣️ <b>“Check the chart.”</b> Kick unless the score says two points changes what the next score means. Go for 2 when you're down 2 (to tie), down 5 (to get within a field goal), up 1 (to go up 3) or up 5 (to go up 7). Run plays beat a light box; throws beat a {plus1|loaded box}.`) : C.tip(g, userOnOffense())) : '';
     const kp = pend ? keyPlayer(g[userOnOffense() ? (g.poss === 'home' ? 'away' : 'home') : g.poss], userOnOffense() ? 'def' : 'off') : '';
     if (pend && pend.play === 'punt' && userOnDefense()) { $('read').innerHTML = ''; $('tip').innerHTML = coach ? '🧢 <b>Return call.</b> Fair catch when the punt is high and the coverage is close; set up the return when you have a good returner and need field position; go for the block only when you need a big play.' : ''; return; }
     $('read').innerHTML = coach && pend ? C.readTip(pend.look, userOnOffense()) + (kp ? `<br>${kp}` : '') : (kp && me !== 'watch' ? kp : '');
@@ -990,6 +1036,8 @@ const SimCoach = (() => {
       if (pt) setTimeout(() => (ps && ps.turnover ? playTrack(ps.turnover.id, `🔄 Takeaway! Tap ▶️ for ${ps.turnover.t}`) : (([id, t]) => playTrack(id, `🔄 Takeaway! Tap ▶️ for ${t} by the Sonic Boom of the South`))(jsu())), 500);
       SND.lastSit = ''; return;
     }
+    if (entry && ['two_good', 'two_fail', 'pat_miss'].includes(entry.res)) { const goodHome = (entry.res === 'two_good') === (entry.side === 'home'); if (goodHome) { roar(2, 0.3); band('hey'); } else groan(); SND.lastSit = ''; return; }
+    if (entry && entry.res === 'pat_good') { SND.lastSit = ''; return; }
     const offHome = entry && entry.side === 'home';
     if (entry && (entry.res === 'int' || entry.res === 'fumble')) { if (offHome) groan(); else { roar(2.5, 0.35); band('hey'); } }
     else if (entry && entry.res === 'sack') { if (offHome) groan(); else { roar(1.8, 0.28); band('hey', { drums: false }); } }
@@ -1117,7 +1165,6 @@ const SimCoach = (() => {
     for (const e of g.log) {
       if (e.type === 'score') {
         const q = Math.min(e.q, 5); line[e.side][q] = (line[e.side][q] || 0) + (e.pts || 0);
-        if (/ TD/.test(e.text) && !/return|blocked/.test(e.text)) { const k = get(e.side, 'K'); k.xpa++; if (!/XP missed/.test(e.text)) k.xpm++; }
         continue;
       }
       if (!e.offKey || !e.dd) continue;
@@ -1127,6 +1174,8 @@ const SimCoach = (() => {
         if (e.res === 'punt_ret' || e.res === 'punt_td') { const r = get(e.retSide, e.retRole || 'SLOT'); r.pr++; r.pry += e.yards || 0; if (e.res === 'punt_td') r.prtd++; }
         continue;
       }
+      if (e.offKey === 'pat_kick') { const k = get(e.side, 'K'); k.xpa++; if (e.res === 'pat_good') k.xpm++; continue; }
+      if (e.offKey === 'two_run' || e.offKey === 'two_pass') continue;
       if (e.offKey === 'field_goal') { const k = get(e.side, 'K'); k.fga++; if (/GOOD\./.test(e.text) && !/NO GOOD/.test(e.text)) k.fgm++; continue; }
       if (!e.offRole) continue;
       const pass = E.OFF_PLAYS[e.offKey].kind === 'pass';
