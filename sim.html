@@ -950,11 +950,15 @@ const SimCoach = (() => {
   const HYPE = [['7ISL3LO8AWP3fKIXunvqTa', 'Joker And The Thief'], ['3dPQuX8Gs42Y7b454ybpMR', 'Seven Nation Army'], ['3f2fyR55BFMl3ZWS5S3BUZ', 'Zombie Nation'],
     ['7ACxUo21jtTHzy7ZEV56vU', 'Crazy Train'], ['57bgtoPSgt236HzfBOd8kj', 'Thunderstruck'], ['3VqHuw0wFlIHcIPWkhIbdQ', 'Enter Sandman'], ['6Sy9BUbgFse0n0LPA5lwy5', 'Sandstorm'],
     ['6JymsaWDHk2Yj4e0yNBIFH', 'Jump Around'], ['6ndmKwWqMozN2tcZqzCX4K', 'Remember the Name'], ['12sXrSIdiqCtB0vKYHNH29', 'All I Do Is Win'], ['6Vjk8MNXpQpi0F4BefdTyq', 'Kashmir'],
-    ['5dz57SgSUMSQbzETh9e4N1', "Highest In the Room (Sonic Boom)"], ['36KtovifRtTyrqJ4pLpXbY', 'Neck (Sonic Boom)'], ['4WbhM4qrZaj5DhqKVKaBOX', 'Five On It (Sonic Boom)']];
+    ['3ggZcltFroWWrGMPek8Ag0', 'Sticky (Sonic Boom)'], ['0oEprpzcMBfBtqmy5Yj9Bo', 'HYPE ME UP (Sonic Boom)'], ['36KtovifRtTyrqJ4pLpXbY', 'Neck (Sonic Boom)'], ['3xSQwwkdpg6KPODXV5yRRT', 'Family Ties (Sonic Boom)']];
   for (let i = HYPE.length - 1; i > 1; i--) { const j = 1 + Math.floor(Math.random() * i); [HYPE[i], HYPE[j]] = [HYPE[j], HYPE[i]]; } // Joker leads off, the rest shuffled each visit
   let hypeI = 0;
   // Gap fillers from the Jackson State Sonic Boom of the South (from the site owner's college football playlist)
-  const JSU = [['5dz57SgSUMSQbzETh9e4N1', "Highest In the Room '19"], ['36KtovifRtTyrqJ4pLpXbY', 'Neck (2021)'], ['3usCZOGgHcjwi0XsaTh7zv', 'Candy Rain'], ['4WbhM4qrZaj5DhqKVKaBOX', "Five On It '22"]];
+  const JSU = [['3ggZcltFroWWrGMPek8Ag0', 'Sticky'], ['36KtovifRtTyrqJ4pLpXbY', 'Neck'], ['4OG0OI0z6lvvkIfMvVgE5R', 'Rock the House'], ['7B8jrdADD4ABUdommFdltz', '4X4'],
+    ['2h1BCz2PfmLnCyCZrQa0Z2', 'Folded'], ['3usCZOGgHcjwi0XsaTh7zv', 'Candy Rain'], ['0TlZmRkE2BpZUtMXdiVZ7b', 'Shot Callin'], ['4hreuf4qpBCWTQHQY6QoPG', 'cLOUDs'],
+    ['0oEprpzcMBfBtqmy5Yj9Bo', 'HYPE ME UP'], ['5b4d0g0uuXnZzHmX1k8LOq', 'Dirty Diana'], ['3xSQwwkdpg6KPODXV5yRRT', 'Family Ties'], ['7lpDmfyuAaunBGESdExRes', 'On My Mama'],
+    ['6748ULxF9jlvPyt51T8WWm', 'Went West'], ['5dz57SgSUMSQbzETh9e4N1', 'Highest In the Room'], ['4WbhM4qrZaj5DhqKVKaBOX', 'Five On It']];
+  for (let i = JSU.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [JSU[i], JSU[j]] = [JSU[j], JSU[i]]; }
   let jsuI = Math.floor(Math.random() * JSU.length);
   const jsu = () => JSU[jsuI++ % JSU.length];
   // home-team first-down stingers (~8 seconds), like the stadium DJ
