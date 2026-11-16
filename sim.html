@@ -94,7 +94,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 .cs { font-style:italic; color:var(--muted); }
 .dict dt { font-weight:600; margin-top:8px; } .dict dd { margin:2px 0 0; font-size:13.5px; color:var(--muted); }
 .sound { position:fixed; left:12px; bottom:14px; z-index:21; width:min(320px, calc(100% - 24px)); background:var(--panel); border:1px solid var(--line); border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,.25); padding:8px; transition:opacity .3s; }
-.sound.off { opacity:0; pointer-events:none; }
+.sound.off { opacity:0; pointer-events:none; }  /* stays in layout so the Spotify iframe can load */
 .sound .cap { font-size:12px; color:var(--muted); margin:0 0 6px; }
 .sndbtn { position:absolute; top:10px; right:10px; }
 .star { font-size:12px; } .who { color:var(--fg) !important; font-weight:600; } .mu { margin-top:6px; } 
@@ -892,18 +892,32 @@ const SimCoach = (() => {
       for (let b = 0; b < bars; b++) pat.forEach((h, i) => { const t = t0 + (b * 16 + i) * beat / 2; if (h) snare(t, i % 4 === 0 ? 0.22 : 0.12); if (i % 4 === 0) bass(t, 0.3); });
     } catch (e) {}
   }
-  function stopSong() { clearTimeout(SND.stopT); if (SND.ctl) try { SND.ctl.pause(); } catch (e) {} $('soundBox').classList.add('off'); }
-  function playTrack(id, cap, ms) {
-    if (!SND.on || !SND.api) return;
-    $('songCap').textContent = cap; $('soundBox').classList.remove('off'); SND.cur = id;
-    const uri = 'spotify:track:' + id;
-    const go = () => { try { SND.ctl.play(); } catch (e) {} clearTimeout(SND.stopT); if (ms) SND.stopT = setTimeout(stopSong, ms); };
-    if (!SND.ctl) {
-      const el = document.createElement('div'); $('spot').appendChild(el);
-      SND.api.createController(el, { uri, width: '100%', height: 80 }, (c) => { SND.ctl = c; c.addListener('ready', go); });
-    } else { SND.ctl.loadUri(uri); setTimeout(go, 700); }
+  function stopSong() { clearTimeout(SND.stopT); SND.tok = (SND.tok || 0) + 1; if (SND.ctl) try { SND.ctl.pause(); } catch (e) {} $('soundBox').classList.add('off'); }
+  // Spotify clip: fresh embed each time, kept invisible until it is actually playing. If Spotify errors or
+  // stalls (e.g. 'upstream request timeout'), the box never shows and a band riff plays instead.
+  function playTrack(id, cap, ms, fallback) {
+    if (!SND.on) return;
+    const fb = () => { if (fallback && SND.on) fallback(); };
+    if (!SND.api) return fb();
+    stopSong(); const tok = (SND.tok = (SND.tok || 0) + 1);
+    if (SND.ctl) { try { SND.ctl.destroy(); } catch (e) {} SND.ctl = null; }
+    $('spot').innerHTML = ''; const el = document.createElement('div'); $('spot').appendChild(el);
+    $('songCap').textContent = cap;
+    let started = false;
+    const giveUp = setTimeout(() => { if (tok !== SND.tok || started) return; try { SND.ctl && SND.ctl.destroy(); } catch (e) {} SND.ctl = null; $('spot').innerHTML = ''; $('soundBox').classList.add('off'); fb(); }, 6000);
+    try {
+      SND.api.createController(el, { uri: 'spotify:track:' + id, width: '100%', height: 80 }, (c) => {
+        if (tok !== SND.tok) { try { c.destroy(); } catch (e) {} return; }
+        SND.ctl = c;
+        c.addListener('ready', () => { try { c.play(); } catch (e) {} });
+        c.addListener('playback_update', (ev) => {
+          const d = ev && ev.data; if (!d || tok !== SND.tok || started) return;
+          if (!d.isPaused && d.position > 0) { started = true; clearTimeout(giveUp); $('soundBox').classList.remove('off'); clearTimeout(SND.stopT); if (ms) SND.stopT = setTimeout(stopSong, ms); }
+        });
+      });
+    } catch (e) { clearTimeout(giveUp); fb(); }
   }
-  const fightSong = (T) => T.song ? playTrack(T.song.id, `🎺 ${T.name}: ${T.song.t}`, 15000) : playTrack('7dw9u0NXfdJVEpHqxTafr9', `🎺 The ${T.name} band strikes up`, 12000); // generic marching-band cut for schools without a listed fight song
+  const fightSong = (T) => T.song ? playTrack(T.song.id, `🎺 ${T.name}: ${T.song.t}`, 15000, () => band('fanfare')) : playTrack('7dw9u0NXfdJVEpHqxTafr9', `🎺 The ${T.name} band strikes up`, 12000, () => band('fanfare')); // generic marching-band cut for schools without a listed fight song
   // 3rd-down stadium anthems: play while your defense lines up, cut at the snap
   const HYPE = [['51muf5qADRkxOVtLnD97NN', 'Joker & The Thief'], ['3dPQuX8Gs42Y7b454ybpMR', 'Seven Nation Army'], ['3f2fyR55BFMl3ZWS5S3BUZ', 'Zombie Nation']];
   let hypeI = 0;
@@ -911,7 +925,7 @@ const SimCoach = (() => {
   const STING = [['6Sy9BUbgFse0n0LPA5lwy5', 'Sandstorm'], ['6JymsaWDHk2Yj4e0yNBIFH', 'Jump Around'], ['57bgtoPSgt236HzfBOd8kj', 'Thunderstruck'], ['7ACxUo21jtTHzy7ZEV56vU', 'Crazy Train'], ['3VqHuw0wFlIHcIPWkhIbdQ', 'Enter Sandman']];
   let stingI = Math.floor(Math.random() * STING.length);
   function stinger() { const [id, t] = STING[stingI++ % STING.length]; playTrack(id, `🔊 First down! ${t}`, 8000); }
-  function thirdDownHype() { const [id, t] = HYPE[hypeI++ % HYPE.length]; playTrack(id, `📣 3rd down! ${t}`, 0); SND.hype = true; }
+  function thirdDownHype() { const [id, t] = HYPE[hypeI++ % HYPE.length]; playTrack(id, `📣 3rd down! ${t}`, 0, () => cadence(2)); SND.hype = true; }
   function announce(entry) {
     if (SND.hype) { SND.hype = false; stopSong(); }
     if (!SND.on || !g) return;
