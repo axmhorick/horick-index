@@ -57,6 +57,30 @@ td:first-child, th:first-child { text-align:left; color:var(--muted); font-weigh
 .hint { color:var(--muted); font-size:12px; }
 .hidden { display:none !important; }
 .final { text-align:center; font-family:Georgia, serif; font-size:20px; margin-top:6px; }
+
+.chalk { width:100%; max-width:300px; height:auto; background:#24452f; border-radius:8px; color:#f4f1e6; display:block; }
+.chalk .los { stroke:#f4f1e6; stroke-dasharray:4 4; opacity:.6; }
+.chalk .o { fill:none; stroke:#f4f1e6; stroke-width:2; }
+.chalk .lab { fill:#f4f1e6; font:bold 8px sans-serif; text-anchor:middle; }
+.chalk .x { fill:#f2c94c; font:bold 13px sans-serif; text-anchor:middle; }
+.chalk .x.hot { fill:#ff7a59; }
+.chalk .x.faint { opacity:.25; }
+.chalk .arr { fill:none; stroke:#f4f1e6; stroke-width:2.2; }
+.chalk .arr.blk { stroke-width:3; opacity:.55; }
+.chalk .arr.dash { stroke-dasharray:4 3; }
+.tip { margin:0 0 10px; padding:10px; border-left:3px solid var(--accent); background:var(--bg); border-radius:0 8px 8px 0; font-size:14px; }
+.tip:empty { display:none; }
+.film { margin-top:10px; display:grid; grid-template-columns:minmax(0,150px) 1fr; gap:10px; align-items:start; font-size:13.5px; }
+.film:empty { display:none; }
+@media (max-width:420px) { .film { grid-template-columns:1fr; } .film .chalk { max-width:220px; } }
+.succ { color:var(--good); font-weight:600; } .fail { color:var(--bad); font-weight:600; }
+.pb { display:grid; grid-template-columns:minmax(0,220px) 1fr; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+.pb p { margin:4px 0; }
+@media (max-width:520px) { .pb { grid-template-columns:1fr; } }
+details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
+.rep { margin:6px 0; } .rep td, .rep th { text-align:right; } .rep td:first-child, .rep th:first-child { text-align:left; }
+.lessons { padding-left:18px; margin:8px 0 0; font-size:14px; } .lessons li { margin:4px 0; }
+.toggle { display:flex; align-items:center; gap:8px; font-size:14px; margin-top:10px; color:var(--fg); }
 </style>
 </head>
 <body>
@@ -79,6 +103,7 @@ td:first-child, th:first-child { text-align:left; color:var(--muted); font-weigh
     </div>
     <label>You coach</label>
     <div class="seg" id="side"></div>
+    <label class="toggle"><input type="checkbox" id="coachMode" checked> Coach mode: explain the football as I play (tips, diagrams, postgame report)</label>
     <p class="hint" id="proj"></p>
     <button class="btn primary" id="start" style="width:100%;margin-top:6px">Kick off</button>
   </div>
@@ -93,11 +118,13 @@ td:first-child, th:first-child { text-align:left; color:var(--muted); font-weigh
       <div class="sit" id="sit"></div>
       <div class="field" id="field"><div class="ez" id="ezL" style="left:0"></div><div class="ez" id="ezR" style="right:0"></div><div class="los" id="los"></div><div class="fd" id="fd"></div><div class="ball" id="ballDot"></div></div>
       <div class="last" id="last">Kickoff.</div>
+      <div class="film" id="film"></div>
       <div class="final hidden" id="finalLine"></div>
     </div>
 
     <div class="card" id="callCard">
       <div class="h2" id="callTitle"></div>
+      <div class="tip" id="tip"></div>
       <div class="grid" id="calls"></div>
       <div class="row" style="margin-top:10px">
         <button class="btn" id="auto">Let the AI call this one</button>
@@ -106,6 +133,8 @@ td:first-child, th:first-child { text-align:left; color:var(--muted); font-weigh
       </div>
     </div>
 
+    <div class="card hidden" id="report"></div>
+    <div class="card" id="pbCard"><details class="pbk"><summary>Playbook: what every call does</summary><div id="pbOff"></div><div class="h2" style="margin-top:12px">Defensive calls</div><div id="pbDef"></div></details></div>
     <div class="card"><div class="h2">Play-by-play</div><div class="log" id="log"></div></div>
     <div class="card"><div class="h2">Team stats</div><table id="stats"></table></div>
     <button class="btn" id="again">New game</button>
@@ -302,7 +331,8 @@ const SimEngine = (() => {
     const side = g.poss, dside = other(side), S = g.stats[side], r = g.rng;
     const off = g[side].name, yl = () => (g.ball < 50 ? `own ${g.ball}` : g.ball === 50 ? 'midfield' : `opp ${100 - g.ball}`);
     const dd = `${['', '1st', '2nd', '3rd', '4th'][g.down]} & ${g.togo >= 100 - g.ball ? 'goal' : g.togo} at ${yl()}`;
-    const entry = { q: g.qtr, clock: g.clock, dd, off, play: OFF_PLAYS[play].label, def: DEF_CALLS[defCall].label, side };
+    const entry = { q: g.qtr, clock: g.clock, dd, off, play: OFF_PLAYS[play].label, def: DEF_CALLS[defCall].label, side,
+      offKey: play, defKey: defCall, down: g.down, togo: g.togo, ball0: g.ball, lead: g.score[side] - g.score[dside], yards: 0, res: '' };
     let secs = 30;
     if (play === 'punt') {
       const net = Math.round(36 + r() * 12 + (g[side].st || 0) * 1.5);
@@ -322,7 +352,7 @@ const SimEngine = (() => {
     const kind = OFF_PLAYS[play].kind;
     const res = kind === 'run' ? runPlay(g, play, defCall) : passPlay(g, play, defCall);
     S.plays++; g.drive.plays++;
-    let y = res.yards;
+    let y = res.yards; entry.res = res.kind;
     if (res.kind === 'int') {
       S.to++; entry.text = `INTERCEPTED by ${g[dside].name}!`; entry.type = 'turnover'; g.log.push(entry);
       const spot = Math.min(95, g.ball + 10 + Math.round(r() * 15));
@@ -336,9 +366,9 @@ const SimEngine = (() => {
       if (res.kind === 'run') { S.rushAtt++; S.rushYds += y; entry.text = `Run for ${y} yard${Math.abs(y) === 1 ? '' : 's'}.`; }
       else if (res.kind === 'sack') { S.sacks++; S.att++; entry.text = `SACKED for a loss of ${-y}.`; secs = 28; }
       else { S.att++; S.comp++; S.passYds += y; entry.text = `Complete for ${y} yard${Math.abs(y) === 1 ? '' : 's'}.`; }
-      S.yards += y; g.drive.yards += y; g.ball += y;
+      S.yards += y; g.drive.yards += y; g.ball += y; entry.yards = y;
       if (res.fumble && r() < 0.55) {
-        S.to++; entry.text += ` FUMBLE, recovered by ${g[dside].name}!`; entry.type = 'turnover'; g.log.push(entry);
+        S.to++; entry.res = 'fumble'; entry.text += ` FUMBLE, recovered by ${g[dside].name}!`; entry.type = 'turnover'; g.log.push(entry);
         tick(g, secs); if (!g.over) changePoss(g, dside, 100 - g.ball, null);
         return entry;
       }
@@ -370,11 +400,159 @@ const SimEngine = (() => {
 })();
 if (typeof module !== 'undefined') module.exports = SimEngine;
 </script>
+<script>// Coach mode for the Horick Index game sim: plain-language football tactics while you play.
+// Diagrams, situation tips, a "film room" read after every snap and a postgame coaching report.
+const SimCoach = (() => {
+  // ---------- mini chalkboard diagrams ----------
+  const OL = [[120, 100], [135, 100], [150, 100], [165, 100], [180, 100]];
+  const svgWrap = (inner) => `<svg viewBox="0 0 300 160" class="chalk" role="img" aria-hidden="true"><defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs><line x1="0" y1="92" x2="300" y2="92" class="los"/>${inner}</svg>`;
+  const O = (x, y, lab = '') => `<circle cx="${x}" cy="${y}" r="6" class="o"/>${lab ? `<text x="${x}" y="${y + 3}" class="lab">${lab}</text>` : ''}`;
+  const X = (x, y, cls = '') => `<text x="${x}" y="${y + 4}" class="x ${cls}">✕</text>`;
+  const A = (d, cls = '') => `<path d="${d}" class="arr ${cls}" marker-end="url(#ah)"/>`;
+  const line = (shotgun = true, rb = [150, 135]) => OL.map(([x, y]) => O(x, y)).join('') + O(150, shotgun ? 122 : 110, 'Q') + O(rb[0], rb[1], 'R') + O(30, 100) + O(270, 100) + O(240, 104);
+  const D = {
+    base: X(115, 80) + X(140, 80) + X(160, 80) + X(185, 80) + X(130, 60) + X(170, 60) + X(30, 70) + X(270, 70) + X(240, 66) + X(150, 25) + X(220, 40),
+    run_stop: X(110, 80) + X(135, 80) + X(165, 80) + X(190, 80) + X(125, 66) + X(150, 64) + X(175, 66) + X(210, 72, 'hot') + X(30, 74) + X(270, 74) + X(150, 25),
+    blitz: X(115, 80) + X(140, 80) + X(160, 80) + X(185, 80) + X(132, 70, 'hot') + X(168, 70, 'hot') + X(240, 72, 'hot') + X(30, 78) + X(270, 78) + X(150, 30),
+    cover2: X(115, 80) + X(140, 80) + X(160, 80) + X(185, 80) + X(135, 62) + X(165, 62) + X(40, 66) + X(260, 66) + X(220, 62) + X(85, 25) + X(215, 25),
+    prevent: X(130, 80) + X(150, 80) + X(170, 80) + X(60, 55) + X(110, 55) + X(150, 55) + X(190, 55) + X(240, 55) + X(70, 20) + X(150, 15) + X(230, 20),
+  };
+  const PLAY_ART = {
+    inside_run: line(false) + A('M150 135 C150 120 158 108 160 80') + A('M135 100 L135 86', 'blk') + A('M150 100 L150 86', 'blk') + A('M165 100 L165 86', 'blk'),
+    outside_run: line(false) + A('M150 135 C175 130 205 118 222 82') + A('M120 100 L130 88', 'blk') + A('M150 100 L162 88', 'blk') + A('M180 100 L192 88', 'blk'),
+    qb_sneak: OL.map(([x, y]) => O(x, y)).join('') + O(150, 106, 'Q') + O(150, 130, 'R') + A('M150 106 L150 82') + O(30, 100) + O(270, 100),
+    screen: line(true, [130, 122]) + A('M130 122 C110 124 100 116 95 108') + A('M120 100 L105 104', 'blk') + A('M135 100 L112 98', 'blk') + A('M95 108 L80 60', 'dash'),
+    short_pass: line(true) + A('M30 100 L30 88 L55 70') + A('M270 100 L270 82 L262 82') + A('M240 104 L280 98'),
+    medium_pass: line(true) + A('M30 100 L30 60 L95 60') + A('M240 104 L240 62 L200 62') + A('M270 100 L270 50 L285 40'),
+    deep_pass: line(true) + A('M30 100 L30 10') + A('M270 100 L270 50 L215 12') + A('M150 135 L150 122', 'blk'),
+  };
+  const PLAYS = {
+    inside_run: { name: 'Inside zone', what: 'The whole line steps the same way and blocks whoever is in front of them; the back reads the first gap that opens between the tackles.', good: 'Two-deep shells and prevent (only 6 in the box), keeping the offense on schedule.', bad: 'A loaded box: there are more defenders than blockers.' },
+    outside_run: { name: 'Outside zone (stretch)', what: 'Linemen run sideways to reach the edge; the back aims wide and cuts back if the defense over-pursues.', good: 'Fast defenses that over-run the play, and blitzes that leave the edge unguarded (big-play chance).', bad: 'Loaded boxes and disciplined edge defenders; more tackles for loss than inside zone.' },
+    qb_sneak: { name: 'QB sneak', what: 'The quarterback takes the snap under center and pushes straight behind the center. No handoff, nothing to mess up.', good: '3rd or 4th and 1: the most reliable yard in football.', bad: 'Anything longer than 2 yards. It almost never breaks.' },
+    screen: { name: 'Running-back screen', what: 'Linemen let the pass rush through on purpose, then release to set up a wall; the QB lofts it over the rushers to the back.', good: 'Blitzes: the extra rushers run themselves out of the play.', bad: 'Base defenses that keep linebackers home, and long yardage (it rarely goes far).' },
+    short_pass: { name: 'Quick game (slant/flat/hitch)', what: '3-step drop, ball out in about 2 seconds to receivers 3–7 yards deep.', good: 'Blitzes and soft coverage; high completion rate keeps the chains moving.', bad: '3rd and long: short throws often end short of the sticks.' },
+    medium_pass: { name: 'Intermediate (dig/flood)', what: 'Routes break 10–18 yards downfield into the holes of a zone. Needs the QB to hold the ball a bit longer.', good: 'Loaded boxes and two-deep shells: the space between linebackers and safeties.', bad: 'Blitzes: the QB doesn’t have time and the risk of sacks and interceptions goes up.' },
+    deep_pass: { name: 'Shot play (go/post)', what: 'Receivers run straight downfield or to the post, 20+ yards. Low completion rate, big payoff.', good: 'Single-high defenses (loaded box, blitz) where a receiver is one-on-one.', bad: 'Two-deep and prevent: there’s always a safety over the top. Also the most sacks and picks.' },
+    punt: { name: 'Punt', what: 'Give the ball away on purpose to flip field position (about 40 net yards).', good: '4th and medium/long in your own territory.', bad: 'Short yardage near midfield or later: analytics says go for it more than coaches do.' },
+    field_goal: { name: 'Field goal', what: 'Distance = yards to the goal line + 17. Make rates drop fast past 45 yards.', good: '4th down inside about the opponent’s 30, or when 3 points ties or wins it late.', bad: 'Long tries (50+) that hand the opponent great field position on a miss.' },
+  };
+  const DEFS = {
+    base: { name: 'Base (4-2-5, Cover 3)', what: 'Seven defenders near the line, three deep. Balanced against everything, great against nothing.', good: 'Early downs when you don’t know what’s coming.', bad: 'Doesn’t take anything away; good offenses pick their spot.' },
+    run_stop: { name: 'Load the box (8 men, single high)', what: 'Bring a safety down so there are more run defenders than blockers. Only one safety stays deep.', good: 'Short yardage and run-heavy teams.', bad: 'Play-action and shots: receivers are one-on-one with no help over the top.' },
+    blitz: { name: 'Blitz (5–6 rushers, man behind)', what: 'Send more rushers than the line can block and cover man-to-man behind them.', good: 'Long-yardage passing downs: sacks and rushed throws.', bad: 'Screens and quick passes, and any missed tackle can go the distance.' },
+    cover2: { name: 'Two-deep shell (Cover 2)', what: 'Two safeties split the deep field in halves; corners squat on short routes.', good: 'Taking away the deep ball and anything outside.', bad: 'Runs, since there are only six defenders in the box, and throws into the middle hole.' },
+    prevent: { name: 'Prevent', what: 'Rush three, drop eight deep. Give up anything short, nothing over the top.', good: 'Protecting a late lead against a hurry-up offense that needs a big play.', bad: 'Any other time: offenses march underneath and the clock still runs.' },
+  };
+  // ---------- film room: why a call worked or didn't ----------
+  const G = (k) => (['inside_run', 'outside_run', 'qb_sneak'].includes(k) ? 'run' : k.replace('_pass', ''));
+  const FILM = {
+    run: { base: 'Even numbers in the box: this one comes down to who wins up front.', run_stop: 'They had an extra man in the box for the run, so somebody went unblocked.', blitz: 'The blitzers shot gaps; if the back gets past them, there’s no one behind.', cover2: 'Only six in the box with two safeties deep, so runs have room.', prevent: 'With eight defenders dropping deep, the run is wide open underneath.' },
+    screen: { base: 'Linebackers stayed home, so the screen had company.', run_stop: 'The box was loaded for the run; the screen got outside of it.', blitz: 'Textbook: the blitz ran past the back and he had blockers in front of him.', cover2: 'The flat defenders in Cover 2 sit right where screens go.', prevent: 'Prevent concedes the short stuff; the screen takes it.' },
+    short: { base: 'A quick throw against a balanced look: steady, unspectacular.', run_stop: 'With a safety down for the run, quick routes outside have room.', blitz: 'Ball out fast beats the blitz before it gets home, but it’s a tighter window in man coverage.', cover2: 'Cover 2 corners squat on short routes; windows are tight outside.', prevent: 'Prevent gives you everything short. Take it.' },
+    medium: { base: 'Intermediate routes test the seams between zones.', run_stop: 'The vacated safety spot leaves holes 10–20 yards downfield.', blitz: 'Intermediate routes need time; the blitz rushes the throw.', cover2: 'The middle hole between the safeties is open, but the throw has to be on time.', prevent: 'Prevent drops deep enough to take away 15+ yards.' },
+    deep: { base: 'Three deep defenders. A shot needs a perfect throw.', run_stop: 'One-on-one outside with no safety help: this is when you take your shot.', blitz: 'If the QB survives the rush, a receiver is running free.', cover2: 'Two safeties over the top: the deep ball has nowhere to go.', prevent: 'Eight defenders deep. This is exactly what prevent is built to stop.' },
+  };
+  // matchup grade from the engine's matrix: + good for offense, - good for defense
+  const GRADE = { run: { base: 0, run_stop: -2, blitz: 0, cover2: 1, prevent: 2 }, screen: { base: 0, run_stop: 1, blitz: 2, cover2: -1, prevent: 1 }, short: { base: 0, run_stop: 1, blitz: 0, cover2: -1, prevent: 2 }, medium: { base: 0, run_stop: 1, blitz: -2, cover2: 0, prevent: -1 }, deep: { base: 0, run_stop: 2, blitz: 1, cover2: -2, prevent: -2 } };
+
+  // ---------- success rate (the stat analysts use) ----------
+  function success(e) {
+    if (!e || !e.offKey || ['punt', 'field_goal'].includes(e.offKey)) return null;
+    if (['int', 'fumble'].includes(e.res)) return false;
+    const need = e.down === 1 ? 0.4 * e.togo : e.down === 2 ? 0.6 * e.togo : e.togo;
+    return e.yards >= need || /TOUCHDOWN/.test(e.text || '');
+  }
+  const sitKey = (e) => {
+    const toGoal = 100 - e.ball0;
+    if (toGoal <= 20) return 'Red zone';
+    if (e.down <= 2) return e.down === 1 ? '1st down' : (e.togo <= 3 ? '2nd & short' : e.togo >= 7 ? '2nd & long' : '2nd & medium');
+    return e.togo <= 2 ? `${e.down === 3 ? '3rd' : '4th'} & short` : e.togo <= 6 ? `${e.down === 3 ? '3rd' : '4th'} & medium` : `${e.down === 3 ? '3rd' : '4th'} & long`;
+  };
+
+  // ---------- situation tips before the call ----------
+  function tip(g, onOffense) {
+    const toGoal = 100 - g.ball, lead = g.score[g.poss] - g.score[g.poss === 'home' ? 'away' : 'home'], late = g.qtr >= 4 && g.clock < 300;
+    const t = [];
+    if (onOffense) {
+      if (g.down === 4) t.push(g.togo <= 2 && toGoal <= 60 ? '4th & short past midfield: the numbers say go for it. A sneak or inside run converts most of the time, and a punt only nets ~40 yards.' : toGoal <= 33 ? 'In field-goal range. Kick unless it’s 4th & 1–2 or you need a touchdown.' : 'Deep in your own end on 4th & medium or long: punting to flip the field is the percentage play.');
+      else if (toGoal <= 10) t.push('Goal-to-go: the field is compressed, so deep shots lose their value. Power runs and quick throws are your best tools.');
+      else if (toGoal <= 20) t.push('Red zone: less space to throw into. Teams that score touchdowns here instead of field goals win games.');
+      else if (g.down === 1) t.push('1st & 10: a successful play gets 4+ yards (40% of what you need). Stay ahead of the chains and the playbook stays open.');
+      else if (g.down === 2 && g.togo <= 3) t.push('2nd & short: a “free play.” You can take a deep shot and still have 3rd & short as a fallback. Defenses often load the box here.');
+      else if (g.down === 2 && g.togo >= 8) t.push('2nd & long: you need 60% of the distance (about ' + Math.ceil(0.6 * g.togo) + ' yards) for a successful play. Screens and intermediate throws are common answers.');
+      else if (g.down === 3 && g.togo <= 2) t.push('3rd & short: sneaks and inside runs convert most often. Expect a loaded box.');
+      else if (g.down === 3 && g.togo <= 6) t.push('3rd & medium: a true coin flip (FBS teams convert ~49% on 3rd/4th and 2–5). Quick throws beat the blitzes defenses love here.');
+      else if (g.down === 3) t.push('3rd & long: the throw has to get past the sticks, so the defense will sit deep or blitz. A screen against a blitz is a classic counter.');
+      if (late && lead > 0) t.push('Protecting a lead late: runs keep the clock moving and cut turnover risk.');
+      if (late && lead < 0) t.push('Trailing late: you need chunks. Incompletions stop the clock; sacks and runs don’t.');
+    } else {
+      if (g.down === 3 && g.togo >= 7) t.push(`Their 3rd & ${g.togo}: they must throw past the sticks. A two-deep shell keeps everything in front; a blitz can win the down but risks a big play.`);
+      else if (g.togo <= 2) t.push('Short yardage: load the box. If they beat you with a pass, so be it.');
+      else if (g.down === 1) t.push('1st down: they can do anything. Base defense doesn’t guess wrong.');
+      else if (g.down === 2 && g.togo >= 8) t.push('2nd & long: they are behind the chains. Pressure or a two-deep look can force a punt.');
+      if (late && lead > 0 && lead <= 8) t.push('Late with a one-score lead: prevent or two-deep stops the quick touchdown, but gives up yards underneath.');
+      if (100 - g.ball <= 20) t.push('Red zone defense: the field shrinks in your favor. Holding them to a field goal is a win.');
+    }
+    return t.join(' ');
+  }
+
+  // ---------- after the snap ----------
+  function film(e, me) {
+    if (!e || !e.offKey || ['punt', 'field_goal'].includes(e.offKey)) return '';
+    const grp = G(e.offKey), gr = GRADE[grp][e.defKey], ok = success(e);
+    const mine = me === 'watch' ? null : e.side === me ? 'off' : 'def';
+    const verdict = gr >= 2 ? 'Great matchup for the offense.' : gr === 1 ? 'Favorable look for the offense.' : gr <= -2 ? 'The defense had this one called.' : gr === -1 ? 'The defense had the edge on this call.' : 'An even matchup.';
+    let s = `<b>${PLAYS[e.offKey].name}</b> vs <b>${DEFS[e.defKey].name.split(' (')[0]}</b>. ${FILM[grp][e.defKey]} <i>${verdict}</i>`;
+    if (ok !== null) s += ` <span class="${ok ? 'succ' : 'fail'}">${ok ? '✓ Successful play' : '✗ Unsuccessful play'}</span>`;
+    if (mine === 'off' && gr <= -2) s += ' Next time this look shows up, try something that attacks it.';
+    if (mine === 'def' && gr >= 2) s += ' That call was exactly what their play wanted to see.';
+    return s;
+  }
+
+  // ---------- postgame coaching report ----------
+  function report(g, me) {
+    if (me === 'watch') return '';
+    const off = g.log.filter((e) => e.byUser && e.offKey && e.side === me && !['punt', 'field_goal'].includes(e.offKey));
+    const def = g.log.filter((e) => e.byUser && e.offKey && e.side !== me && !['punt', 'field_goal'].includes(e.offKey));
+    if (!off.length && !def.length) return '<div class="h2">Coaching report</div><p class="hint">You let the AI call every snap, so there’s nothing to grade. Call some plays yourself next game and you’ll get a breakdown here.</p>';
+    const by = {};
+    for (const e of off) { const k = sitKey(e); (by[k] = by[k] || { n: 0, s: 0, calls: {} }).n++; if (success(e)) by[k].s++; by[k].calls[e.offKey] = (by[k].calls[e.offKey] || 0) + 1; }
+    const order = ['1st down', '2nd & short', '2nd & medium', '2nd & long', '3rd & short', '3rd & medium', '3rd & long', '4th & short', '4th & medium', '4th & long', 'Red zone'];
+    const rows = order.filter((k) => by[k]).map((k) => { const v = by[k], top = Object.entries(v.calls).sort((a, b) => b[1] - a[1])[0][0];
+      return `<tr><td>${k}</td><td>${v.n}</td><td>${Math.round(100 * v.s / v.n)}%</td><td style="text-align:left">${PLAYS[top].name}</td></tr>`; }).join('');
+    const sr = off.length ? Math.round(100 * off.filter(success).length / off.length) : 0;
+    const dsr = def.length ? Math.round(100 * def.filter(success).length / def.length) : 0;
+    const goodCalls = def.filter((e) => GRADE[G(e.offKey)][e.defKey] <= -1).length;
+    const badOff = off.filter((e) => GRADE[G(e.offKey)][e.defKey] <= -2).length;
+    const lessons = [];
+    if (off.length) lessons.push(`Your play calls' success rate: <b>${sr}%</b> on ${off.length} snaps (the FBS average is about 42%; elite offenses are 47%+).`);
+    if (def.length) lessons.push(`Opponent success rate against your defense: <b>${dsr}%</b>. Your defensive call beat their play call on ${goodCalls} of ${def.length} snaps.`);
+    if (badOff) lessons.push(`${badOff} of your plays ran straight into the defense built to stop them (like a deep shot into two-deep). Look at down and distance: that’s what the defense is guessing from.`);
+    const tl = off.filter((e) => e.down === 3 && e.togo >= 7 && ['short_pass', 'inside_run', 'outside_run'].includes(e.offKey));
+    if (tl.length >= 2) lessons.push(`You called short plays on 3rd & long ${tl.length} times. Those rarely reach the sticks; intermediate routes or a screen against a blitz convert more often.`);
+    const p4 = g.log.filter((e) => e.byUser && e.side === me && e.offKey === 'punt' && e.togo <= 2 && 100 - e.ball0 <= 55);
+    if (p4.length) lessons.push(`You punted on 4th & short past midfield ${p4.length} time${p4.length > 1 ? 's' : ''}. Modern analytics says go for it there.`);
+    return `<div class="h2">Coaching report</div><p class="hint">Graded on the snaps you called yourself (simmed plays don’t count). “Success” = gaining 40% of the yards needed on 1st down, 60% on 2nd, all of it on 3rd and 4th. It’s the stat analysts use instead of yards per play.</p>
+      <table class="rep"><tr><th>Situation</th><th>Plays</th><th>Success</th><th style="text-align:left">Your go-to call</th></tr>${rows}</table>
+      <ul class="lessons">${lessons.map((l) => `<li>${l}</li>`).join('')}</ul>`;
+  }
+
+  const card = (k, isDef) => { const I = isDef ? DEFS[k] : PLAYS[k]; const art = isDef ? line(true) + D[k] : (PLAY_ART[k] ? PLAY_ART[k] + D.base.replace(/class="x /g, 'class="x faint ') : '');
+    return `<div class="pb">${art ? svgWrap(art) : ''}<div><b>${I.name}</b><p>${I.what}</p><p><span class="succ">Works against:</span> ${I.good}</p><p><span class="fail">Struggles against:</span> ${I.bad}</p></div></div>`; };
+
+  const snapArt = (off, def) => (PLAY_ART[off] ? svgWrap(PLAY_ART[off] + D[def]) : '');
+  return { PLAYS, DEFS, tip, film, report, success, card, snapArt };
+})();
+</script>
 <script>
 (() => {
   const D = window.__SIM__, E = SimEngine, $ = (id) => document.getElementById(id);
   const names = Object.keys(D.teams).sort();
-  let mode = 'slate', me = 'home', g = null;
+  let mode = 'slate', me = 'home', g = null, coach = true;
+  const C = SimCoach;
+  $('pbOff').innerHTML = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass', 'punt', 'field_goal'].map((k) => C.card(k, false)).join('');
+  $('pbDef').innerHTML = Object.keys(C.DEFS).map((k) => C.card(k, true)).join('');
   const opt = (v, t) => `<option value="${v}">${t}</option>`;
   const lab = (n) => `${D.teams[n].rank <= 25 ? '#' + D.teams[n].rank + ' ' : ''}${n}`;
   $('slate').innerHTML = D.games.map((x, i) => opt(i, `${lab(x.away)} ${x.neutral ? 'vs' : 'at'} ${lab(x.home)} · ${x.kickoff || x.date}`)).join('');
@@ -401,6 +579,7 @@ if (typeof module !== 'undefined') module.exports = SimEngine;
   $('start').onclick = () => {
     const p = pick(); if (p.away === p.home) return alertBox('Pick two different teams.');
     g = E.init(D, p.home, p.away, { neutral: p.neutral, hfa: p.hfa, seed: (Math.random() * 1e9) | 0 });
+    coach = $('coachMode').checked; $('pbCard').classList.toggle('hidden', !coach); $('film').innerHTML = ''; $('report').classList.add('hidden');
     $('setup').classList.add('hidden'); $('game').classList.remove('hidden');
     for (const s of ['away', 'home']) { $(s + 'Name').textContent = lab(g[s].name); $(s + 'Chip').style.background = g[s].color; $(s + 'Sub').textContent = g[s].record + (me === s ? ' · you' : ''); }
     $('ezL').style.background = g.home.color; $('ezR').style.background = g.away.color;
@@ -431,6 +610,8 @@ if (typeof module !== 'undefined') module.exports = SimEngine;
       const w = g.score.home > g.score.away ? 'home' : 'away';
       $('finalLine').textContent = `${g[w].name} wins ${Math.max(g.score.home, g.score.away)}–${Math.min(g.score.home, g.score.away)}` + (me !== 'watch' ? (w === me ? ' · You win!' : ' · Tough loss, coach.') : '');
       $('finalLine').classList.remove('hidden');
+      const rep = coach ? C.report(g, me) : '';
+      $('report').innerHTML = rep; $('report').classList.toggle('hidden', !rep);
     }
     renderCalls(); renderLog(); renderStats();
   }
@@ -459,10 +640,12 @@ if (typeof module !== 'undefined') module.exports = SimEngine;
       html = `<button class="btn" data-n="1">Next play<small>Step through one snap</small></button>`;
     }
     $('calls').innerHTML = html;
+    $('tip').innerHTML = coach && me !== 'watch' ? C.tip(g, userOnOffense()) : '';
   }
 
   function after(entry) {
     if (entry) $('last').innerHTML = describe(entry);
+    $('film').innerHTML = coach && entry && entry.offKey ? (C.snapArt(entry.offKey, entry.defKey) + `<div>${C.film(entry, me)}</div>`) : '';
     render();
   }
   function describe(e) {
@@ -472,8 +655,9 @@ if (typeof module !== 'undefined') module.exports = SimEngine;
   }
   $('calls').onclick = (e) => {
     const b = e.target.closest('button'); if (!b || g.over) return;
-    if (b.dataset.o) after(E.snap(g, b.dataset.o, null));
-    else if (b.dataset.d) after(E.snap(g, null, b.dataset.d));
+    const mark = (e) => { if (e) e.byUser = true; return e; };
+    if (b.dataset.o) after(mark(E.snap(g, b.dataset.o, null)));
+    else if (b.dataset.d) after(mark(E.snap(g, null, b.dataset.d)));
     else after(E.snap(g, null, null));
   };
   $('auto').onclick = () => { if (!g.over) after(E.snap(g, null, null)); };
