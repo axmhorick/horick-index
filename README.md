@@ -1,4 +1,4 @@
-# The Horick Index
+# The Chalkboard
 
 College football power rankings, team profiles and weekly picks vs. the spread.
 
