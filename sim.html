@@ -123,7 +123,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
     <label>🧢 You coach</label>
     <div class="seg" id="side"></div>
     <label class="toggle"><input type="checkbox" id="coachMode" checked> Coach mode: learn to see the game like a coach (pre-snap reads, coach-speak with tap-to-explain terms, play diagrams, postgame report)</label>
-    <label class="toggle"><input type="checkbox" id="soundOn" checked> 🔊 Game-day sound: crowd noise, the ref's whistle, band riffs on big plays, and a tap-to-play fight song after every touchdown (via Spotify)</label>
+    <label class="toggle"><input type="checkbox" id="soundOn" checked> 🔊 Game-day sound: crowd noise, the ref's whistle, band riffs on big plays, drum cadences while you pick a call, and a tap-to-play fight song after every touchdown (via Spotify)</label>
     <p class="hint" id="proj"></p>
     <button class="btn primary" id="start" style="width:100%;margin-top:6px">🏁 Kick off</button>
   </div>
@@ -851,7 +851,7 @@ const SimCoach = (() => {
     render(); window.scrollTo(0, 0);
   };
   function alertBox(t) { $('proj').textContent = t; }
-  $('again').onclick = () => { stopSong(); bedStop(); $('game').classList.add('hidden'); $('setup').classList.remove('hidden'); $('finalLine').classList.add('hidden'); };
+  $('again').onclick = () => { idleStop(); stopSong(); bedStop(); $('game').classList.add('hidden'); $('setup').classList.remove('hidden'); $('finalLine').classList.add('hidden'); };
 
   const fmtClock = (c) => `${Math.floor(Math.max(0, c) / 60)}:${String(Math.max(0, c) % 60).padStart(2, '0')}`;
   const qName = (q) => (q <= 4 ? ['', '1st', '2nd', '3rd', '4th'][q] : 'OT' + (q - 4));
@@ -880,6 +880,7 @@ const SimCoach = (() => {
       $('report').innerHTML = rep && `<details open class="sec"><summary class="h2">🏁 Postgame</summary>${rep}</details>`; $('report').classList.toggle('hidden', !rep);
     }
     renderCalls(); renderLog(); renderStats(); renderBox();
+    if (!g.over && me !== 'watch') idleArm(g.log.length && /Halftime/.test((g.log[g.log.length - 1] || {}).text || '') ? 1200 : 3500); else idleStop();
   }
 
   function renderCalls() {
@@ -1050,11 +1051,33 @@ const SimCoach = (() => {
       if (drums) { const end = Math.max(...r.map((x) => x[1] + x[2])); for (let x = 0; x < end; x += 0.14) snare(t0 + x, x % 0.28 < 0.01 ? 0.2 : 0.1); bass(t0); bass(t0 + end - 0.1); }
     } catch (e) {}
   }
-  function cadence(bars = 2) { // drumline cadence
-    if (!SND.on) return; try {
-      const t0 = AC().currentTime + 0.05, beat = 0.18, pat = [1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0];
-      for (let b = 0; b < bars; b++) pat.forEach((h, i) => { const t = t0 + (b * 16 + i) * beat / 2; if (h) snare(t, i % 4 === 0 ? 0.22 : 0.12); if (i % 4 === 0) bass(t, 0.3); });
-    } catch (e) {}
+  // drumline cadences. A few patterns so it doesn't sound like a loop; vol scales the whole thing.
+  const CAD = [
+    [1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0],
+    [1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1],
+    [1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1],
+    [1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1],
+  ];
+  function cadence(bars = 2, vol = 1, pat = CAD[0], tempo = 0.18) {
+    if (!SND.on) return 0; try {
+      const t0 = AC().currentTime + 0.05;
+      for (let b = 0; b < bars; b++) pat.forEach((h, i) => { const t = t0 + (b * 16 + i) * tempo / 2; if (h) snare(t, (i % 4 === 0 ? 0.22 : 0.12) * vol); if (i % 4 === 0) bass(t, 0.3 * vol); if (i % 8 === 4) tone(110, t, 0.08, { type: 'triangle', vol: 0.05 * vol, cutoff: 600, detune: 0 }); });
+      return bars * 16 * tempo / 2;
+    } catch (e) { return 0; }
+  }
+  // Dead-period drums: when you're deciding on a call (or at halftime), the drumline plays quietly in the stands.
+  // Stops the moment you snap the ball, and stays out of the way of a song pop-up.
+  const IDLE = { t: null, on: false };
+  function idleStop() { clearTimeout(IDLE.t); IDLE.t = null; IDLE.on = false; }
+  function idleArm(delay = 3500) {
+    idleStop(); if (!SND.on || !g || g.over || me === 'watch') return;
+    IDLE.t = setTimeout(function loop() {
+      if (!SND.on || !g || g.over) return idleStop();
+      const busy = !$('soundBox').classList.contains('off') || SND.lockUntil > Date.now();
+      let len = 0;
+      if (!busy) { IDLE.on = true; len = cadence(2, 0.45, CAD[Math.floor(Math.random() * CAD.length)], 0.17 + Math.random() * 0.03); }
+      IDLE.t = setTimeout(loop, (len || 2) * 1000 + 600 + Math.random() * 1400); // short breath between cadences
+    }, delay);
   }
   // Phones only let Spotify play after a tap inside its player, so the fight song is tap-to-play:
   // after a touchdown a small Spotify player pops up and stays until closed or the next touchdown.
@@ -1150,7 +1173,7 @@ const SimCoach = (() => {
   }
 
   $('songX').onclick = stopSong;
-  $('mute').onclick = () => { SND.on = !SND.on; $('mute').textContent = SND.on ? '🔊' : '🔇'; if (!SND.on) { stopSong(); bedStop(); } else bedStart(); };
+  $('mute').onclick = () => { SND.on = !SND.on; $('mute').textContent = SND.on ? '🔊' : '🔇'; if (!SND.on) { idleStop(); stopSong(); bedStop(); } else { bedStart(); idleArm(); } };
 
   // ---------- players (public depth charts + NFL big board) ----------
   const POS = { QB: 'QB', RB: 'RB', WR1: 'WR', WR2: 'WR', SLOT: 'WR', TE: 'TE', EDGE: 'EDGE', EDGE2: 'EDGE', DT: 'DT', DT2: 'DT', LB: 'LB', LB2: 'LB', CB1: 'CB', CB2: 'CB', NB: 'nickel', S: 'S', S2: 'S', K: 'K', P: 'P' };
@@ -1229,6 +1252,7 @@ const SimCoach = (() => {
   }
   $('calls').onclick = (e) => {
     const b = e.target.closest('button'); if (!b || g.over) return;
+    idleStop();
     const mark = (e) => { if (e) e.byUser = true; return e; };
     const look = pend && pend.look;
     if (b.dataset.o) after(mark(E.snap(g, b.dataset.o, ['punt', 'field_goal'].includes(b.dataset.o) ? null : pend && pend.def)), look);
@@ -1238,13 +1262,13 @@ const SimCoach = (() => {
     else if (b.dataset.d) after(mark(E.snap(g, pend && pend.play, b.dataset.d)), look);
     else after(E.snap(g, null, null));
   };
-  $('auto').onclick = () => { if (g.over) return; const look = pend && pend.look; after(E.snap(g, pend && pend.play || null, pend && pend.def || null), look); };
-  $('simDrive').onclick = () => {
+  $('auto').onclick = () => { idleStop(); if (g.over) return; const look = pend && pend.look; after(E.snap(g, pend && pend.play || null, pend && pend.def || null), look); };
+  $('simDrive').onclick = () => { idleStop();
     if (g.over) return; const side = g.poss, d0 = g.drive; let last = null, n = 0;
     while (!g.over && g.poss === side && g.drive === d0 && n++ < 40) last = E.snap(g, null, null);
     after(last);
   };
-  $('simAll').onclick = () => { let last = null; while (!g.over) last = E.snap(g, null, null); after(last); };
+  $('simAll').onclick = () => { idleStop(); let last = null; while (!g.over) last = E.snap(g, null, null); after(last); };
 
   function renderLog() {
     const rows = g.log.slice().reverse().slice(0, 150).map((e) => {
