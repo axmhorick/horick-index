@@ -129,6 +129,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
   </div>
 
   <div id="game" class="hidden">
+    <div class="card" id="drumCard"><details open class="sec"><summary class="h2">🥁 Drumline</summary><p class="hint" style="margin:0 0 8px">Tap ▶️ once and real drum cadences play all game under the action (Spotify). When one of your team's songs pops up, the drumline pauses and comes back after your next call.</p><div id="drumSpot"></div></details></div>
     <div class="card" style="position:relative">
       <div class="score">
         <div class="team"><span class="chip" id="awayChip"></span><div style="min-width:0"><div class="tname" id="awayName"></div><div class="tsub" id="awaySub"></div></div></div>
@@ -157,7 +158,6 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
     <div class="card" id="pbCard"><details class="pbk"><summary>📖 Playbook: what every call does</summary><div id="pbOff"></div><div class="h2" style="margin-top:12px">🛡️ Defensive calls</div><div id="pbDef"></div></details><details class="pbk"><summary>📚 Coach’s dictionary: the vocabulary, in plain English</summary><dl class="dict" id="dict"></dl></details></div>
     <div class="sound off" id="soundBox"><button class="x" id="songX" title="Close" style="float:right;border:0;background:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button><p class="cap" id="songCap"></p><div id="spot"></div></div>
     <button class="btn primary backbtn hidden" id="backBtn">⬆️ Back to the play</button>
-    <div class="card" id="drumCard"><details open class="sec"><summary class="h2">🥁 Drumline</summary><p class="hint" style="margin:0 0 8px">Tap ▶️ once and real drum cadences play all game under the action (Spotify). When one of your team's songs pops up, the drumline pauses and comes back after your next call.</p><div id="drumSpot"></div></details></div>
     <div class="card"><details open class="sec"><summary class="h2">📝 Play-by-play</summary><div class="log" id="log"></div></details></div>
     <div class="card"><details open class="sec"><summary class="h2">🧾 Box score</summary><div id="box"></div></details></div>
     <div class="card"><details open class="sec"><summary class="h2">📊 Team stats</summary><table id="stats"></table></details></div>
