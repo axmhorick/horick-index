@@ -195,7 +195,7 @@ const SimEngine = (() => {
     blitz: { label: 'Blitz' },
     cover2: { label: 'Two-deep shell (take away deep)' },
     prevent: { label: 'Prevent' },
-    ko_return: { label: 'Return set' },
+    ko_return: { label: 'Return set' }, // kickoff-return calls: only offered on kickoffs (not in DEF_KEYS)
     ko_kneel: { label: 'Fair catch / touchback' },
     ko_hands: { label: 'Hands team' },
   };
@@ -563,7 +563,7 @@ const SimEngine = (() => {
 
   function simToEnd(g) { let n = 0; while (!g.over && n++ < 600) snap(g); return g; }
 
-  return { K, OFF_ROLES, init, snap, simToEnd, aiOffense, aiDefense, OFF_PLAYS, DEF_CALLS, fgProb, matchupMult, patProb, aiPat, aiKick, aiRecv };
+  return { K, OFF_ROLES, init, snap, simToEnd, aiOffense, aiDefense, OFF_PLAYS, DEF_CALLS, fgProb, matchupMult, patProb, aiPat, aiKick, aiRecv, DEF_KEYS: ['base', 'run_stop', 'blitz', 'cover2', 'prevent'] };
 })();
 if (typeof module !== 'undefined') module.exports = SimEngine;
 </script>
@@ -915,7 +915,7 @@ const SimCoach = (() => {
     } else if (g.pat && userOnDefense()) {
       const two = pend && pend.play !== 'pat_kick';
       $('callTitle').textContent = two ? `🚨 ${g[g.poss].name} is going for 2: make a call` : `🎯 ${g[g.poss].name} is kicking the extra point`;
-      html = two ? Object.keys(E.DEF_CALLS).map((k) => `<button class="btn" data-d="${k}">${ICON[k]} ${E.DEF_CALLS[k].label}</button>`).join('') : `<button class="btn" data-d="base">▶️ Line up for the kick<small>They make ~${Math.round(E.patProb(g, 'pat_kick', 'base') * 100)}%</small></button>`;
+      html = two ? E.DEF_KEYS.map((k) => `<button class="btn" data-d="${k}">${ICON[k]} ${E.DEF_CALLS[k].label}</button>`).join('') : `<button class="btn" data-d="base">▶️ Line up for the kick<small>They make ~${Math.round(E.patProb(g, 'pat_kick', 'base') * 100)}%</small></button>`;
     } else if (userOnOffense()) {
       $('callTitle').textContent = '📋 Your offense: call a play';
       const fgDist = 100 - g.ball + 17, p = E.fgProb(g, g.poss);
@@ -937,7 +937,7 @@ const SimCoach = (() => {
       $('callTitle').textContent = '🛡️ Your defense: make a call';
       const tips = { base: 'Balanced', run_stop: 'Stuffs runs, softer vs pass', blitz: 'Sacks, but big-play risk', cover2: 'Takes away deep shots', prevent: 'Nothing deep, gives underneath' };
       const Dm = g[me]; const who = { blitz: `sends ${nm(Dm, 'LB', { last: true })} and ${nm(Dm, 'NB', { last: true })}`, run_stop: `${nm(Dm, 'S2', { last: true })} walks into the box`, cover2: `${nm(Dm, 'S', { last: true })} and ${nm(Dm, 'S2', { last: true })} deep`, base: `${nm(Dm, 'S', { last: true })} in the middle`, prevent: 'everyone bails deep' };
-      html = Object.keys(E.DEF_CALLS).map((k) => `<button class="btn" data-d="${k}">${ICON[k]} ${E.DEF_CALLS[k].label}<small>${tips[k]}</small><small class="who">${who[k]}</small></button>`).join('');
+      html = E.DEF_KEYS.map((k) => `<button class="btn" data-d="${k}">${ICON[k]} ${E.DEF_CALLS[k].label}<small>${tips[k]}</small><small class="who">${who[k]}</small></button>`).join('');
     } else {
       $('callTitle').textContent = '🍿 Watching: AI vs AI';
       html = `<button class="btn" data-n="1">▶️ Next play<small>Step through one snap</small></button>`;
