@@ -127,7 +127,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
     <label>🧢 You coach</label>
     <div class="seg" id="side"></div>
     <label class="toggle"><input type="checkbox" id="coachMode" checked> Coach mode: learn to see the game like a coach (pre-snap reads, coach-speak with tap-to-explain terms, play diagrams, postgame report)</label>
-    <label class="toggle"><input type="checkbox" id="rxOn" checked> 🎬 Reaction clips: the Stadium Pulse on the road and coach reactions to picks, sacks, fumbles and big losses</label>
+    <label class="toggle"><input type="checkbox" id="rxOn" checked> 🎬 Reaction clips: the Stadium Pulse on the road and coach reactions to goal-line scores, 3rd-down stops, 3-and-outs, picks, sacks, fumbles and big losses</label>
     <label class="toggle"><input type="checkbox" id="soundOn" checked> 🔊 Game-day sound: crowd noise, the ref's whistle, band riffs on big plays, drum cadences while you pick a call, and a tap-to-play fight song after every touchdown (via Spotify)</label>
     <p class="hint" id="proj"></p>
     <button class="btn primary" id="start" style="width:100%;margin-top:6px">🏁 Kick off</button>
@@ -991,7 +991,7 @@ const SimCoach = (() => {
 
   // ---------- reaction clips (added Nov 17): short muted videos in assets/rx_*.mp4, tap to dismiss ----------
   const RX = { q: [], busy: false, lastPulse: '' };
-  const RXF = { pulse: 'stadium_pulse', int: 'int_urban', third: 'third_down_fail', sack: 'sack', fumble: 'fumble', loss: 'big_loss' };
+  const RXF = { pulse: 'stadium_pulse', int: 'int_urban', third: 'third_down_fail', sack: 'sack', fumble: 'fumble', loss: 'big_loss', goal: 'goal_line_td', stop: 'third_down_stop', threeout: 'three_and_out' };
   function rxShow(k) { RX.q.push(k); if (!RX.busy) rxNext(); }
   function rxNext() {
     const k = RX.q.shift(); if (!k) { RX.busy = false; return; } RX.busy = true;
@@ -1009,11 +1009,13 @@ const SimCoach = (() => {
     if (entry && entry.dd && !entry.retSide) {
       const txt = entry.text || '';
       if (entry.side === me) {
-        if (entry.res === 'int') rxShow('int');
+        if (/TOUCHDOWN/.test(txt) && entry.res !== 'int' && (entry.down === 3 || entry.down === 4) && entry.togo >= 100 - entry.ball0) rxShow('goal');
+        else if (entry.res === 'int') rxShow('int');
         else if (['run', 'comp', 'sack'].includes(entry.res) && entry.yards <= -7) rxShow('loss');
-        else if (entry.down === 3 && ['run', 'comp', 'inc', 'sack'].includes(entry.res) && !/TOUCHDOWN|SAFETY/.test(txt) && g.poss === me && g.down === 4) rxShow('third');
+        else if (entry.down === 3 && ['run', 'comp', 'inc', 'sack'].includes(entry.res) && !/TOUCHDOWN|SAFETY/.test(txt) && g.poss === me && g.down === 4) rxShow(g.drive && g.drive.plays === 3 ? 'threeout' : 'third');
       } else if (entry.res === 'sack') rxShow('sack');
       else if (entry.res === 'fumble') rxShow('fumble');
+      else if (entry.down === 3 && entry.res !== 'int' && !/TOUCHDOWN|SAFETY/.test(txt) && g.poss === entry.side && g.down === 4) rxShow('stop');
     }
     const sit = `${g.down}|${g.togo}|${g.ball}|${g.poss}|${g.log.length}`;
     if (!g.over && me === 'away' && g.poss === me && g.down === 3 && !g.ko && !g.pat && sit !== RX.lastPulse) { RX.lastPulse = sit; rxShow('pulse'); }
