@@ -100,6 +100,10 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 .sound .cap { font-size:12px; color:var(--muted); margin:0 0 6px; }
 .sndbtn { display:block; margin:4px auto 0; border:1px solid var(--line); background:var(--panel); color:var(--fg); border-radius:999px; padding:2px 10px; font-size:14px; cursor:pointer; }
 .star { font-size:12px; } .who { color:var(--fg) !important; font-weight:600; } .mu { margin-top:6px; } 
+.rx { position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.45); animation:rxin .2s ease-out; cursor:pointer; }
+.rx video { width:min(480px, 92vw); border-radius:12px; border:3px solid #fff; box-shadow:0 10px 40px rgba(0,0,0,.6); background:#000; }
+.rx.out { opacity:0; transition:opacity .25s; }
+@keyframes rxin { from { opacity:0; transform:scale(.9); } to { opacity:1; transform:none; } }
 </style>
 </head>
 <body>
@@ -123,6 +127,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
     <label>🧢 You coach</label>
     <div class="seg" id="side"></div>
     <label class="toggle"><input type="checkbox" id="coachMode" checked> Coach mode: learn to see the game like a coach (pre-snap reads, coach-speak with tap-to-explain terms, play diagrams, postgame report)</label>
+    <label class="toggle"><input type="checkbox" id="rxOn" checked> 🎬 Reaction clips: the Stadium Pulse on the road and coach reactions to picks, sacks, fumbles and big losses</label>
     <label class="toggle"><input type="checkbox" id="soundOn" checked> 🔊 Game-day sound: crowd noise, the ref's whistle, band riffs on big plays, drum cadences while you pick a call, and a tap-to-play fight song after every touchdown (via Spotify)</label>
     <p class="hint" id="proj"></p>
     <button class="btn primary" id="start" style="width:100%;margin-top:6px">🏁 Kick off</button>
@@ -984,11 +989,42 @@ const SimCoach = (() => {
     $('read').innerHTML = coach && pend ? C.readTip(pend.look, userOnOffense()) + (kp ? `<br>${kp}` : '') : (kp && me !== 'watch' ? kp : '');
   }
 
+  // ---------- reaction clips (added Nov 17): short muted videos in assets/rx_*.mp4, tap to dismiss ----------
+  const RX = { q: [], busy: false, lastPulse: '' };
+  const RXF = { pulse: 'stadium_pulse', int: 'int_urban', third: 'third_down_fail', sack: 'sack', fumble: 'fumble', loss: 'big_loss' };
+  function rxShow(k) { RX.q.push(k); if (!RX.busy) rxNext(); }
+  function rxNext() {
+    const k = RX.q.shift(); if (!k) { RX.busy = false; return; } RX.busy = true;
+    const box = document.createElement('div'); box.className = 'rx'; box.title = 'Tap to close';
+    const v = document.createElement('video'); v.muted = true; v.autoplay = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+    v.src = `assets/rx_${RXF[k]}.mp4`; box.append(v); document.body.append(box);
+    let done = false; const end = () => { if (done) return; done = true; box.classList.add('out'); setTimeout(() => { box.remove(); rxNext(); }, 260); };
+    box.onclick = end; v.onerror = end;
+    v.onloadedmetadata = () => { const d = v.duration || 3; setTimeout(end, Math.min(7000, Math.max(2800, (d < 2 ? 2 * d : d) * 1000))); };
+    setTimeout(() => { if (!v.duration) end(); }, 5000); // never hold up the game if a clip can't load
+    const p = v.play(); if (p && p.catch) p.catch(() => {});
+  }
+  function reactions(entry) {
+    if (!g || me === 'watch' || !$('rxOn') || !$('rxOn').checked) return;
+    if (entry && entry.dd && !entry.retSide) {
+      const txt = entry.text || '';
+      if (entry.side === me) {
+        if (entry.res === 'int') rxShow('int');
+        else if (['run', 'comp', 'sack'].includes(entry.res) && entry.yards <= -7) rxShow('loss');
+        else if (entry.down === 3 && ['run', 'comp', 'inc', 'sack'].includes(entry.res) && !/TOUCHDOWN|SAFETY/.test(txt) && g.poss === me && g.down === 4) rxShow('third');
+      } else if (entry.res === 'sack') rxShow('sack');
+      else if (entry.res === 'fumble') rxShow('fumble');
+    }
+    const sit = `${g.down}|${g.togo}|${g.ball}|${g.poss}|${g.log.length}`;
+    if (!g.over && me === 'away' && g.poss === me && g.down === 3 && !g.ko && !g.pat && sit !== RX.lastPulse) { RX.lastPulse = sit; rxShow('pulse'); }
+  }
+
   function after(entry, look) {
     pend = null;
     if (entry) $('last').innerHTML = describe(entry);
     const mu = entry && entry.offRole ? `<div class="mu">🆚 <b>Matchup:</b> ${nm(g[entry.side], entry.offRole)} (${posOf(entry.offRole)}) vs ${nm(g[entry.side === 'home' ? 'away' : 'home'], entry.defRole)} (${posOf(entry.defRole)})${(() => { const a = pl(g[entry.side], entry.offRole), b = pl(g[entry.side === 'home' ? 'away' : 'home'], entry.defRole); const sa = a && a.bb && a.bb <= 300, sb = b && b.bb && b.bb <= 300; return sa && !sb ? '. The ⭐ prospect had the edge.' : sb && !sa ? '. Their ⭐ prospect had the edge.' : sa && sb ? '. Star vs. star.' : ''; })()}</div>` : '';
     announce(entry);
+    reactions(entry);
     $('film').innerHTML = coach && entry && entry.offKey ? (C.snapArt(entry.offKey, entry.defKey) + `<div>${C.film(entry, me, look)}${mu}</div>`) : '';
     render();
   }
