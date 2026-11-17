@@ -104,6 +104,15 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 .rx video { width:min(480px, 92vw); border-radius:12px; border:3px solid #fff; box-shadow:0 10px 40px rgba(0,0,0,.6); background:#000; }
 .rx.out { opacity:0; transition:opacity .25s; }
 @keyframes rxin { from { opacity:0; transform:scale(.9); } to { opacity:1; transform:none; } }
+.gp-glance { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:8px; margin:6px 0 12px; }
+.gp-glance div { background:var(--bg); border-radius:8px; padding:8px 10px; font-size:13px; } .gp-glance b { display:block; font-size:12px; color:var(--muted); font-weight:600; margin-bottom:2px; }
+.gp-tabs { margin:4px 0 10px; } .gp-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:10px; }
+.gp-card { border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13.5px; } .gp-card h4 { margin:0 0 6px; font-size:15px; }
+.gp-card .lab { font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; margin:8px 0 2px; } .gp-card .go { color:var(--good); } .gp-card .stop { color:var(--bad); } .gp-card .look { color:var(--muted); }
+.gp-card ul { margin:0; padding-left:18px; } .gp-card li { margin:2px 0; }
+.gp-split { display:flex; height:6px; border-radius:3px; overflow:hidden; margin:4px 0 2px; } .gp-split i:first-child { background:#4f7fbf; } .gp-split i:last-child { background:#d9a520; }
+.gp-tbl td, .gp-tbl th { font-size:12.5px; } .gp-note { font-size:12px; color:var(--muted); margin:8px 0 0; }
+.btn.plan { outline:3px solid var(--good); outline-offset:-1px; } .btn .planTag { display:block; color:var(--good); font-size:11px; font-weight:800; margin-top:3px; }
 </style>
 </head>
 <body>
@@ -130,6 +139,9 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
     <label class="toggle"><input type="checkbox" id="rxOn" checked> 🎬 Reaction clips: the Stadium Pulse on the road and coach reactions to goal-line scores, 3rd-down stops, 3-and-outs, picks, sacks, fumbles and big losses</label>
     <label class="toggle"><input type="checkbox" id="soundOn" checked> 🔊 Game-day sound: crowd noise, the ref's whistle, band riffs on big plays, drum cadences while you pick a call, and a tap-to-play fight song after every touchdown (via Spotify)</label>
     <p class="hint" id="proj"></p>
+    <button class="btn" id="planBtn" style="width:100%;margin-top:6px">📋 Build a game plan for this matchup</button>
+    <div id="planSetup" class="hidden" style="margin-top:10px"></div>
+    <label class="toggle hidden" id="followWrap"><input type="checkbox" id="followPlan" checked> 📋 Show my game plan's call on the play-call buttons during the game</label>
     <button class="btn primary" id="start" style="width:100%;margin-top:6px">🏁 Kick off</button>
   </div>
 
@@ -160,6 +172,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
     </details></div>
 
     <div class="card hidden" id="report"></div>
+    <div class="card hidden" id="planCard"><details class="sec"><summary class="h2">📋 Game plan</summary><div id="planGame"></div></details></div>
     <div class="card" id="pbCard"><details class="pbk"><summary>📖 Playbook: what every call does</summary><div id="pbOff"></div><div class="h2" style="margin-top:12px">🛡️ Defensive calls</div><div id="pbDef"></div></details><details class="pbk"><summary>📚 Coach’s dictionary: the vocabulary, in plain English</summary><dl class="dict" id="dict"></dl></details></div>
     <div class="sound off" id="soundBox"><button class="x" id="songX" title="Close" style="float:right;border:0;background:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button><p class="cap" id="songCap"></p><div id="spot"></div></div>
     <button class="btn primary backbtn hidden" id="backBtn">⬆️ Back to the play</button>
@@ -883,6 +896,7 @@ const SimCoach = (() => {
     $('drumCard').classList.toggle('hidden', !SND.on);
     coach = $('coachMode').checked; $('pbCard').classList.toggle('hidden', !coach); $('film').innerHTML = ''; $('report').classList.add('hidden');
     $('setup').classList.add('hidden'); $('game').classList.remove('hidden');
+    $('planCard').classList.toggle('hidden', !(PLAN && PLAN.me.name === g[PLAN.side].name && (me === 'watch' || PLAN.side === me)));
     for (const s of ['away', 'home']) { $(s + 'Name').textContent = lab(g[s].name); $(s + 'Chip').style.background = g[s].color; $(s + 'Sub').textContent = g[s].record + (me === s ? ' · you' : ''); }
     $('ezL').style.background = g.home.color; $('ezR').style.background = g.away.color;
     render(); window.scrollTo(0, 0);
@@ -981,6 +995,7 @@ const SimCoach = (() => {
       html = `<button class="btn" data-n="1">▶️ Next play<small>Step through one snap</small></button>`;
     }
     $('calls').innerHTML = html;
+    planMark();
     $('tip').innerHTML = coach && me !== 'watch' ? (g.pat ? C.rich(`🗣️ <b>“Check the chart.”</b> Kick unless the score says two points changes what the next score means. Go for 2 when you're down 2 (to tie), down 5 (to get within a field goal), up 1 (to go up 3) or up 5 (to go up 7). Run plays beat a light box; throws beat a {plus1|loaded box}.`) : C.tip(g, userOnOffense())) : '';
     const kp = pend ? keyPlayer(g[userOnOffense() ? (g.poss === 'home' ? 'away' : 'home') : g.poss], userOnOffense() ? 'def' : 'off') : '';
     if (g.ko) { $('read').innerHTML = ''; $('tip').innerHTML = coach && me !== 'watch' ? C.rich(g.ko.kicker === me ? '🧢 <b>Kickoff.</b> A deep kick usually means a touchback or a short return. Squib it against a dangerous returner. Onside kicks are for when you need the ball back late, or as a surprise when they won’t see it coming.' : '🧢 <b>Kickoff return.</b> A fair catch or touchback gives you the 25 with no risk. Set up the return to try to beat that; bring the hands team if they’re trailing late and might onside it.') : ''; return; }
@@ -1362,6 +1377,143 @@ const SimCoach = (() => {
     after(last);
   };
   $('simAll').onclick = () => { idleStop(); stopSong(); let last = null; while (!g.over) last = E.snap(g, null, null); after(last); };
+
+  // ---------- 📋 Game plan: test every call in every down & distance with this sim's own engine ----------
+  // Public data only (ratings, season rush/pass numbers, depth charts). Each call is run hundreds of times against
+  // how the opponent's AI actually calls that situation, so the plan is the matchup, not a generic chart.
+  const SITS = [
+    { k: 'p1', name: '1st & 10', down: 1, togo: 10, ball: 30 },
+    { k: 'p2l', name: '2nd & long (7+)', down: 2, togo: 8, ball: 32 },
+    { k: 'p2s', name: '2nd & short (1–3)', down: 2, togo: 2, ball: 38 },
+    { k: 'p3l', name: '3rd & long (7+)', down: 3, togo: 8, ball: 34 },
+    { k: 'p3m', name: '3rd & medium (4–6)', down: 3, togo: 5, ball: 40 },
+    { k: 'p3s', name: '3rd & short (1–3)', down: 3, togo: 2, ball: 45 },
+    { k: 'rz', name: 'Red zone (1st & 10 at the 15)', down: 1, togo: 10, ball: 85 },
+    { k: 'gl', name: 'Goal to go (inside the 5)', down: 2, togo: 3, ball: 97 },
+  ];
+  const OFF_CALLS = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass', 'play_action'];
+  const pctf = (x) => Math.round(x * 100) + '%';
+  function planSnap(gs, side, sit, play, def) {
+    gs.ko = null; gs.pat = null; gs.over = false; gs.halfFlag = false; gs.log = []; gs.qtr = 2; gs.clock = 600; gs.score = { home: 0, away: 0 };
+    gs.poss = side; gs.ball = sit.ball; gs.down = sit.down; gs.togo = Math.min(sit.togo, 100 - sit.ball);
+    gs.drive = { side, start: sit.ball, plays: 0, yards: 0 }; gs.stats = { home: {}, away: {} };
+    for (const sd of ['home', 'away']) gs.stats[sd] = { plays: 0, yards: 0, rushYds: 0, rushAtt: 0, passYds: 0, comp: 0, att: 0, to: 0, sacks: 0, fd: 0, td: 0, fg: 0, punts: 0 };
+    const togo = gs.togo;
+    const callP = play || E.aiOffense(gs), callD = def || E.aiDefense(gs);
+    const e = E.snap(gs, callP, callD) || {};
+    const y = e.yards || 0, td = /TOUCHDOWN/.test(e.text || ''), to = e.type === 'turnover' && ['int', 'fumble'].includes(e.res);
+    const need = sit.down === 1 ? 0.4 * togo : sit.down === 2 ? 0.6 * togo : togo;
+    const expl = (e.res === 'run' && y >= 10) || (e.res === 'comp' && y >= 15);
+    return { p: callP, d: callD, ok: !to && (td || y >= need), y: to ? 0 : y, expl, to, td };
+  }
+  function makePlan(home, away, side, neutral, hfa) {
+    const gs = E.init(D, home, away, { neutral, hfa, seed: 4242 }), opp = side === 'home' ? 'away' : 'home', N = 260;
+    const agg = (rows) => { const n = rows.length || 1; return { ok: rows.filter((r) => r.ok).length / n, ypp: rows.reduce((a, r) => a + r.y, 0) / n, expl: rows.filter((r) => r.expl).length / n, to: rows.filter((r) => r.to).length / n, n: rows.length }; };
+    const score = (a) => a.ok + 0.5 * a.expl - 2 * a.to;
+    const off = [], def = [];
+    for (const sit of SITS) {
+      // offense: my calls vs their defensive tendencies
+      const look = {}; const res = {};
+      for (const c of OFF_CALLS) {
+        if (c === 'qb_sneak' && sit.togo > 3) continue;
+        const rows = []; for (let i = 0; i < N; i++) { const r = planSnap(gs, side, sit, c, null); rows.push(r); look[r.d] = (look[r.d] || 0) + 1; }
+        res[c] = agg(rows);
+      }
+      const ranked = Object.entries(res).sort((a, b) => score(b[1]) - score(a[1]));
+      const lt = Object.values(look).reduce((a, b) => a + b, 0) || 1;
+      off.push({ sit, ranked, look: Object.entries(look).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v / lt]) });
+      // defense: my calls vs their offensive tendencies
+      const tend = {}; const dres = {};
+      for (const dk of E.DEF_KEYS) {
+        const rows = []; for (let i = 0; i < N; i++) { const r = planSnap(gs, opp, sit, null, dk); rows.push(r); tend[r.p] = (tend[r.p] || 0) + 1; }
+        dres[dk] = agg(rows);
+      }
+      const dr = Object.entries(dres).sort((a, b) => (a[1].ok + 0.5 * a[1].expl - 2 * a[1].to) - (b[1].ok + 0.5 * b[1].expl - 2 * b[1].to));
+      const tt = Object.values(tend).reduce((a, b) => a + b, 0) || 1;
+      const runs = Object.entries(tend).filter(([k]) => E.OFF_PLAYS[k] && E.OFF_PLAYS[k].kind === 'run').reduce((a, [, v]) => a + v, 0) / tt;
+      def.push({ sit, ranked: dr, runs, tend: Object.entries(tend).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v / tt]) });
+    }
+    return { side, me: gs[side], them: gs[opp], off, def, at: Date.now() };
+  }
+  const PL = (k) => `${ICON[k] || ''} ${E.OFF_PLAYS[k] ? E.OFF_PLAYS[k].label : E.DEF_CALLS[k].label}`;
+  const line = (k, a, defn) => `<b>${PL(k)}</b>: ${defn ? 'they succeed on ' : ''}${pctf(a.ok)}${defn ? '' : ' success'}, ${a.ypp.toFixed(1)} yds/play${a.expl >= 0.08 ? `, ${pctf(a.expl)} explosive` : ''}${a.to >= 0.025 ? `, ${pctf(a.to)} turnovers` : ''}`;
+  function edge(mine, theirs, nat, better) { const d = better === 'lo' ? nat - theirs : theirs - nat; return d; }
+  function renderPlan(P, tab = 'off') {
+    const M = P.me, T = P.them, N = D.nat;
+    const r = (x) => (x == null ? '–' : x.toFixed(1));
+    const runEdge = (M.rush_ypc || N.rush) + (T.rush_ypc_allowed || N.rush) - 2 * N.rush, passEdge = (M.pass_ypa || N.ypa) + (T.pass_ypa_allowed || N.ypa) - 2 * N.ypa;
+    const lean = runEdge - passEdge * 0.55 > 0.3 ? 'Lean on the run' : passEdge * 0.55 - runEdge > 0.3 ? 'Put it in the air' : 'Stay balanced';
+    const bestOff = P.off[0].ranked[0][0], bestRZ = P.off.find((o) => o.sit.k === 'rz').ranked[0][0], best3 = P.off.find((o) => o.sit.k === 'p3l').ranked[0][0];
+    const dRun = Math.round(100 * P.def.reduce((a, d) => a + d.runs, 0) / P.def.length);
+    const starsT = ['QB', 'RB', 'WR1', 'WR2', 'TE', 'EDGE', 'EDGE2', 'DT', 'LB', 'CB1', 'S'].map((k) => [k, T.roster && T.roster[k]]).filter(([, p]) => p && p.bb && p.bb <= 300).sort((a, b) => a[1].bb - b[1].bb).slice(0, 2);
+    const glance = [
+      ['🧭 Identity', `${lean}. ${M.name} runs for ${r(M.rush_ypc)} a carry and ${T.name} allows ${r(T.rush_ypc_allowed)}; passing ${r(M.pass_ypa)} a throw vs. ${r(T.pass_ypa_allowed)} allowed (FBS avg ${r(N.rush)} / ${r(N.ypa)}).`],
+      ['🥇 Opening script', `${PL(bestOff)} on 1st & 10`],
+      ['🎯 Money down', `${PL(best3)} on 3rd & long`],
+      ['🟥 Red zone', `${PL(bestRZ)}`],
+      ['🛡️ Their offense', `Runs ${dRun}% of the time in these spots. Their best: ${nm(T, 'QB', { last: true })} at QB${starsT.length ? '; watch ' + starsT.map(([k]) => nm(T, k, { last: true }) + ' (' + posOf(k) + ')').join(', ') : ''}.`],
+    ];
+    let h = `<p class="hint" style="margin:0 0 6px">📋 <b>${M.name}</b> game plan vs. <b>${T.name}</b>. Every call was run 260 times in each situation against how ${T.name} calls it in this sim (same engine as the game, built from public ratings and season stats).</p>`;
+    h += `<div class="gp-glance">${glance.map(([a, b]) => `<div><b>${a}</b>${b}</div>`).join('')}</div>`;
+    h += `<div class="seg gp-tabs" data-gp><button data-t="off" class="${tab === 'off' ? 'on' : ''}">⚔️ Offense</button><button data-t="def" class="${tab === 'def' ? 'on' : ''}">🛡️ Defense</button></div>`;
+    if (tab === 'off') {
+      h += `<div class="gp-cards">${P.off.map((o) => {
+        const top = o.ranked.slice(0, 2), worst = o.ranked[o.ranked.length - 1], lk = o.look.slice(0, 2);
+        const runLook = Math.round(100 * (o.look.find((x) => x[0] === 'run_stop') || [0, 0])[1]), blitz = Math.round(100 * (o.look.find((x) => x[0] === 'blitz') || [0, 0])[1]);
+        return `<div class="gp-card"><h4>${o.sit.name}</h4>
+          <p class="lab go">Call</p><ul>${top.map(([k, a]) => `<li>${line(k, a)}</li>`).join('')}</ul>
+          <p class="lab stop">Avoid</p><ul><li>${line(worst[0], worst[1])}</li></ul>
+          <p class="lab look">Their look</p><div>${lk.map(([k, v]) => `${PL(k)} ${pctf(v)}`).join(' · ')}${blitz >= 25 ? `. Blitz-happy here: screens and quick throws beat it.` : runLook >= 40 ? `. They load the box: play action and throws get easier.` : ''}</div>
+          <details><summary class="hint">Every call</summary><table class="gp-tbl"><tr><th>Call</th><th>Success</th><th>Yds</th><th>Expl</th><th>TO</th></tr>${o.ranked.map(([k, a]) => `<tr><td>${PL(k)}</td><td>${pctf(a.ok)}</td><td>${a.ypp.toFixed(1)}</td><td>${pctf(a.expl)}</td><td>${pctf(a.to)}</td></tr>`).join('')}</table></details></div>`;
+      }).join('')}</div>`;
+    } else {
+      h += `<div class="gp-cards">${P.def.map((d) => {
+        const best = d.ranked.slice(0, 2), worst = d.ranked[d.ranked.length - 1];
+        return `<div class="gp-card"><h4>${d.sit.name}</h4>
+          <div class="gp-split" role="img" aria-label="${T.name} runs ${pctf(d.runs)} here"><i style="width:${100 * d.runs}%"></i><i style="width:${100 - 100 * d.runs}%"></i></div>
+          <div class="hint">${T.name} runs ${pctf(d.runs)} · passes ${pctf(1 - d.runs)}. Top calls: ${d.tend.slice(0, 3).map(([k, v]) => `${PL(k)} ${pctf(v)}`).join(', ')}</div>
+          <p class="lab go">Call</p><ul>${best.map(([k, a]) => `<li>${line(k, a, true)}</li>`).join('')}</ul>
+          <p class="lab stop">Avoid</p><ul><li>${line(worst[0], worst[1], true)}</li></ul>
+          <details><summary class="hint">Every call</summary><table class="gp-tbl"><tr><th>Call</th><th>Their success</th><th>Yds</th><th>Expl</th><th>TO</th></tr>${d.ranked.map(([k, a]) => `<tr><td>${PL(k)}</td><td>${pctf(a.ok)}</td><td>${a.ypp.toFixed(1)}</td><td>${pctf(a.expl)}</td><td>${pctf(a.to)}</td></tr>`).join('')}</table></details></div>`;
+      }).join('')}</div>`;
+    }
+    h += `<p class="gp-note">Success = a play that keeps the offense on schedule: 40% of the yards needed on 1st down, 60% on 2nd, all of it on 3rd. Explosive = a run of 10+ or a catch of 15+. Calls are ranked on success, with a bonus for explosives and a penalty for turnovers. It's a plan, not a script: the AI still mixes it up, and the pre-snap read can tell you when to check out of it.</p>`;
+    return h;
+  }
+  let PLAN = null, planTab = 'off';
+  function planFor(T) { return PLAN && PLAN.me.name === T; }
+  function drawPlan() { const h = PLAN ? renderPlan(PLAN, planTab) : ''; $('planSetup').innerHTML = h; $('planGame').innerHTML = h; }
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-gp] button'); if (!b || !PLAN) return; planTab = b.dataset.t; drawPlan(); });
+  $('planBtn').onclick = () => {
+    const p = pick(); if (p.away === p.home) return alertBox('Pick two different teams.');
+    const side = me === 'watch' ? 'home' : me;
+    $('planBtn').textContent = '⏳ Running every call through the sim…'; $('planBtn').disabled = true;
+    setTimeout(() => {
+      PLAN = makePlan(p.home, p.away, side, p.neutral, p.hfa); planTab = 'off';
+      $('planSetup').classList.remove('hidden'); $('followWrap').classList.remove('hidden'); drawPlan();
+      $('planBtn').textContent = '🔄 Rebuild the game plan'; $('planBtn').disabled = false;
+    }, 30);
+  };
+  ['slate', 'away', 'home', 'neutral'].forEach((id) => $(id).addEventListener('change', () => { PLAN = null; $('planSetup').classList.add('hidden'); $('followWrap').classList.add('hidden'); $('planBtn').textContent = '📋 Build a game plan for this matchup'; }));
+  $('side').addEventListener('click', () => { if (PLAN && me !== 'watch' && PLAN.side !== me) { PLAN = null; $('planSetup').classList.add('hidden'); $('followWrap').classList.add('hidden'); $('planBtn').textContent = '📋 Build a game plan for this matchup'; } });
+  // during the game: mark the plan's call for the current situation
+  function planSit() {
+    if (g.ko || g.pat) return null;
+    const t = Math.min(g.togo, 100 - g.ball);
+    if (g.ball >= 95 || (g.ball >= 90 && t >= 100 - g.ball)) return 'gl';
+    if (g.ball >= 80) return 'rz';
+    if (g.down === 1) return 'p1';
+    if (g.down === 2) return t <= 3 ? 'p2s' : t >= 7 ? 'p2l' : 'p1';
+    return t <= 3 ? 'p3s' : t <= 6 ? 'p3m' : 'p3l';
+  }
+  function planMark() {
+    if (!PLAN || !g || g.over || me === 'watch' || PLAN.side !== me || !$('followPlan').checked) return;
+    const k = planSit(); if (!k) return;
+    const onO = userOnOffense(), row = (onO ? PLAN.off : PLAN.def).find((x) => x.sit.k === k); if (!row) return;
+    const best = row.ranked[0][0], attr = onO ? 'data-o' : 'data-d';
+    const b = $('calls').querySelector(`[${attr}="${best}"]`); if (!b) return;
+    b.classList.add('plan'); b.insertAdjacentHTML('beforeend', `<span class="planTag">📋 Game plan call (${row.sit.name})</span>`);
+  }
 
   function renderLog() {
     const rows = g.log.slice().reverse().slice(0, 150).map((e) => {
