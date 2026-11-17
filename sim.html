@@ -100,6 +100,16 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 .sound .cap { font-size:12px; color:var(--muted); margin:0 0 6px; }
 .sndbtn { display:block; margin:4px auto 0; border:1px solid var(--line); background:var(--panel); color:var(--fg); border-radius:999px; padding:2px 10px; font-size:14px; cursor:pointer; }
 .star { font-size:12px; } .who { color:var(--fg) !important; font-weight:600; } .mu { margin-top:6px; } 
+.adv-sit { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:13px; color:var(--muted); margin:0 0 8px; }
+.adv-sheet { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:8px; }
+.adv-sheet .btn, .adv-pick .btn { text-align:left; } .adv-sheet .btn small, .adv-pick .btn small { display:block; color:var(--muted); font-size:12px; margin-top:2px; }
+.adv-pick { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; }
+.adv-build { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; margin:8px 0; align-items:end; }
+.adv-build label { margin:0 0 3px; }
+.adv-line { padding:10px 12px; border-radius:8px; background:var(--bg); margin:0 0 10px; font-size:14px; line-height:1.55; }
+.adv-tools { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin-top:12px; font-size:13px; }
+.adv-tools label { display:flex; align-items:center; gap:6px; margin:0; color:var(--fg); font-size:13px; }
+.scout table td, .scout table th { font-size:12.5px; } .scout td { text-align:left; }
 .rx { position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.45); animation:rxin .2s ease-out; cursor:pointer; }
 .rx video { width:min(480px, 92vw); border-radius:12px; border:3px solid #fff; box-shadow:0 10px 40px rgba(0,0,0,.6); background:#000; }
 .rx.out { opacity:0; transition:opacity .25s; }
@@ -137,6 +147,8 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
     <label>🧢 You coach</label>
     <div class="seg" id="side"></div>
     <label class="toggle"><input type="checkbox" id="coachMode" checked> Coach mode: learn to see the game like a coach (pre-snap reads, coach-speak with tap-to-explain terms, play diagrams, postgame report)</label>
+    <label class="toggle"><input type="checkbox" id="advMode"> 🧠 Advanced mode: call it like a coordinator. Pick personnel, formation and concept (Mesh, Flood, Smash, Inside Zone, Power, RPOs and more), read the shell and the box at the line and audible; on defense pick the package, front, coverage and pressure. Timeouts, hurry-up, spikes and kneels are yours.</label>
+    <div id="scoutBox" class="hidden"></div>
     <label class="toggle"><input type="checkbox" id="rxOn" checked> 🎬 Reaction clips: the Stadium Pulse on the road and coach reactions to goal-line scores, 3rd-down stops, 3-and-outs, picks, sacks, fumbles and big losses</label>
     <label class="toggle"><input type="checkbox" id="soundOn" checked> 🔊 Game-day sound: crowd noise, the ref's whistle, band riffs on big plays, drum cadences while you pick a call, and a tap-to-play fight song after every touchdown (via Spotify)</label>
     <p class="hint" id="proj"></p>
@@ -350,7 +362,8 @@ const SimEngine = (() => {
     const r = g.rng, O = g[g.poss], D = g[other(g.poss)], N = g.nat;
     const m = matchupMult(g, g.poss);
     let mean = N.rush * Math.pow((O.rush_ypc || N.rush) / N.rush, K.sexp) * Math.pow((D.rush_ypc_allowed || N.rush) / N.rush, K.sexp) * Math.pow(m, K.mexp) * K.runMult;
-    const [ym, , , , bigm] = MATCH[defCall].run;
+    let [ym, , , , bigm] = MATCH[defCall].run;
+    const A = g._adv; if (A) { ym *= A.ym; bigm *= A.bigm; } // advanced mode: scheme vs. front/box
     mean *= ym * (g._mod || 1);
     let shift = -1.5, tail = mean + 1.5;
     if (play === 'outside_run') { shift = -3; tail = mean + 3.2; }
@@ -367,7 +380,8 @@ const SimEngine = (() => {
     const key = pkey(play);
     const B = BASE[key];
     const m = matchupMult(g, g.poss);
-    const [ym, cadd, sackm, intm, bigm] = MATCH[defCall][key];
+    let [ym, cadd, sackm, intm, bigm] = MATCH[defCall][key];
+    const A = g._adv; if (A) { ym *= A.ym; cadd += A.cadd; sackm *= A.sackm; intm *= A.intm; bigm *= A.bigm; } // advanced mode: concept vs. coverage/pressure
     const qual = Math.pow((O.pass_ypa || N.ypa) / N.ypa, K.sexp) * Math.pow((D.pass_ypa_allowed || N.ypa) / N.ypa, K.sexp) * Math.pow(m, K.mexp);
     let compAdj = ((O.comp_pct || N.comp) - N.comp) / 100 + (qual - 1) * 0.25;
     let sell = 1;
@@ -381,7 +395,7 @@ const SimEngine = (() => {
     }
     // predictability: throw the same thing far more than normal and the coverage sits on it
     const CLp = g.calls && g.calls[g.poss]; let pred = 0;
-    if (CLp && CLp.length >= 6) { const lim = { deep: 0.15, pa: 0.18, screen: 0.2, medium: 0.32, short: 0.4 }[key]; pred = Math.max(0, CLp.filter((c) => pkey(c) === key).length / CLp.length - lim); }
+    if (CLp && CLp.length >= 6 && !g.adv) { const lim = { deep: 0.15, pa: 0.18, screen: 0.2, medium: 0.32, short: 0.4 }[key]; pred = Math.max(0, CLp.filter((c) => pkey(c) === key).length / CLp.length - lim); }
     compAdj -= 0.5 * pred; const predY = Math.max(0.6, 1 - 1.2 * pred);
     let pc = Math.max(0.12, Math.min(0.92, B.comp + cadd + compAdj + K.compAdd + 0.6 * ((g._mod || 1) - 1)));
     if (r() < 0.78 * B.intp * intm * (2 - Math.min(1.5, qual))) return { kind: 'int', yards: 0 }; // 0.78: tuned to the FBS interception rate
@@ -682,13 +696,14 @@ const SimEngine = (() => {
     if (y >= g.togo) { S.fd++; g.down = 1; g.togo = Math.min(10, 100 - g.ball); }
     else if (g.down === 4) { entry.text += ' Turnover on downs.'; entry.type = 'turnover'; tick(g, secs); if (!g.over) changePoss(g, dside, 100 - g.ball, null); return entry; }
     else { g.down += 1; g.togo -= y; }
-    tick(g, Math.round(secs * (STYLES[g[side].style || 'balanced'].tempo) * (TEMPO[(g[side].plan || {}).tempo] || 1)));
+    secs = Math.round(secs * (STYLES[g[side].style || 'balanced'].tempo) * (TEMPO[(g[side].plan || {}).tempo] || 1));
+    tick(g, g.clockHook ? g.clockHook(g, side, entry, secs) : secs);
     return entry;
   }
 
   function simToEnd(g) { let n = 0; while (!g.over && n++ < 600) snap(g); return g; }
 
-  return { sitKey, STYLES, styleKey, K, OFF_ROLES, init, snap, simToEnd, aiOffense, aiDefense, OFF_PLAYS, DEF_CALLS, fgProb, matchupMult, patProb, aiPat, aiKick, aiRecv, DEF_KEYS: ['base', 'run_stop', 'blitz', 'cover2', 'prevent'] };
+  return { tick, changePoss, other, sitKey, STYLES, styleKey, K, OFF_ROLES, init, snap, simToEnd, aiOffense, aiDefense, OFF_PLAYS, DEF_CALLS, fgProb, matchupMult, patProb, aiPat, aiKick, aiRecv, DEF_KEYS: ['base', 'run_stop', 'blitz', 'cover2', 'prevent'] };
 })();
 if (typeof module !== 'undefined') module.exports = SimEngine;
 </script>
@@ -919,6 +934,333 @@ const SimCoach = (() => {
   return { PLAYS, DEFS, TERMS, rich, tip, readTip, defLook, offLook, film, report, success, card, snapArt };
 })();
 </script>
+<script>/*ADV*/
+// Horick Football Lab: advanced Game Sim layer. Call it like a coordinator: personnel, formation and concept on
+// offense; package, front, coverage and pressure on defense; box counts, disguised shells, RPO reads, timeouts,
+// hurry-up, spikes and kneels. Concepts and their strengths are standard coaching principles (hand-set here, not
+// copied from any playbook). Team tendencies: window.__TEND__ when present (private build only), otherwise a profile
+// built from each team's public style.
+const SimAdv = (() => {
+  const E = typeof SimEngine !== 'undefined' ? SimEngine : require('./sim_engine.js');
+  let TEND = typeof window !== 'undefined' && window.__TEND__ ? window.__TEND__ : null;
+  const other = (s) => (s === 'home' ? 'away' : 'home');
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  function pickW(r, w) { const en = Object.entries(w).filter(([, v]) => v > 0); const t = en.reduce((a, [, v]) => a + v, 0); let x = r() * t; for (const [k, v] of en) { x -= v; if (x < 0) return k; } return en.length ? en[0][0] : null; }
+
+  const PERS = {
+    '10': { label: '10 personnel', who: '1 RB, 4 WR', blk: 5, light: 1 },
+    '11': { label: '11 personnel', who: '1 RB, 1 TE, 3 WR', blk: 6, light: 1 },
+    '12': { label: '12 personnel', who: '1 RB, 2 TE, 2 WR', blk: 7 },
+    '13': { label: '13 personnel', who: '1 RB, 3 TE, 1 WR', blk: 8, heavy: 1 },
+    '20': { label: '20 personnel', who: '2 RB, 3 WR', blk: 6, light: 1 },
+    '21': { label: '21 personnel', who: '2 RB, 1 TE, 2 WR', blk: 7 },
+    '22': { label: '22 personnel', who: '2 RB, 2 TE, 1 WR', blk: 8, heavy: 1 },
+  };
+  const FORMS = {
+    doubles: { label: 'Doubles (2x2)', pers: ['10', '11', '20'], spread: 1 },
+    trips: { label: 'Trips (3x1)', pers: ['10', '11', '20'], spread: 1 },
+    bunch: { label: 'Bunch', pers: ['11', '12'], spread: 1, bunch: 1 },
+    empty: { label: 'Empty', pers: ['10', '11', '12', '20'], spread: 1, empty: 1 },
+    trey: { label: 'Trey (TE to the trips side)', pers: ['11', '12'], spread: 0.5 },
+    pistol: { label: 'Pistol', pers: ['11', '12', '21'], spread: 0.5 },
+    ace: { label: 'Ace (two tight ends)', pers: ['12', '13'], spread: 0 },
+    pro: { label: 'Pro (TE and flanker)', pers: ['11', '12'], spread: 0 },
+    iform: { label: 'I-Form', pers: ['20', '21', '22'], spread: 0 },
+    jumbo: { label: 'Jumbo', pers: ['13', '22'], spread: 0 },
+    flexbone: { label: 'Flexbone', pers: ['20', '21', '22'], spread: 0, option: 1 },
+  };
+  const COV = {
+    c0: { label: 'Cover 0', long: 'Cover 0 (all-out man, no deep help)', high: 0 },
+    c1: { label: 'Cover 1', long: 'Cover 1 (man free)', high: 1 },
+    c2: { label: 'Cover 2', long: 'Cover 2 (two deep, five under)', high: 2 },
+    c2m: { label: '2-Man', long: '2-Man (two deep, man under)', high: 2 },
+    c3: { label: 'Cover 3', long: 'Cover 3 (three deep, four under)', high: 1 },
+    c4: { label: 'Cover 4', long: 'Cover 4 / Quarters', high: 2 },
+    c6: { label: 'Cover 6', long: 'Cover 6 (quarter-quarter-half)', high: 2 },
+  };
+  const PKG = { base: { label: 'Base (4 DL/3 LB or 3-4)', box: 7 }, nickel: { label: 'Nickel (5 DBs)', box: 6 }, dime: { label: 'Dime (6 DBs)', box: 5 }, heavy: { label: 'Heavy / goal line', box: 8 } };
+  const FRONT = { over: 'Over (even)', under: 'Under', odd: 'Odd / Tite', bear: 'Bear (everyone covered up)' };
+  const PRES = {
+    none: { label: '4-man rush', sack: 0.8, big: 0.95, cadd: 0.02, intm: 1 },
+    sim: { label: 'Simulated pressure', sack: 1.2, big: 1, cadd: 0, intm: 1.15 },
+    fire: { label: '5-man fire zone', sack: 1.7, big: 1.2, cadd: -0.03, intm: 1.05 },
+    all: { label: 'All-out blitz (6+)', sack: 2.6, big: 1.6, cadd: -0.06, intm: 1.1 },
+  };
+
+  // Concepts. mat = how the concept fares against each coverage (-2 bad … +2 great), from standard coaching principles.
+  const M = (c0, c1, c2, c2m, c3, c4, c6) => ({ c0, c1, c2, c2m, c3, c4, c6 });
+  const CON = {
+    iz: { label: 'Inside Zone', kind: 'run', key: 'inside_run', fam: 'run', beats: 'a front that slants or overplays the edge', fails: 'a Bear front that covers up every gap', front: { bear: -0.5 } },
+    oz: { label: 'Outside Zone', kind: 'run', key: 'outside_run', fam: 'run', beats: 'odd fronts and slow-flowing linebackers', fails: 'an Over front with the edge set hard', front: { odd: 0.5, bear: -0.5, over: -0.3 } },
+    duo: { label: 'Duo', kind: 'run', key: 'inside_run', fam: 'run', beats: 'even fronts: double teams move the 3-technique', fails: 'odd fronts that put a man over the center', front: { over: 0.3, under: 0.3, odd: -0.3 } },
+    power: { label: 'Power', kind: 'run', key: 'inside_run', fam: 'run', beats: 'Bear and odd fronts: the puller kicks out the end man', fails: 'penetrating Over fronts', front: { bear: 0.5, odd: 0.3, over: -0.3 } },
+    counter: { label: 'Counter', kind: 'run', key: 'inside_run', fam: 'run', beats: 'blitzes and fast-flowing linebackers (misdirection)', fails: 'patient, gap-sound defenses', pres: { fire: 1, all: 1, sim: 0.5 }, cov: { c0: 0.5, c1: 0.5 } },
+    draw: { label: 'Draw', kind: 'run', key: 'inside_run', fam: 'run', empty: 1, beats: 'pressure and light pass-rush packages', fails: 'base defenses sitting on the run', pres: { fire: 1.5, all: 1.5, none: -0.5 }, pkg: { dime: 1, nickel: 0.5, base: -1, heavy: -1 } },
+    jet: { label: 'Jet sweep', kind: 'run', key: 'outside_run', fam: 'run', spread: 1, side: 1, beats: 'man coverage: defenders chase the motion', fails: 'zone defenses with the edge sealed', cov: { c0: 1, c1: 1, c2m: 1, c3: -0.3, c4: -0.3 } },
+    option: { label: 'Option (zone read / triple)', kind: 'run', key: 'outside_run', fam: 'run', read: 1, beats: 'man coverage and blitzes: the read leaves a defender blocked by nobody', fails: 'Bear fronts and well-coached scrape exchanges', cov: { c0: 1, c1: 1 }, pres: { fire: 0.5 }, front: { bear: -0.5 } },
+    qbpower: { label: 'QB power', kind: 'run', key: 'inside_run', fam: 'run', read: 1, beats: 'short yardage: the QB is an extra blocker\'s worth', fails: 'loaded boxes with run blitzes', front: { bear: -0.3 } },
+    sneak: { label: 'QB sneak', kind: 'run', key: 'qb_sneak', fam: 'run', empty: 1, beats: 'anything at a yard or less', fails: 'anything longer than 2 yards' },
+    rpo: { label: 'RPO (zone + bubble/glance)', kind: 'rpo', key: 'inside_run', fam: 'rpo', beats: 'any box count: the QB reads it and goes where the numbers are', fails: 'disguised boxes that fool the read' },
+    screen_rb: { label: 'RB screen', kind: 'pass', key: 'screen', fam: 'screen', pr: 'screen', beats: 'the blitz: rushers run past it', fails: 'zone defenses with linebackers sitting underneath', mat: M(2, 1, -1, 0, 0, -1, -0.5) },
+    bubble: { label: 'WR screen (bubble/tunnel)', kind: 'pass', key: 'screen', fam: 'screen', pr: 'screen', side: 1, beats: 'soft corners (Cover 3 and Quarters cushions)', fails: 'press man coverage', mat: M(-1, -1, 0, -1, 1.5, 1, 0.5) },
+    slant: { label: 'Slant-flat', kind: 'pass', key: 'short_pass', fam: 'quick', pr: 'hot', beats: 'man coverage and the blitz (hot throw)', fails: 'Cover 2 and 2-Man, where linebackers wall the slant', mat: M(2, 1.5, -0.5, -1, 0, 0.5, 0) },
+    stick: { label: 'Stick', kind: 'pass', key: 'short_pass', fam: 'quick', pr: 'hot', beats: 'zone coverage (Cover 3 and Quarters)', fails: 'man coverage, where nothing comes open fast', mat: M(0, -0.5, 0.5, -1, 1.5, 1, 1) },
+    mesh: { label: 'Mesh', kind: 'pass', key: 'short_pass', fam: 'quick', beats: 'man coverage: crossers rub off each other', fails: 'nothing badly; it just finds the soft spot vs zone', mat: M(1.5, 2, 0, 1, 0.5, 1, 0.5) },
+    smash: { label: 'Smash', kind: 'pass', key: 'medium_pass', fam: 'mid', side: 1, beats: 'Cover 2: the corner route goes over the cornerback, under the safety', fails: 'Cover 3, where the corner sits on top of it', mat: M(-0.5, -0.5, 2, -1, -1, 0.5, 1) },
+    flood: { label: 'Flood (Sail)', kind: 'pass', key: 'medium_pass', fam: 'mid', side: 1, beats: 'Cover 3: three levels on one side outnumber the zone', fails: 'Quarters and man, which match the routes', mat: M(-1, 0, 0.5, -0.5, 2, -0.5, 0.5) },
+    curlflat: { label: 'Curl-flat', kind: 'pass', key: 'medium_pass', fam: 'mid', side: 1, beats: 'Cover 3 and Cover 2: high-low on the flat defender', fails: 'man coverage and Quarters', mat: M(-0.5, -1, 1, -1, 1.5, -0.5, 0.5) },
+    dagger: { label: 'Dagger (seam + dig)', kind: 'pass', key: 'medium_pass', fam: 'mid', beats: 'Cover 3 and Quarters: the seam clears the safety for the dig', fails: 'man coverage with a robber', mat: M(-1, -0.5, 0.5, -0.5, 1.5, 1, 0.5) },
+    ycross: { label: 'Y-Cross', kind: 'pass', key: 'medium_pass', fam: 'mid', beats: 'Cover 1 and Cover 3: the crosser outruns man and finds the zone hole', fails: 'Cover 2 and 2-Man, where the crosser gets bracketed', mat: M(0, 1.5, -0.5, -1.5, 1.5, 0, 0) },
+    fourverts: { label: 'Four Verticals', kind: 'pass', key: 'deep_pass', fam: 'deep', pr: 'deep', beats: 'Cover 3: four vertical routes against three deep defenders', fails: 'Quarters and Cover 6, built to match verticals', mat: M(1, 1, 0.5, -1, 2, -1.5, -1) },
+    postwheel: { label: 'Post-Wheel', kind: 'pass', key: 'deep_pass', fam: 'deep', pr: 'deep', side: 1, beats: 'Quarters: the post holds the safety, the wheel runs past the linebacker', fails: '2-Man, with safeties over the top', mat: M(0.5, 1, -0.5, -1, 0.5, 2, 1) },
+    shot: { label: 'Max-protect shot', kind: 'pass', key: 'deep_pass', fam: 'deep', pr: 'max', beats: 'Cover 0 and Cover 1: eight blockers, two receivers, one-on-one outside', fails: 'two-deep shells: two receivers into double coverage', mat: M(2, 1, -1.5, -1, 0.5, -1.5, -1) },
+    pa_boot: { label: 'Play-action boot', kind: 'pass', key: 'play_action', fam: 'pa', pr: 'pa', side: 1, beats: 'defenses flowing hard to the run fake (Cover 3, loaded boxes)', fails: 'unblocked edge pressure from the boot side', mat: M(-1, 0.5, 0.5, 0, 1.5, 0.5, 0.5) },
+    pa_shot: { label: 'Play-action shot (post-dig)', kind: 'pass', key: 'play_action', fam: 'pa', pr: 'pa', beats: 'single-high safeties biting on the run fake', fails: 'two-high shells that stay deep', mat: M(0, 1.5, -1, -1, 1.5, -1, -0.5) },
+  };
+  const FAMS = { screen: ['screen_rb', 'bubble'], quick: ['slant', 'stick', 'mesh'], mid: ['smash', 'flood', 'curlflat', 'dagger', 'ycross'], deep: ['fourverts', 'postwheel', 'shot'], pa: ['pa_boot', 'pa_shot'], rpo: ['rpo'] };
+  const RUNMAP = { iz: 'iz', oz: 'oz', duo: 'duo', power: 'power', counter: 'counter', draw: 'draw', option: 'option', sneak: 'sneak', dive: 'iz', jet: 'jet' };
+  const K = { off: -0.7, runOff: 0.93, runBox: 0.14, run: 0.06, pass: 0.09 }; // calibration: K.off centres the concept matrix on real scoring
+
+  function allowed(cid, fid, T) {
+    const C = CON[cid], F = FORMS[fid]; if (!C || !F) return false;
+    if (F.empty && C.kind !== 'pass' && !C.empty) return false;
+    if (F.empty && ['screen_rb', 'pa_boot', 'pa_shot'].includes(cid)) return false;
+    if (C.spread && F.spread < 0.5 && !F.option) return false;
+    if (F.option && T && T.style !== 'option') return false;
+    return true;
+  }
+  function formsFor(pers, T) { return Object.keys(FORMS).filter((f) => FORMS[f].pers.includes(pers) && (!FORMS[f].option || (T && T.style === 'option'))); }
+  function conceptsFor(fid, T) { return Object.keys(CON).filter((c) => allowed(c, fid, T)); }
+
+  function bucket(g) {
+    const tg = 100 - g.ball, t = Math.min(g.togo, tg);
+    if (tg <= 5) return 'gl'; if (tg <= 20) return 'rz';
+    if (g.down >= 2 && t <= 3) return 's';
+    if (g.down === 1) return 'e'; if (g.down === 2) return t >= 7 ? 'l' : 'e';
+    return t >= 7 ? 'L' : 'm';
+  }
+  const BUCKET = { e: '1st down / 2nd & medium', l: '2nd & long', s: 'short yardage', m: '3rd & medium', L: '3rd & long', rz: 'red zone', gl: 'goal line' };
+
+  // ---------- team profiles ----------
+  const STY_PERS = { option: { 21: 0.5, 22: 0.4, 12: 0.1 }, power: { 12: 0.45, 11: 0.35, 21: 0.12, 13: 0.08 }, balanced: { 11: 0.6, 12: 0.3, 21: 0.05, 13: 0.05 }, spread: { 11: 0.75, 10: 0.15, 12: 0.1 }, airraid: { 10: 0.45, 11: 0.5, 12: 0.05 }, vertical: { 11: 0.7, 12: 0.2, 10: 0.1 } };
+  const STY_RUN = { option: { option: 0.55, iz: 0.15, power: 0.1, counter: 0.1, qbpower: 0.1 }, power: { power: 0.3, counter: 0.2, duo: 0.2, iz: 0.2, oz: 0.1 }, balanced: { iz: 0.3, oz: 0.25, duo: 0.15, power: 0.15, counter: 0.1, jet: 0.05 }, spread: { iz: 0.35, option: 0.25, counter: 0.15, draw: 0.1, jet: 0.1, qbpower: 0.05 }, airraid: { iz: 0.35, draw: 0.25, oz: 0.2, counter: 0.1, jet: 0.1 }, vertical: { oz: 0.35, iz: 0.3, power: 0.15, counter: 0.1, jet: 0.1 } };
+  const PERS_FORM = { 10: { doubles: 0.5, trips: 0.3, empty: 0.2 }, 11: { doubles: 0.3, trips: 0.3, trey: 0.1, bunch: 0.1, pistol: 0.12, empty: 0.08 }, 12: { ace: 0.35, trey: 0.25, pro: 0.2, pistol: 0.15, bunch: 0.05 }, 13: { jumbo: 0.6, ace: 0.4 }, 20: { doubles: 0.6, pistol: 0.2, empty: 0.2 }, 21: { iform: 0.6, pistol: 0.4 }, 22: { jumbo: 0.5, iform: 0.5 } };
+  function profile(T, b) {
+    const P = TEND && TEND[T.name], o = P && P.off && (P.off[b] || P.off.e);
+    if (o) return { src: 'pff', run: o.run, pers: o.pers, form: o.form, runc: Object.fromEntries(Object.entries(o.runc || {}).map(([k, v]) => [RUNMAP[k] || 'iz', v])), passc: o.passc, tempo: P.tempo, rpo: P.rpo };
+    const st = T.style || 'balanced', pers = { ...STY_PERS[st] };
+    if (b === 's' || b === 'gl') { for (const k of ['12', '13', '21', '22']) pers[k] = (pers[k] || 0) + 0.2; if (st !== 'option') pers['13'] = (pers['13'] || 0) + 0.15; }
+    if (b === 'L') { pers['10'] = (pers['10'] || 0) + 0.15; pers['11'] = (pers['11'] || 0) + 0.2; }
+    const runc = { ...STY_RUN[st] }; if (b === 's' || b === 'gl') { runc.qbpower = (runc.qbpower || 0) + 0.15; runc.power = (runc.power || 0) + 0.15; }
+    return { src: 'public', run: null, pers, form: null, runc, passc: null };
+  }
+  const D_COV = { e: { c3: 0.3, c4: 0.22, c1: 0.18, c2: 0.12, c6: 0.08, c0: 0.05, c2m: 0.05 }, l: { c3: 0.28, c4: 0.24, c1: 0.15, c2: 0.15, c6: 0.1, c0: 0.04, c2m: 0.04 }, L: { c3: 0.22, c4: 0.2, c1: 0.18, c2: 0.14, c6: 0.08, c0: 0.08, c2m: 0.1 }, m: { c1: 0.25, c3: 0.25, c4: 0.15, c2: 0.1, c0: 0.1, c2m: 0.1, c6: 0.05 }, s: { c1: 0.3, c0: 0.25, c3: 0.25, c4: 0.1, c2: 0.1 }, rz: { c1: 0.3, c3: 0.25, c0: 0.15, c4: 0.15, c2: 0.15 }, gl: { c0: 0.45, c1: 0.4, c3: 0.15 } };
+  const D_BLITZ = { e: 0.25, l: 0.25, L: 0.35, m: 0.35, s: 0.4, rz: 0.35, gl: 0.45 };
+  const D_PKG = { light: { nickel: 0.8, dime: 0.1, base: 0.1 }, mid: { base: 0.55, nickel: 0.45 }, heavy: { base: 0.7, heavy: 0.3 } };
+  const weightOf = (p) => (PERS[p].light ? 'light' : PERS[p].heavy ? 'heavy' : 'mid');
+  function dprofile(T, b) {
+    const P = TEND && TEND[T.name], d = P && P.def && P.def[b];
+    return { src: d ? 'pff' : 'public', cov: (d && d.cov && Object.keys(d.cov).length ? d.cov : D_COV[b]), blitz: d ? d.blitz : D_BLITZ[b], pkg: (P && P.pkg) || null, front: (P && P.front && Object.keys(P.front).length ? P.front : null) };
+  }
+
+  // ---------- box count, disguise, matchup math ----------
+  function boxOf(pkg, cov, front) { return clamp(PKG[pkg].box + (COV[cov].high <= 1 ? 1 : 0) + (front === 'bear' ? 0.5 : 0), 5, 9); }
+  function look(g, dc) { // what the offense sees at the line
+    const r = g.rng; let shown = dc.cov;
+    const disguise = dc.disg != null ? dc.disg : (dc.disg = r() < 0.22);
+    if (disguise) shown = COV[dc.cov].high <= 1 ? (r() < 0.5 ? 'c4' : 'c2') : (r() < 0.5 ? 'c3' : 'c1');
+    const hi = COV[shown].high, shell = hi === 0 ? 'Zero: no deep safety' : hi === 1 ? 'Single-high: one deep safety' : 'Two-high: both safeties deep';
+    const tell = dc.tell != null ? dc.tell : (dc.tell = (dc.pres === 'fire' || dc.pres === 'all') ? r() < 0.55 : dc.pres === 'sim' ? r() < 0.5 : r() < 0.12);
+    return { shell, hi, box: Math.round(boxOf(dc.pkg, shown, dc.front)), tell, pkg: dc.pkg, front: dc.front, disguised: disguise };
+  }
+  function runRating(C, dc) { return ((C.front || {})[dc.front] || 0) + ((C.pres || {})[dc.pres] || 0) + ((C.cov || {})[dc.cov] || 0) + ((C.pkg || {})[dc.pkg] || 0); }
+  function passRating(cid, cov) { return CON[cid].mat[cov] + K.off; }
+  function recent(g, side) { return (g.advHist = g.advHist || { home: [], away: [] })[side]; }
+  function resolve(g, oc, dc) {
+    const r = g.rng, A = { ym: 1, cadd: 0, sackm: 1, intm: 1, bigm: 1 }, F = FORMS[oc.form], Pp = PERS[oc.pers];
+    let cid = oc.concept, C = CON[cid], key = C.key, rating = 0, rpo = null;
+    const box = boxOf(dc.pkg, dc.cov, dc.front);
+    if (C.kind === 'rpo') { // the QB reads the box: throw it if they've loaded up, hand it off if not (he gets it right ~85%)
+      const loaded = box >= Pp.blk + 1, right = r() < 0.85, thr = right ? loaded : !loaded;
+      rpo = { thr, right, loaded };
+      if (thr) { key = 'short_pass'; rating = Math.max(passRating('slant', dc.cov), passRating('bubble', dc.cov)) + (right ? 0.6 : -0.6); }
+      else { key = 'inside_run'; C = CON.iz; }
+    }
+    if (OFFKIND(key) === 'run') {
+      const blk = Pp.blk + (C.read || (rpo && !rpo.thr) ? 1 : 0) + (F.option ? 0.5 : 0), d = blk - box;
+      rating = runRating(C, dc) + (rpo ? (rpo.right ? 0.5 : -0.5) : 0);
+      if (key !== 'qb_sneak') { A.ym = clamp(K.runOff * (1 + K.runBox * d + K.run * rating), 0.6, 1.5); A.bigm = clamp(1 + 0.15 * d + 0.2 * rating, 0.5, 2) * (dc.pres === 'all' ? 1.3 : 1); }
+    } else {
+      if (!rpo) rating = passRating(cid, dc.cov);
+      if (F.bunch && ['c0', 'c1', 'c2m'].includes(dc.cov)) rating += 0.5; // rubs vs man
+      if (Pp.light && (dc.pkg === 'base' || dc.pkg === 'heavy')) rating += 0.6; // linebackers covering slot receivers
+      if (Pp.heavy && dc.pkg === 'dime') rating -= 0.3;
+      if (C.fam === 'pa' && box > Pp.blk) rating += 0.5 * (box - Pp.blk); // play action punishes a defense that loaded up for the run
+      const P = PRES[dc.pres], pr = C.pr;
+      A.ym = clamp(1 + K.pass * rating, 0.65, 1.45); A.cadd = 0.035 * rating + P.cadd; A.intm = clamp((1 - 0.15 * rating) * P.intm, 0.4, 1.9); A.bigm = clamp(1 + 0.2 * rating, 0.4, 2) * P.big;
+      A.sackm = P.sack * (pr === 'hot' || pr === 'screen' ? 0.35 : pr === 'max' ? 0.5 : pr === 'pa' ? 1.15 : pr === 'deep' ? 1.1 : 1) * (F.empty && (dc.pres === 'fire' || dc.pres === 'all') ? 1.35 : 1);
+      if ((pr === 'hot' || pr === 'screen') && (dc.pres === 'fire' || dc.pres === 'all')) { A.ym *= 1.12; A.bigm *= 1.25; }
+      if (pr === 'max' && dc.pres === 'none') A.ym *= 0.95;
+    }
+    // predictability: the same concept over and over and they sit on it
+    const H = recent(g, g.poss); if (H.length >= 6) { const sh = H.filter((x) => x === oc.concept).length / H.length, lim = C.kind === 'run' ? 0.4 : 0.25; if (sh > lim) { A.ym *= Math.max(0.6, 1 - 1.2 * (sh - lim)); A.cadd -= 0.4 * (sh - lim); } }
+    return { key, A, rating, box, rpo };
+  }
+  const OFFKIND = (k) => E.OFF_PLAYS[k].kind;
+
+  // ---------- AI coordinators ----------
+  function sample(r, dist, ok) { const w = {}; for (const [k, v] of Object.entries(dist || {})) if (!ok || ok(k)) w[k] = v; return Object.keys(w).length ? pickW(r, w) : null; }
+  function defaultForm(r, pers, T) { return sample(r, PERS_FORM[pers], (f) => FORMS[f] && (!FORMS[f].option || T.style === 'option')) || formsFor(pers, T)[0]; }
+  function aiOff(g) {
+    const side = g.poss, T = g[side], r = g.rng, opp = g[other(side)], lead = g.score[side] - g.score[other(side)];
+    if (!g.ko && !g.pat) { // victory formation and end-of-half kneels
+      if (g.qtr === 4 && lead > 0 && g.clock <= (5 - g.down) * 39 - (g.timeouts ? g.timeouts[other(side)] : 0) * 36) return { st: 'kneel' };
+      if (g.qtr === 2 && g.clock <= 20 && g.ball < 45 && !g.ot) return { st: 'kneel' };
+    }
+    const b0 = E.aiOffense(g);
+    if (!E.OFF_PLAYS[b0] || E.OFF_PLAYS[b0].kind === 'st') return { st: b0 };
+    const bk = bucket(g), P = profile(T, bk), D = dprofile(opp, bk);
+    let pers = sample(r, P.pers, (p) => PERS[p] && formsFor(p, T).length) || '11';
+    if (T.style === 'option' && !['20', '21', '22'].includes(pers) && r() < 0.7) pers = '21';
+    let form = P.form ? sample(r, P.form, (f) => FORMS[f] && FORMS[f].pers.includes(pers) && (!FORMS[f].option || T.style === 'option')) : null;
+    form = form || defaultForm(r, pers, T);
+    if (b0 === 'qb_sneak') return { pers, form: FORMS[form].empty ? 'pistol' : form, concept: 'sneak' };
+    let concept;
+    if (OFFKIND(b0) === 'run') {
+      if (P.rpo && r() < P.rpo * 1.2 && !FORMS[form].option) concept = 'rpo';
+      else concept = sample(r, P.runc, (c) => CON[c] && allowed(c, form, T));
+      if (!concept) concept = FORMS[form].empty ? 'draw' : 'iz';
+    } else {
+      let fam = P.passc ? sample(r, P.passc) : null;
+      fam = fam || { screen: 'screen', short_pass: 'quick', medium_pass: 'mid', deep_pass: 'deep', play_action: 'pa' }[b0] || 'quick';
+      if (fam === 'rpo' && FORMS[form].empty) fam = 'quick';
+      const w = {}; // the OC leans toward what beats the coverage he expects here
+      for (const c of FAMS[fam]) if (allowed(c, form, T)) { const exp = CON[c].mat ? Object.entries(D.cov).reduce((a, [k, v]) => a + v * CON[c].mat[k], 0) : 0; w[c] = Math.exp(0.6 * exp); }
+      concept = pickW(r, w) || (FORMS[form].empty ? 'stick' : 'slant');
+    }
+    return { pers, form, concept };
+  }
+  function aiDef(g, oc) {
+    const side = other(g.poss), T = g[side], r = g.rng, bk = bucket(g), D = dprofile(T, bk), lead = g.score[side] - g.score[g.poss];
+    const wgt = weightOf(oc.pers || '11');
+    let pkgD = (D.pkg && D.pkg[wgt]) || D_PKG[wgt];
+    if (bk === 'gl' && wgt !== 'light') pkgD = { heavy: 0.6, base: 0.4 }; else if (bk === 'L' && wgt === 'light' && !(D.pkg && D.pkg.light)) pkgD = { nickel: 0.6, dime: 0.4 };
+    const pkg = sample(r, pkgD, (k) => PKG[k]) || 'nickel';
+    let covW = { ...D.cov };
+    const H = recent(g, g.poss).filter((c) => CON[c] && CON[c].mat).slice(-10); // a DC adjusts to what's beating him
+    if (H.length >= 4) for (const k in covW) { const avg = H.reduce((a, c) => a + CON[c].mat[k], 0) / H.length; covW[k] *= Math.exp(-0.45 * avg); }
+    const runs = recent(g, g.poss).slice(-10).filter((c) => CON[c] && CON[c].kind === 'run').length;
+    if (runs >= 6) { covW.c3 = (covW.c3 || 0.1) * 1.4; covW.c1 = (covW.c1 || 0.1) * 1.3; }
+    let cov = sample(r, covW, (k) => COV[k]) || 'c3', pres;
+    if (g.qtr >= 4 && g.clock < 120 && lead > 0 && lead <= 8) { cov = r() < 0.6 ? 'c4' : 'c2'; pres = 'none'; }
+    else if (cov === 'c0') pres = 'all';
+    else if (r() < D.blitz) pres = cov === 'c1' ? (r() < 0.5 ? 'all' : 'fire') : 'fire';
+    else pres = r() < 0.15 ? 'sim' : 'none';
+    const front = pkg === 'heavy' ? 'bear' : (sample(r, D.front || { over: 0.4, under: 0.35, odd: 0.2, bear: 0.05 }, (k) => FRONT[k]) || 'over');
+    return { pkg, front, cov, pres };
+  }
+
+  // ---------- snap, clock, timeouts, kneel, spike ----------
+  function setup(g, opts = {}) {
+    g.adv = true; g.timeouts = { home: 3, away: 3 }; g.toPend = {}; g.hurry = {}; g.human = opts.human || null; g.advHist = { home: [], away: [] };
+    g.clockHook = clockHook; return g;
+  }
+  const labelOff = (oc) => `${oc.pers} · ${FORMS[oc.form].label.replace(/ \(.*\)/, '')} · ${CON[oc.concept].label}`;
+  const labelDef = (dc) => `${PKG[dc.pkg].label.replace(/ \(.*\)/, '')} ${FRONT[dc.front].replace(/ \(.*\)/, '')} · ${COV[dc.cov].label}${dc.pres !== 'none' ? ' · ' + PRES[dc.pres].label : ''}`;
+  function play(g, oc, dc) {
+    if (g.over) return null;
+    if (g.ko || g.pat || (oc && oc.st && oc.st !== 'kneel' && oc.st !== 'spike')) return E.snap(g, oc && oc.st, dc && dc.st);
+    if (oc && oc.st === 'kneel') return kneel(g);
+    if (oc && oc.st === 'spike') return spike(g);
+    oc = oc || aiOff(g);
+    if (oc.st) return play(g, oc, null);
+    dc = dc || aiDef(g, oc);
+    const side = g.poss, R = resolve(g, oc, dc);
+    autoTempo(g, side);
+    g._adv = R.A; const e = E.snap(g, R.key, 'base'); g._adv = null;
+    const H = recent(g, side); H.push(oc.concept); if (H.length > 12) H.shift();
+    if (e) { e.adv = { oc, dc, rating: R.rating, box: R.box, rpo: R.rpo }; e.play = labelOff(oc); e.def = labelDef(dc); }
+    return e;
+  }
+  function autoTempo(g, side) { // AI offenses go hurry-up when the clock matters
+    if (g.human === side) return;
+    const lead = g.score[side] - g.score[other(side)];
+    g.hurry[side] = (g.qtr === 4 && g.clock <= 300 && lead < 0) || (g.qtr === 2 && g.clock <= 120 && g.ball >= 25);
+  }
+  function useTO(g, s, why) { if (!g.timeouts || g.timeouts[s] <= 0) return false; g.timeouts[s]--; g.log.push({ q: g.qtr, clock: g.clock, text: `⏱️ Timeout, ${g[s].name}${why ? ' (' + why + ')' : ''}. ${g.timeouts[s]} left.`, type: 'info' }); return true; }
+  function clockHook(g, side, e, secs) {
+    if (g.qtr >= 3 && !g._h2) { g._h2 = true; g.timeouts = { home: 3, away: 3 }; }
+    if (g.ot) return secs;
+    const two = (g.qtr === 2 || g.qtr === 4) && g.clock <= 120, running = ['run', 'comp', 'sack'].includes(e.res);
+    if (e.res === 'comp' && e.adv && CON[e.adv.oc.concept].side && g.rng() < 0.4) { e.oob = true; secs = two ? 6 : Math.min(secs, 24); }
+    if (running && !e.oob) {
+      if (two && g.poss === side && g.down === 1) secs = Math.min(secs, 16); // college: clock stops on first downs in the last 2 minutes
+      if (g.hurry && g.hurry[side]) secs = Math.min(secs, 16);
+      const lead = g.score[side] - g.score[other(side)], d = other(side);
+      let to = null;
+      if (g.toPend[side]) to = side; else if (g.toPend[d]) to = d;
+      else if (g.human !== d && g.qtr === 4 && g.clock <= 180 && lead >= 0 && lead <= 16 && g.poss === side) to = d; // defense saving clock
+      else if (g.human !== side && g.qtr === 4 && g.clock <= 70 && lead <= 0 && g.poss === side) to = side; // offense in the 2-minute drill
+      else if (g.human !== side && g.qtr === 2 && g.clock <= 45 && g.ball >= 55 && g.poss === side) to = side;
+      if (to && secs > 8 && useTO(g, to, to === side ? 'stop the clock' : 'saving time')) secs = 6;
+    }
+    g.toPend = {};
+    return secs;
+  }
+  function special(g, kind) {
+    const side = g.poss, yl = g.ball < 50 ? `own ${g.ball}` : g.ball === 50 ? 'midfield' : `opp ${100 - g.ball}`;
+    const e = { q: g.qtr, clock: g.clock, dd: `${['', '1st', '2nd', '3rd', '4th'][g.down]} & ${g.togo >= 100 - g.ball ? 'goal' : g.togo} at ${yl}`, off: g[side].name, play: kind === 'kneel' ? 'Victory formation' : 'Spike', def: '-', side, special: kind, down: g.down, togo: g.togo, ball0: g.ball, yards: kind === 'kneel' ? -1 : 0, res: kind, type: 'play', text: kind === 'kneel' ? `${g[side].name} takes a knee.` : `${g[side].name} spikes it to stop the clock.` };
+    g.log.push(e); const S = g.stats[side];
+    if (kind === 'kneel') { S.rushAtt++; S.rushYds--; S.yards--; g.ball = Math.max(1, g.ball - 1); g.togo += 1; } else S.att++;
+    S.plays++;
+    const d = other(side), lead = g.score[side] - g.score[d];
+    let secs = kind === 'kneel' ? 40 : 3;
+    if (kind === 'kneel' && g.human !== d && g.qtr === 4 && lead > 0 && lead <= 16 && useTO(g, d, 'saving time')) secs = 2;
+    if (g.down >= 4) { e.text += ' Turnover on downs.'; E.tick(g, secs); if (!g.over) E.changePoss(g, d, 100 - g.ball, null); return e; }
+    g.down += 1; E.tick(g, secs); return e;
+  }
+  const kneel = (g) => special(g, 'kneel'), spike = (g) => special(g, 'spike');
+  function simDrive(g) { const side = g.poss, d0 = g.drive; let last = null, n = 0; while (!g.over && g.poss === side && g.drive === d0 && n++ < 40) last = play(g, null, null); return last; }
+  function simToEnd(g) { let last = null, n = 0; while (!g.over && n++ < 700) last = play(g, null, null); return last; }
+
+  // ---------- coaching aids: call sheet, scouting, film ----------
+  function expRating(cid, covDist) { const C = CON[cid]; if (!C.mat) return 0; return Object.entries(covDist).reduce((a, [k, v]) => a + v * C.mat[k], 0) / (Object.values(covDist).reduce((a, b) => a + b, 0) || 1); }
+  function callSheet(g, side, bk) {
+    const T = g[side], opp = g[other(side)], P = profile(T, bk), D = dprofile(opp, bk), r = Math.random, out = [];
+    const topPers = Object.entries(P.pers).sort((a, b) => b[1] - a[1]).map(([k]) => k).filter((p) => PERS[p] && formsFor(p, T).length);
+    const persPass = topPers.find((p) => PERS[p].light) || topPers[0] || '11', persRun = (bk === 's' || bk === 'gl') ? (topPers.find((p) => !PERS[p].light) || '12') : topPers[0] || '11';
+    const fP = (P.form && Object.keys(P.form).find((f) => FORMS[f] && FORMS[f].pers.includes(persPass) && !FORMS[f].empty)) || defaultForm(r, persPass, T);
+    const fR = (P.form && Object.keys(P.form).find((f) => FORMS[f] && FORMS[f].pers.includes(persRun) && !FORMS[f].empty)) || defaultForm(r, persRun, T);
+    const topCov = Object.entries(D.cov).sort((a, b) => b[1] - a[1]);
+    const passes = Object.keys(CON).filter((c) => CON[c].mat && allowed(c, fP, T)).map((c) => [c, expRating(c, D.cov)]).sort((a, b) => b[1] - a[1]);
+    const why = (c) => { const best = topCov.filter(([k]) => CON[c].mat[k] >= 1)[0]; return best ? `Beats ${COV[best[0]].label}: they play it ${Math.round(100 * best[1])}% here` : 'Solid against their mix'; };
+    const yd = bk === 'L' ? ['mid', 'deep', 'quick'] : bk === 's' || bk === 'gl' ? ['quick', 'pa'] : null;
+    let np = 0; for (const [c] of passes) { if (np >= (bk === 'L' ? 4 : 3)) break; if (yd && !yd.includes(CON[c].fam)) continue; out.push({ pers: persPass, form: fP, concept: c, why: why(c) }); np++; }
+    const runs = Object.entries(P.runc).sort((a, b) => b[1] - a[1]).map(([k]) => k).filter((c) => CON[c] && allowed(c, fR, T));
+    if (bk === 's' || bk === 'gl') runs.unshift(...['qbpower', 'sneak'].filter((c) => allowed(c, fR, T) && !runs.includes(c)));
+    for (const c of runs.slice(0, bk === 'L' ? 1 : 3)) out.push({ pers: persRun, form: fR, concept: c, why: `${P.src === 'pff' ? 'One of your most-used runs' : 'Fits your offense'}: ${CON[c].beats}` });
+    if (bk !== 'gl') { const pa = passes.find(([c]) => CON[c].fam === 'pa' && allowed(c, fR, T)); if (pa && !(bk === 'L')) out.push({ pers: persRun, form: fR, concept: pa[0], why: 'Off your run look: ' + why(pa[0]).toLowerCase() }); }
+    return out;
+  }
+  function scout(T, opp) { // what the advanced mode knows about a team's tendencies
+    const P = TEND && TEND[T.name];
+    return { src: P ? 'pff' : 'public', off: P ? P.off : null, def: P ? P.def : null, pkg: P ? P.pkg : null, front: P ? P.front : null, tempo: P ? P.tempo : null, motion: P ? P.motion : null, rpo: P ? P.rpo : null, style: T.style };
+  }
+  function film(e) {
+    const a = e.adv; if (!a) return '';
+    const C = CON[a.oc.concept], cv = COV[a.dc.cov];
+    const ok = (e.res === 'run' && e.yards >= Math.min(4, e.togo)) || (e.res === 'comp' && e.yards >= Math.min(6, e.togo)) || /TOUCHDOWN/.test(e.text || '');
+    let t = `<b>${C.label}</b> vs <b>${cv.long}</b>${a.dc.pres !== 'none' ? ` with a ${PRES[a.dc.pres].label.toLowerCase()}` : ''}. `;
+    if (a.rpo) t += a.rpo.thr ? (a.rpo.right ? 'The box was loaded, so the QB pulled it and threw. Right read. ' : 'The QB threw it into a light box: wrong read, the handoff was there. ') : (a.rpo.right ? 'The box was light, so he handed it off. Right read. ' : 'He handed it into a loaded box: the throw was open. ');
+    if (C.kind === 'run' || (a.rpo && !a.rpo.thr)) t += `${Math.round(a.box)} in the box vs ${PERS[a.oc.pers].blk + (C.read ? 1 : 0)} blockers${C.read ? ' (counting the read)' : ''}: ${a.box > PERS[a.oc.pers].blk + (C.read ? 1 : 0) ? 'they had the numbers' : a.box < PERS[a.oc.pers].blk ? 'you had the numbers' : 'even numbers'}. `;
+    else if (C.mat) { const m = C.mat[a.dc.cov]; t += m >= 1 ? `Good call: ${C.label} ${C.beats.split(':')[0].toLowerCase().startsWith('cover') || C.beats.includes(cv.label) ? 'is built to beat ' + cv.label : 'beats ' + C.beats}. ` : m <= -1 ? `Tough matchup: ${C.label} struggles against ${C.fails}. ` : 'Neutral matchup: it came down to execution. '; }
+    if (a.dc.disg) t += 'The shell was disguised pre-snap. ';
+    return t + (ok ? '✅' : '❌');
+  }
+  return { PERS, FORMS, CON, COV, PKG, FRONT, PRES, FAMS, BUCKET, K, setTend: (t) => { TEND = t; }, hasTend: () => !!TEND, bucket, formsFor, conceptsFor, allowed, profile, dprofile, look, resolve, aiOff, aiDef, setup, play, kneel, spike, simDrive, simToEnd, callSheet, scout, film, labelOff, labelDef, boxOf, weightOf };
+})();
+
+/*/ADV*/</script>
 <script>
 (() => {
   const D = window.__SIM__, E = SimEngine, $ = (id) => document.getElementById(id);
@@ -969,6 +1311,7 @@ const SimCoach = (() => {
   $('start').onclick = () => {
     const p = pick(); if (p.away === p.home) return alertBox('Pick two different teams.');
     g = E.init(D, p.home, p.away, { neutral: p.neutral, hfa: p.hfa, seed: (Math.random() * 1e9) | 0 });
+    ADV = !!(A && $('advMode') && $('advMode').checked); AP = null; if (ADV) A.setup(g, { human: me === 'watch' ? null : me });
     SND.on = $('soundOn').checked; SND.lastSit = ''; $('mute').textContent = SND.on ? '🔊' : '🔇'; SND.q4 = false; if (SND.on) { bedStart(); roar(2.5, 0.25); cadence(2); setTimeout(() => band('charge'), 2000); const fan = g[me === 'watch' ? 'home' : me], k = fan.songs && fan.songs.kickoff; if (k) setTimeout(() => playTrack(k.id, `🏟️ ${fan.name} takes the field! Tap ▶️ for ${k.t}`, 'event'), 300); }
     if (SND.on) drumInit();
     $('drumCard').classList.toggle('hidden', !SND.on);
@@ -994,7 +1337,7 @@ const SimCoach = (() => {
   function render() {
     $('awayPts').textContent = g.score.away; $('homePts').textContent = g.score.home;
     $('clock').innerHTML = g.over ? 'Final' + (g.ot ? ' (OT)' : '') : `${qName(g.qtr)}${g.qtr <= 4 ? ' · ' + fmtClock(g.clock) : ''}`;
-    for (const s of ['away', 'home']) $(s + 'Sub').innerHTML = g[s].record + (me === s ? ' · you' : '') + (!g.over && g.poss === s ? ' <span class="poss">● ball</span>' : '');
+    for (const s of ['away', 'home']) $(s + 'Sub').innerHTML = g[s].record + (me === s ? ' · you' : '') + (ADV && g.timeouts && !g.over ? ` · ⏱️${g.timeouts[s]}` : '') + (!g.over && g.poss === s ? ' <span class="poss">● ball</span>' : '');
     if (!g.over) {
       const toGoal = 100 - g.ball, yl = g.ball < 50 ? `own ${g.ball}` : g.ball === 50 ? 'the 50' : `opp ${toGoal}`;
       $('sit').textContent = g.ko ? `${g[g.poss].name} ${g.ko.from === 20 ? 'free kick from the 20 (after the safety)' : 'kicking off from the 35'}` : g.pat ? `${g[g.poss].name}: try after touchdown (extra point or 2-point try from the 3)` : `${g[g.poss].name}: ${['', '1st', '2nd', '3rd', '4th'][g.down]} & ${g.togo >= toGoal ? 'goal' : g.togo} at ${yl}`;
@@ -1006,7 +1349,7 @@ const SimCoach = (() => {
       $('finalLine').textContent = `${g[w].name} wins ${Math.max(g.score.home, g.score.away)}–${Math.min(g.score.home, g.score.away)}` + (me !== 'watch' ? (w === me ? ' · You win!' : ' · Tough loss, coach.') : '');
       $('finalLine').classList.remove('hidden');
       const tp = topPerformers();
-      const rep = (tp.length ? `<div class="h2">⭐ Top performers</div><ul class="lessons">${tp.map((x) => `<li>${x}</li>`).join('')}</ul><br>` : '') + (coach ? C.report(g, me) : '');
+      const rep = (tp.length ? `<div class="h2">⭐ Top performers</div><ul class="lessons">${tp.map((x) => `<li>${x}</li>`).join('')}</ul><br>` : '') + (coach ? C.report(g, me) : '') + (ADV && me !== 'watch' ? advReport() : '');
       $('report').innerHTML = rep && `<details open class="sec"><summary class="h2">🏁 Postgame</summary>${rep}</details>`; $('report').classList.toggle('hidden', !rep);
     }
     renderCalls(); renderLog(); renderStats(); renderBox();
@@ -1024,6 +1367,8 @@ const SimCoach = (() => {
       else { const play = E.aiOffense(g); pend = { key, play, look: C.offLook(play) }; }
     }
     let html = '';
+    $('calls').className = 'grid';
+    if (ADV && me !== 'watch' && !g.ko && !g.pat && advRender()) return;
     if (g.ko && me !== 'watch') {
       const kicking = g.ko.kicker === me, R = g[me === 'home' ? 'away' : 'home'];
       if (kicking) {
@@ -1121,7 +1466,7 @@ const SimCoach = (() => {
     const mu = entry && entry.offRole ? `<div class="mu">🆚 <b>Matchup:</b> ${nm(g[entry.side], entry.offRole)} (${posOf(entry.offRole)}) vs ${nm(g[entry.side === 'home' ? 'away' : 'home'], entry.defRole)} (${posOf(entry.defRole)})${(() => { const a = pl(g[entry.side], entry.offRole), b = pl(g[entry.side === 'home' ? 'away' : 'home'], entry.defRole); const sa = a && a.bb && a.bb <= 300, sb = b && b.bb && b.bb <= 300; return sa && !sb ? '. The ⭐ prospect had the edge.' : sb && !sa ? '. Their ⭐ prospect had the edge.' : sa && sb ? '. Star vs. star.' : ''; })()}</div>` : '';
     announce(entry);
     reactions(entry);
-    $('film').innerHTML = coach && entry && entry.offKey ? (C.snapArt(entry.offKey, entry.defKey) + `<div>${C.film(entry, me, look)}${mu}</div>`) : '';
+    $('film').innerHTML = coach && entry && entry.adv ? `<div style="grid-column:1/-1">🎬 ${A.film(entry)}${mu}</div>` : coach && entry && entry.offKey ? (C.snapArt(entry.offKey, entry.defKey) + `<div>${C.film(entry, me, look)}${mu}</div>`) : '';
     render();
   }
 
@@ -1439,6 +1784,7 @@ const SimCoach = (() => {
   }
   $('calls').onclick = (e) => {
     const b = e.target.closest('button'); if (!b || g.over) return;
+    if (ADV && advClick(b)) return;
     idleStop(); stopSong(); // next call: any song ends, the drums come back after the play
     const mark = (e) => { if (e) e.byUser = true; return e; };
     const look = pend && pend.look;
@@ -1447,15 +1793,16 @@ const SimCoach = (() => {
     else if (b.dataset.kr) after(mark(E.snap(g, null, b.dataset.kr)), look);
     else if (b.dataset.r) { g.retCall = b.dataset.r; after(mark(E.snap(g, 'punt', 'base')), look); }
     else if (b.dataset.d) after(mark(E.snap(g, pend && pend.play, b.dataset.d)), look);
-    else after(E.snap(g, null, null));
+    else after(ADV ? A.play(g, null, null) : E.snap(g, null, null));
   };
-  $('auto').onclick = () => { idleStop(); stopSong(); if (g.over) return; const look = pend && pend.look; after(E.snap(g, pend && pend.play || null, pend && pend.def || null), look); };
+  $('auto').onclick = () => { idleStop(); stopSong(); if (g.over) return; const look = pend && pend.look; if (ADV) { AP = null; after(advSim(() => A.play(g, null, null))); return; } after(E.snap(g, pend && pend.play || null, pend && pend.def || null), look); };
   $('simDrive').onclick = () => { idleStop(); stopSong();
     if (g.over) return; const side = g.poss, d0 = g.drive; let last = null, n = 0;
-    while (!g.over && g.poss === side && g.drive === d0 && n++ < 40) last = E.snap(g, null, null);
+    while (!g.over && g.poss === side && g.drive === d0 && n++ < 40) last = ADV ? advSim(() => A.play(g, null, null)) : E.snap(g, null, null);
+    AP = null;
     after(last);
   };
-  $('simAll').onclick = () => { idleStop(); stopSong(); let last = null; while (!g.over) last = E.snap(g, null, null); after(last); };
+  $('simAll').onclick = () => { idleStop(); stopSong(); let last = null; while (!g.over) last = ADV ? advSim(() => A.play(g, null, null)) : E.snap(g, null, null); AP = null; after(last); };
 
   // ---------- 📋 Game plan: test every call in every down & distance with this sim's own engine ----------
   // Public data only (ratings, season rush/pass numbers, depth charts). Each call is run hundreds of times against
@@ -1623,6 +1970,143 @@ const SimCoach = (() => {
     const best = (onO ? PLAN.ch.script : PLAN.ch.dscript)[k] || row.ranked[0][0], attr = onO ? 'data-o' : 'data-d';
     const b = $('calls').querySelector(`[${attr}="${best}"]`); if (!b) return;
     b.classList.add('plan'); b.insertAdjacentHTML('beforeend', `<span class="planTag">📋 Your plan (${row.sit.name})</span>`);
+  }
+
+  // ---------- 🧠 Advanced mode (SimAdv): coordinator-level play calling ----------
+  var A = typeof SimAdv !== 'undefined' ? SimAdv : null, ADV = false, AP = null;
+  const pctA = (x) => Math.round(100 * (x || 0)) + '%';
+  const topK = (o, n = 2, lab = (k) => k) => Object.entries(o || {}).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => `${lab(k)} ${pctA(v)}`).join(', ') || '–';
+  const FAMLAB = { screen: 'screens', rpo: 'RPOs', pa: 'play action', quick: 'quick game', mid: 'intermediate', deep: 'deep shots' };
+  const RUNLAB = (k) => (A && A.CON[k] ? A.CON[k].label : k);
+  const teamObj = (n) => Object.assign({ name: n, style: E.styleKey(D.teams[n], D.nat) }, D.teams[n]);
+  function scoutHTML(T) {
+    const S = A.scout(T), rows = ['e', 'l', 'm', 'L', 's', 'rz', 'gl'];
+    if (S.src !== 'pff') return `<p class="hint">🔎 <b>${T.name}</b> runs ${/^[AEIOU]/.test(E.STYLES[T.style].label) ? 'an' : 'a'} ${E.STYLES[T.style].label.toLowerCase()} offense. In advanced mode their play-callers lean on what that identity runs (personnel, run schemes, pass concepts), built from public season stats, and their defense mixes coverages and pressures like a typical FBS defense.</p>`;
+    const off = rows.filter((b) => S.off[b]).map((b) => { const o = S.off[b]; return `<tr><td>${A.BUCKET[b]}</td><td>${pctA(o.run)}</td><td>${topK(o.pers, 2)}</td><td>${topK(o.runc, 2, RUNLAB)}</td><td>${topK(o.passc, 2, (k) => FAMLAB[k] || k)}</td></tr>`; }).join('');
+    const def = rows.filter((b) => S.def[b]).map((b) => { const d = S.def[b]; return `<tr><td>${A.BUCKET[b]}</td><td>${topK(d.cov, 3, (k) => A.COV[k].label)}</td><td>${pctA(d.blitz)}</td></tr>`; }).join('');
+    return `<details class="sec scout"><summary class="h2">🔒 Scouting report: ${T.name}</summary><p class="hint">Private: from your PFF play feed, garbage time removed.${S.tempo != null ? ` Tempo on ${pctA(S.tempo)} of snaps, motion on ${pctA(S.motion)}, RPOs on ${pctA(S.rpo)}.` : ''}</p>
+      <div class="h2" style="margin-top:6px">Their offense</div><table><tr><th>Situation</th><th>Run</th><th>Personnel</th><th>Runs</th><th>Passes</th></tr>${off}</table>
+      <div class="h2" style="margin-top:10px">Their defense</div><table><tr><th>Situation</th><th>Coverage</th><th>Blitz</th></tr>${def}</table>
+      <p class="hint">Packages vs 11 personnel: ${topK(S.pkg && S.pkg.light, 2)}; vs 12/21: ${topK(S.pkg && S.pkg.mid, 2)}. Fronts: ${topK(S.front, 3, (k) => A.FRONT[k].replace(/ \(.*\)/, ''))}.</p></details>`;
+  }
+  function renderScout() {
+    if (!A || !$('advMode')) return; const on = $('advMode').checked; $('scoutBox').classList.toggle('hidden', !on); if (!on) return;
+    const p = pick(), list = me === 'watch' ? [p.away, p.home] : [me === 'home' ? p.away : p.home];
+    $('scoutBox').innerHTML = list.map((n) => scoutHTML(teamObj(n))).join('');
+  }
+  if ($('advMode')) { $('advMode').addEventListener('change', renderScout); ['slate', 'away', 'home', 'neutral'].forEach((id) => $(id).addEventListener('change', renderScout)); $('side').addEventListener('click', () => setTimeout(renderScout, 0)); renderScout(); }
+  const oppSide = () => (me === 'home' ? 'away' : 'home');
+  const READ_TIP = '🧢 <b>Read it like a coordinator.</b> Two-high shells (Cover 2, 4, 6) leave lighter boxes: run it, or attack the middle (Dagger; Smash vs Cover 2). Single-high (Cover 1, 3) puts 7+ in the box: Flood, Four Verts, Y-Cross and play action. No deep safety means a blitz: hot throws, screens or a max-protect shot. Don’t lean on one concept: defenses sit on it.';
+  function toolsHTML(off) {
+    const n = g.timeouts[me]; let h = `<div class="adv-tools"><label><input type="checkbox" id="advTO" ${g.toPend[me] ? 'checked' : ''} ${n ? '' : 'disabled'}> ⏱️ Timeout after the play (${n} left)</label>`;
+    if (off) {
+      h += `<label><input type="checkbox" id="advHurry" ${g.hurry[me] ? 'checked' : ''}> ⚡ Hurry-up (no huddle)</label>`;
+      const late = (g.qtr === 2 || g.qtr === 4) && g.clock <= 180 && !g.ot;
+      if (late && g.down < 4) h += `<button class="btn" data-aspike="1">🛑 Spike it</button>`;
+      if (late) h += `<button class="btn" data-akneel="1">🧎 Kneel</button>`;
+    }
+    return h + '</div>';
+  }
+  function buildHTML() {
+    const T = g[me], P = AP.build || (AP.build = { pers: '11', form: null, concept: null });
+    const persL = Object.keys(A.PERS).filter((p) => A.formsFor(p, T).length); if (!persL.includes(P.pers)) P.pers = persL[0];
+    const forms = A.formsFor(P.pers, T); if (!forms.includes(P.form)) P.form = forms[0];
+    const cons = A.conceptsFor(P.form, T); if (!cons.includes(P.concept)) P.concept = cons[0];
+    const o = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${t}</option>`, C = A.CON[P.concept];
+    return `<details class="sec" style="margin-top:10px"${AP.buildOpen ? ' open' : ''}><summary class="h2">🛠️ Build your own call</summary><div class="adv-build">
+      <div><label>Personnel</label><select id="abP">${persL.map((p) => o(p, `${p} (${A.PERS[p].who})`, p === P.pers)).join('')}</select></div>
+      <div><label>Formation</label><select id="abF">${forms.map((f) => o(f, A.FORMS[f].label, f === P.form)).join('')}</select></div>
+      <div><label>Concept</label><select id="abC">${cons.map((c) => o(c, A.CON[c].label, c === P.concept)).join('')}</select></div></div>
+      <p class="hint">${C.kind === 'pass' ? '🎯 Pass' : C.kind === 'rpo' ? '🔀 RPO' : '🏃 Run'}: beats ${C.beats}. Struggles against ${C.fails}.</p>
+      <button class="btn primary" data-abuild="1" style="width:100%">🏈 Break the huddle</button></details>`;
+  }
+  function advRender() {
+    const key = `${g.log.length}|${g.poss}|${g.down}|${g.ball}`, bk = A.bucket(g), opp = oppSide();
+    if (!AP || AP.key !== key) AP = { key, stage: userOnOffense() ? 'call' : 'pers' };
+    const sit = `<div class="adv-sit"><span>📍 ${A.BUCKET[bk]}</span><span>⏱️ Timeouts: you ${g.timeouts[me]}, them ${g.timeouts[opp]}</span>${g.hurry[g.poss] && g.poss !== me ? '<span>⚡ They’re in hurry-up</span>' : ''}</div>`;
+    let h = sit;
+    $('read').innerHTML = '';
+    if (userOnOffense()) {
+      if (AP.stage === 'call') {
+        $('callTitle').textContent = '🧠 Your call, coordinator';
+        const sheet = AP.sheet || (AP.sheet = A.callSheet(g, me, bk));
+        h += `<div class="h2" style="margin:6px 0">📋 Call sheet: ${A.BUCKET[bk]}</div><div class="adv-sheet">${sheet.map((c, i) => `<button class="btn" data-ac="${i}"><b>${A.CON[c.concept].label}</b><small>${c.pers} personnel · ${A.FORMS[c.form].label}</small><small>${c.why}</small></button>`).join('')}</div>`;
+        h += buildHTML();
+        if (g.down === 4 || (g.ot === 0 && g.qtr >= 2 && g.clock < 30)) {
+          const fgDist = 100 - g.ball + 17, pr = E.fgProb(g, g.poss);
+          h += '<div class="adv-pick" style="margin-top:10px">' + (!g.ot ? `<button class="btn" data-o="punt">🦵 Punt<small>Flip the field</small></button>` : '') + (fgDist <= 65 ? `<button class="btn" data-o="field_goal">🎯 Field goal (${fgDist} yds)<small>~${Math.round(pr * 100)}% to make</small></button>` : '') + '</div>';
+        }
+        h += toolsHTML(true);
+        $('tip').innerHTML = coach ? READ_TIP : '';
+      } else {
+        const lk = AP.look, F = A.FORMS[AP.oc.form], blk = A.PERS[AP.oc.pers].blk + (A.CON[AP.oc.concept].read ? 1 : 0);
+        $('callTitle').textContent = '🔭 At the line';
+        h += `<div class="adv-line">You're in <b>${F.label}</b> with <b>${A.CON[AP.oc.concept].label}</b> called.<br>They subbed <b>${A.PKG[lk.pkg].label}</b> in ${/^[AEIOU]/i.test(A.FRONT[lk.front]) ? 'an' : 'a'} ${A.FRONT[lk.front]} front.<br>Shell: <b>${lk.shell}</b>. Box: <b>${lk.box}</b> vs your ${blk} blockers${lk.box > blk ? ' (they have the numbers against the run)' : lk.box < blk ? ' (you have the numbers to run it)' : ''}.${lk.tell ? '<br>⚠️ Linebackers are creeping toward the line: pressure could be coming.' : ''}</div>`;
+        h += `<div class="adv-build"><button class="btn primary" data-asnap="1">▶️ Snap it</button><div><label>Check to</label><select id="advAud">${A.conceptsFor(AP.oc.form, g[me]).filter((c) => c !== AP.oc.concept).map((c) => `<option value="${c}">${A.CON[c].label}</option>`).join('')}</select></div><button class="btn" data-aaud="1">🔁 Audible</button></div>`;
+        h += toolsHTML(false);
+        $('tip').innerHTML = coach ? READ_TIP : '';
+      }
+    } else {
+      if (!AP.oc) AP.oc = A.aiOff(g);
+      const oc = AP.oc, O = g[g.poss];
+      if (oc.st === 'punt') { if (pend) pend.play = 'punt'; return false; }
+      if (oc.st) {
+        $('callTitle').textContent = oc.st === 'field_goal' ? `🎯 ${O.name} is kicking a field goal` : oc.st === 'kneel' ? `🧎 ${O.name} is in victory formation` : `▶️ ${O.name}`;
+        $('calls').className = 'adv'; $('calls').innerHTML = sit + `<div class="adv-pick"><button class="btn primary" data-ast="1">▶️ Line up${oc.st === 'field_goal' ? ` (${100 - g.ball + 17}-yard try)` : ''}</button></div>` + toolsHTML(false); $('tip').innerHTML = ''; return true;
+      }
+      const P = A.profile(O, bk);
+      const scoutLine = P.src === 'pff' ? `<br>🔒 Scouting (${A.BUCKET[bk]}): they run ${pctA(P.run)}; runs: ${topK(P.runc, 2, RUNLAB)}; passes: ${topK(P.passc, 2, (k) => FAMLAB[k] || k)}.` : `<br>🔎 ${E.STYLES[O.style].label} offense.`;
+      if (AP.stage === 'pers') {
+        $('callTitle').textContent = '🛡️ Match their personnel';
+        h += `<div class="adv-line">🔄 They're sending in <b>${A.PERS[oc.pers].label}</b> (${A.PERS[oc.pers].who}).${scoutLine}</div>`;
+        const tips = { base: 'Bigger: best vs 2 TEs / 2 backs', nickel: '5 DBs: the answer to 3 receivers', dime: '6 DBs: obvious passing downs', heavy: 'Goal line / short yardage' };
+        h += `<div class="adv-pick">${Object.keys(A.PKG).map((k) => `<button class="btn" data-apkg="${k}">${A.PKG[k].label}<small>${tips[k]}</small></button>`).join('')}</div>` + toolsHTML(false);
+        $('tip').innerHTML = coach ? '🧢 <b>Match personnel first.</b> Nickel against 3 receivers, base against 2 tight ends or 2 backs, heavy at the goal line. Too light and they run on you; too heavy and a linebacker ends up covering a slot receiver.' : '';
+      } else {
+        $('callTitle').textContent = '🛡️ Your defensive call';
+        const sg = AP.sug, o = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${t}</option>`;
+        h += `<div class="adv-line">They line up in <b>${A.FORMS[oc.form].label}</b> (${oc.pers} personnel) against your ${A.PKG[AP.pkg].label.replace(/ \(.*\)/, '')}.${scoutLine}</div>`;
+        h += `<div class="adv-build"><div><label>Front</label><select id="adF">${Object.keys(A.FRONT).map((k) => o(k, A.FRONT[k], k === sg.front)).join('')}</select></div>
+          <div><label>Coverage</label><select id="adC">${Object.keys(A.COV).map((k) => o(k, A.COV[k].long, k === sg.cov)).join('')}</select></div>
+          <div><label>Pressure</label><select id="adP">${Object.keys(A.PRES).map((k) => o(k, A.PRES[k].label, k === sg.pres)).join('')}</select></div>
+          <button class="btn primary" data-adsnap="1">▶️ Snap</button></div><p class="hint">Your DC's suggestion is pre-selected. Cover 0 always sends everyone.</p>` + toolsHTML(false);
+        $('tip').innerHTML = coach ? '🧢 <b>Take away what they love here.</b> Single-high (Cover 1, 3) adds a defender to the box against the run; two-high (Cover 2, 4, 6) takes away deep shots and verticals; man (Cover 1, 2-Man) kills zone-beaters like Flood and Stick but gets rubbed by Mesh and crossers. Pressure gets home on long downs but leaves no help behind it.' : '';
+      }
+    }
+    $('calls').className = 'adv'; $('calls').innerHTML = h; return true;
+  }
+  function breakHuddle(oc) { AP.oc = oc; AP.dc = A.aiDef(g, oc); AP.look = A.look(g, AP.dc); AP.stage = 'line'; renderCalls(); }
+  function snapAdv(oc, dc) { idleStop(); stopSong(); const e = A.play(g, oc, dc); if (e) e.byUser = true; AP = null; after(e, null); }
+  function advClick(b) {
+    const ds = b.dataset;
+    if (ds.ac != null) { const c = AP.sheet[+ds.ac]; breakHuddle({ pers: c.pers, form: c.form, concept: c.concept }); return true; }
+    if (ds.abuild) { breakHuddle({ pers: AP.build.pers, form: AP.build.form, concept: AP.build.concept }); return true; }
+    if (ds.asnap) { snapAdv(AP.oc, AP.dc); return true; }
+    if (ds.aaud) { AP.oc = Object.assign({}, AP.oc, { concept: $('advAud').value, aud: true }); snapAdv(AP.oc, AP.dc); return true; }
+    if (ds.aspike) { snapAdv({ st: 'spike' }, null); return true; }
+    if (ds.akneel) { snapAdv({ st: 'kneel' }, null); return true; }
+    if (ds.apkg) { AP.pkg = ds.apkg; AP.sug = Object.assign(A.aiDef(g, AP.oc), { pkg: ds.apkg }); if (ds.apkg === 'heavy') AP.sug.front = 'bear'; AP.stage = 'align'; renderCalls(); return true; }
+    if (ds.adsnap) { const dc = { pkg: AP.pkg, front: $('adF').value, cov: $('adC').value, pres: $('adP').value }; if (dc.cov === 'c0') dc.pres = 'all'; snapAdv(AP.oc, dc); return true; }
+    if (ds.ast) { snapAdv(AP.oc, null); return true; }
+    return false;
+  }
+  document.addEventListener('change', (e) => {
+    const t = e.target; if (!ADV || !g || !AP) return;
+    if (t.id === 'advTO') g.toPend[me] = t.checked;
+    else if (t.id === 'advHurry') g.hurry[me] = t.checked;
+    else if (['abP', 'abF', 'abC'].includes(t.id)) { AP.build[{ abP: 'pers', abF: 'form', abC: 'concept' }[t.id]] = t.value; AP.buildOpen = true; renderCalls(); }
+  });
+  const advSim = (fn) => { const h = g.human; g.human = null; try { return fn(); } finally { g.human = h; } }; // when you sim, the AI runs your clock too
+  function advReport() {
+    const ok = (e) => e.res !== 'int' && e.res !== 'fumble' && (/TOUCHDOWN/.test(e.text || '') || e.yards >= (e.down === 1 ? 0.4 : e.down === 2 ? 0.6 : 1) * e.togo);
+    const tab = (rows, head) => rows.length ? `<table class="rep"><tr>${head.map((x) => `<th>${x}</th>`).join('')}</tr>${rows.join('')}</table>` : '<p class="hint">No snaps yet.</p>';
+    const grp = (L, f) => { const m = {}; for (const e of L) { const k = f(e); const o = m[k] = m[k] || { n: 0, s: 0, y: 0 }; o.n++; o.s += ok(e) ? 1 : 0; o.y += ['int', 'fumble'].includes(e.res) ? 0 : e.yards; } return Object.entries(m).sort((a, b) => b[1].n - a[1].n); };
+    const mine = g.log.filter((e) => e.adv && e.byUser && e.side === me), theirs = g.log.filter((e) => e.adv && e.byUser && e.side !== me);
+    const row = ([k, o]) => `<tr><td>${k}</td><td>${o.n}</td><td>${pctA(o.s / o.n)}</td><td>${(o.y / o.n).toFixed(1)}</td></tr>`;
+    return `<div class="h2" style="margin-top:12px">📈 Call sheet review</div><p class="hint">Success = staying on schedule (40% of the yards on 1st down, 60% on 2nd, all of it on 3rd/4th).</p>`
+      + tab(grp(mine, (e) => A.CON[e.adv.oc.concept].label).map(row), ['Your concept', 'Plays', 'Success', 'Yds/play'])
+      + tab(grp(mine.filter((e) => A.CON[e.adv.oc.concept].kind !== 'run'), (e) => A.COV[e.adv.dc.cov].label).map(row), ['Coverage you saw (passes)', 'Plays', 'Success', 'Yds/play'])
+      + tab(grp(theirs, (e) => A.COV[e.adv.dc.cov].label).map(row), ['Your coverage', 'Their plays', 'Their success', 'Yds/play']);
   }
 
   function renderLog() {
