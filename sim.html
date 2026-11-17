@@ -1038,10 +1038,10 @@ const SimCoach = (() => {
     ['Post-Wheel', 'post_wheel'], ['max-protect', 'max_protect'], ['Slant-flat', 'slant'], ['slants', 'slant'], ['slant', 'slant'], ['bubble', 'bubble'],
     ['Inside Zone', 'inside_zone'], ['Outside Zone', 'outside_zone'], ['Duo', 'duo', 1], ['Power', 'power_run', 1], ['Counter', 'counter', 1], ['Draw', 'draw', 1], ['draws', 'draw', 1], ['Jet sweep', 'jet'],
     ['RPOs', 'rpo', 1], ['RPO', 'rpo', 1], ['triple option', 'option_run'], ['zone read', 'option_run'], ['Option', 'option_run', 1], ['the option', 'option_run'], ['play action', 'pa_t'], ['play-action', 'pa_t'],
-    ['Trips', 'trips', 1], ['Bunch', 'bunch', 1], ['Empty', 'empty', 1], ['Trey (TE', 'trey', 1], ['Pistol', 'pistol', 1], ['Flexbone', 'flexbone', 1], ['Doubles', 'doubles', 1], ['I-Form', 'iform', 1], ['Ace', 'ace', 1],
+    ['Trips', 'trips', 1], ['Bunch', 'bunch', 1], ['Empty', 'empty', 1], ['Trey', 'trey', 1, '(?= \\(TE| \u00b7)'], ['Pistol', 'pistol', 1], ['Flexbone', 'flexbone', 1], ['Doubles', 'doubles', 1], ['I-Form', 'iform', 1], ['Ace', 'ace', 1],
     ['Sam linebacker', 'lbs'], ['strong-side linebacker', 'lbs'], ['strength', 'strength'], ['technique', 'tech'],
   ];
-  const LRX = LINKS.map(([p, k, cs]) => [new RegExp('(?<![\\w-])' + p.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&') + '(?![\\w-])', cs ? '' : 'i'), k]);
+  const LRX = LINKS.map(([p, k, cs, la]) => [new RegExp('(?<![\\w-])' + p.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&') + (la || '(?![\\w-])'), cs ? '' : 'i'), k]);
   const LSKIP = /^<(button|select|option|summary|svg|a|textarea|dt|script|style)\b/i, LSKIPC = /^<\/(button|select|option|summary|svg|a|textarea|dt|script|style)>/i;
   function link(html, self) { // links each term once per call, never inside buttons, selects, links, headings or diagrams
     if (!html) return html; const used = new Set(self ? [self] : []); let skip = 0;
