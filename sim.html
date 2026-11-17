@@ -740,6 +740,58 @@ const SimCoach = (() => {
   };
   // ---------- coach vocabulary: {key} or {key|shown text} in any string becomes a tap-to-define term ----------
   const TERMS = {
+    over_front: ['Over front', 'A four-man front shifted toward the offense’s {strength}: the {three_tech|3-technique} lines up to the tight end side and the {nose} shades the center away from it. Strong against gap runs like {power_run|Power} and outside runs; {duo|Duo} double teams test it.'],
+    under_front: ['Under front', 'A four-man front shifted away from the {strength}: the {three_tech|3-technique} goes to the weak side, a {five_tech|5-technique} plays outside the strong tackle and the {lbs|Sam linebacker} walks up on the line over the tight end, so there are five men on the line to the strong side.'],
+    odd_front: ['Odd / Tite front', 'Three down linemen: a {nose} head-up on the center and two {four_i|4i-techniques} on the inside shoulders of the tackles, with stand-up edge rushers outside. The most popular front against spread offenses (3-3-5 and 3-4 teams): it clogs the A and B {gap|gaps} with only six in {box|the box}.'],
+    bear_front: ['Bear front', 'Named for the 1985 Chicago Bears’ 46 defense. The center and both guards are covered (a {nose} plus two {three_tech|3-techniques}), so no interior lineman can climb to a linebacker, and a safety walks down for eight in {box|the box}. A run-stopping front that is thin in coverage.'],
+    nose: ['nose tackle (0-technique)', 'The defensive lineman lined up head-up on the center, a “0-technique.” His job is to take on double teams so the linebackers behind him run free.'],
+    shade: ['shade (1-technique)', 'A defensive tackle on the center’s shoulder, between the center and a guard: a “1-technique.” Usually the bigger, run-stuffing tackle.'],
+    three_tech: ['3-technique', 'A defensive tackle on the outside shoulder of a guard. The key pass-rushing spot inside, because it gets him one-on-one with a guard. {over_front|Over} and {under_front|Under} fronts are named for which side the 3-technique goes to.'],
+    four_i: ['4i-technique', 'A defensive lineman on the inside shoulder of an offensive tackle. The building block of {odd_front|Odd/Tite fronts}: two 4i’s and a {nose} close the A and B {gap|gaps}.'],
+    five_tech: ['5-technique', 'A defensive end on the outside shoulder of an offensive tackle, responsible for the C {gap}. 6-, 7- and 9-techniques line up on or outside the tight end.'],
+    lbs: ['Mike, Will and Sam', 'Linebacker names. The Mike is the middle linebacker who makes the defensive calls, the Will plays the weak side and the Sam lines up to the strong (tight end) side.'],
+    package: ['personnel package', 'The defense’s substitution group, chosen to match the offense’s {personnel}: {base_d|base}, {nickel}, {dime} or {heavy_d|heavy}.'],
+    base_d: ['base defense', 'Four defensive backs with three linebackers (a 4-3) or four (a 3-4). Built for two-tight-end and two-back offenses; against three receivers a linebacker has to cover a slot.'],
+    nickel: ['nickel', 'A defense with five defensive backs: the fifth one (the “nickel”) covers a slot receiver. College football’s real base defense, since most snaps come against three receivers.'],
+    dime: ['dime', 'Six defensive backs. Used on obvious passing downs: great in coverage, but only about five defenders in {box|the box}, so it is soft against runs and {draw|draws}.'],
+    heavy_d: ['heavy / goal-line defense', 'Extra linemen and linebackers, usually in a {bear_front|Bear front}: eight or more in {box|the box} for short yardage and the goal line.'],
+    cover0: ['Cover 0', 'Pure {man} coverage with no deep safety: everyone not covering a receiver blitzes. Maximum pressure, zero help. Beaten by {hot|hot throws}, screens, {slant|slants} and {max_protect|max-protect} shots.'],
+    cover4: ['Cover 4 (Quarters)', 'Four defenders split the deep field in quarters ({mofo}). The safeties read the slot receiver and jump into the run fit or the underneath route, so it is strong against runs and verticals. Attacked with {post_wheel|Post-Wheel} and the {quick} game.'],
+    cover6: ['Cover 6', 'Quarter-quarter-half: {cover4|Quarters} to one side (usually the trips side) and {cover2|Cover 2} to the other.'],
+    two_man: ['2-Man', '{man|Man coverage} underneath, with defenders trailing every receiver, and two deep safeties over the top. The tightest pass coverage there is; crossing routes like {mesh_c|Mesh} and QB runs beat it.'],
+    press: ['press coverage', 'A cornerback lined up right on the receiver to jam him at the line, usually in {man} coverage. “Off” coverage plays 5 to 8 yards back.'],
+    fire_zone: ['fire zone', 'A five-man blitz with a safe {zone} behind it: three deep and three underneath. The standard college blitz.'],
+    sim_pressure: ['simulated pressure', 'Shows a blitz but rushes only four, bringing them from unexpected spots while a lineman drops into a throwing lane. Built to bait {hot|hot throws} into a defender.'],
+    mesh_c: ['Mesh (pass concept)', 'Two receivers run shallow crossing routes right past each other (“meshing”) underneath the linebackers. The crossers rub off defenders, which makes it a top {man} coverage beater.'],
+    stick: ['Stick', 'A quick three-level read to one side: a 6-yard “stick” route that sits in the hole, a flat route and a vertical. A {quick} answer to {zone|zone coverage}.'],
+    smash: ['Smash', 'A short hitch by the outside receiver with a corner route by the slot over the top. The classic {cover2|Cover 2} beater: it puts the cornerback in a high-low bind.'],
+    curl_flat: ['Curl-flat', 'A curl at about 10 yards and a flat route underneath it: a high-low on the flat defender. Good against {cover3|Cover 3} and {cover2|Cover 2}.'],
+    dagger: ['Dagger', 'A seam route clears out the safety and a dig (an in-breaking route at 12 to 15 yards) comes in behind it. Attacks {cover3|Cover 3} and {cover4|Quarters}.'],
+    y_cross: ['Y-Cross', 'The tight end (the “Y”) runs a deep crossing route behind the linebackers while a post clears the deep middle. Beats {cover1|Cover 1} and {cover3|Cover 3}.'],
+    four_verts: ['Four Verticals', 'Four receivers run straight downfield. Against {cover3|Cover 3} that is four vertical routes against only three deep defenders.'],
+    post_wheel: ['Post-Wheel', 'An outside post pulls the safety while the slot runs a wheel route up the sideline behind the linebacker. A {cover4|Quarters} beater.'],
+    max_protect: ['max protect', 'Keeping the tight end and back in to block (seven or eight blockers) and sending only two or three receivers deep. Buys time for a shot against {cover0|Cover 0} and {cover1|Cover 1}.'],
+    slant: ['slant', 'A quick route: two or three steps upfield, then a sharp cut inside. The go-to {hot} throw against the blitz and {man} coverage.'],
+    bubble: ['bubble screen', 'A quick lateral throw to a slot receiver drifting back toward the sideline while the other receivers block. Punishes soft corners and light boxes; often the pass half of an {rpo|RPO}.'],
+    inside_zone: ['Inside Zone', 'The most common run in college football: {zone_block|zone blocking} toward the A and B {gap|gaps}, with the back reading for a crease or the {cutback}.'],
+    outside_zone: ['Outside Zone', 'The line runs sideways to reach-block; the back aims outside the tackle and either cuts up or bends back. Stretches the defense horizontally.'],
+    duo: ['Duo', 'A downhill run with double teams on the defensive tackles and no pulling linemen; the back reads the linebacker. Built to move a defense off the ball.'],
+    power_run: ['Power', 'A gap-scheme run: the play side blocks down, the backside guard pulls through the hole to lead, and a fullback or tight end kicks out the end man. Puts an extra blocker at the point of attack.'],
+    counter: ['Counter', 'A misdirection gap run: the back steps one way while a guard and a tackle (or tight end) pull the other way to lead him through the hole. Punishes linebackers who flow fast.'],
+    draw: ['draw', 'Shows pass (the line pass-blocks, the QB drops back) and then hands off. Beats aggressive pass rushes and light boxes like the {dime}.'],
+    jet: ['jet sweep', 'A receiver runs full speed across the formation in motion and takes a handoff at the snap toward the edge. Stresses {man} defenders chasing the motion.'],
+    rpo: ['RPO', 'Run-pass option: the line blocks a run while the QB reads one defender (often a linebacker or the nickel) and either hands off or throws a quick route (a {bubble}, {slant} or glance) into the space that defender left.'],
+    option_run: ['option', 'The QB reads an unblocked defender and decides to keep it, hand it off or pitch it. Zone read is a two-way option; the triple option (Navy, Army, Air Force) adds a pitch man. Every read makes one defender wrong.'],
+    pa_t: ['play action', 'A fake handoff before a pass, so linebackers and safeties step up for the run and open space behind them. The better your run game, the harder the fake bites.'],
+    trips: ['Trips', 'Three receivers to one side of the formation (3x1). Forces the defense to declare how it will handle the three-receiver side.'],
+    bunch: ['Bunch', 'Three receivers clustered tightly together. Their routes cross and pick defenders, which makes {man} coverage hard to play.'],
+    empty: ['Empty', 'No running back in the backfield: five receivers spread out. Stretches the defense thin but leaves only five blockers against the rush.'],
+    trey: ['Trey', 'Trips with the tight end as the third receiver, attached to the line. Gives the trips side an extra run blocker.'],
+    pistol: ['Pistol', 'The QB stands about 4 yards behind the center (closer than the shotgun) with the back directly behind him, so runs can hit either side.'],
+    flexbone: ['Flexbone', 'The triple-option formation: QB under center, a fullback right behind him and two slotbacks just off the tackles. Run by Navy, Army and Air Force.'],
+    doubles: ['Doubles', 'Two receivers on each side (2x2). The most balanced spread formation.'],
+    iform: ['I-Form', 'QB under center with a fullback and a tailback lined up behind him: a downhill, power-running formation.'],
+    ace: ['Ace', 'One back with two tight ends (12 personnel) and two receivers. Strong for the run while keeping two receivers out wide.'],
     tech: ['technique', 'The number for where a defensive lineman lines up. 0 = head-up on the center, 1 = shading the center, 2i/2 = inside/over the guard, 3 = outside shoulder of the guard, 4i/4 = inside/over the tackle, 5 = outside shoulder of the tackle, 6 to 9 = on or outside the tight end. "He\u2019s a 3-technique" means he lines up outside the guard.'],
     strength: ['strength', 'The side of the formation with more players, usually the tight end side. Fronts are set toward the strength (Over) or away from it (Under).'],
     box: ['the box', 'The area near the line of scrimmage between the offensive tackles, about 5 yards deep. "Box count" = how many defenders are standing in it. Coaches count it before every snap.'],
@@ -974,8 +1026,39 @@ const SimCoach = (() => {
   };
   const acard = (grp, k) => { const I = ADVC[grp][k]; return rich(`<div class="pb">${I.art ? svgWrap(CLINE + I.art) : ''}<div><b>${I.icon} ${I.name}</b><p class="cs">🗣️ ${I.coach}</p><p>${I.what}</p><p><span class="succ">✅ Stops:</span> ${I.good}</p><p><span class="fail">⚠️ Vulnerable to:</span> ${I.bad}</p></div></div>`); };
 
+  // ---------- auto-linker: turns coaching vocabulary in any HTML into tap-to-define dictionary links ----------
+  const LINKS = [
+    ['Over front', 'over_front'], ['Over (even)', 'over_front'], ['Under front', 'under_front'], ['Odd / Tite', 'odd_front'], ['Odd/Tite', 'odd_front'], ['Tite front', 'odd_front'], ['Bear front', 'bear_front'],
+    ['Over', 'over_front', 1], ['Under', 'under_front', 1], ['Odd', 'odd_front', 1], ['Bear', 'bear_front', 1],
+    ['3-techniques', 'three_tech'], ['3-technique', 'three_tech'], ['1-technique', 'shade'], ['0-technique', 'nose'], ['4i-techniques', 'four_i'], ['4i-technique', 'four_i'], ['5-technique', 'five_tech'], ['nose', 'nose'],
+    ['Cover 0', 'cover0'], ['Cover 1', 'cover1'], ['Cover 2', 'cover2'], ['2-Man', 'two_man'], ['Cover 3', 'cover3'], ['Cover 4', 'cover4'], ['Quarters', 'cover4', 1], ['Cover 6', 'cover6'],
+    ['man coverage', 'man'], ['zone coverage', 'zone'], ['single-high', 'mofc'], ['one-high', 'mofc'], ['two-high', 'mofo'], ['the box', 'box'], ['press', 'press'],
+    ['nickel', 'nickel'], ['dime', 'dime'], ['fire zone', 'fire_zone'], ['simulated pressure', 'sim_pressure'], ['blitz', 'pressure'], ['personnel', 'personnel'],
+    ['Mesh', 'mesh_c', 1], ['Stick', 'stick', 1], ['Smash', 'smash', 1], ['Flood', 'flood', 1], ['Curl-flat', 'curl_flat'], ['Dagger', 'dagger', 1], ['Y-Cross', 'y_cross'], ['Four Verticals', 'four_verts'], ['Four Verts', 'four_verts'],
+    ['Post-Wheel', 'post_wheel'], ['max-protect', 'max_protect'], ['Slant-flat', 'slant'], ['slants', 'slant'], ['slant', 'slant'], ['bubble', 'bubble'],
+    ['Inside Zone', 'inside_zone'], ['Outside Zone', 'outside_zone'], ['Duo', 'duo', 1], ['Power', 'power_run', 1], ['Counter', 'counter', 1], ['Draw', 'draw', 1], ['draws', 'draw', 1], ['Jet sweep', 'jet'],
+    ['RPOs', 'rpo', 1], ['RPO', 'rpo', 1], ['triple option', 'option_run'], ['zone read', 'option_run'], ['Option', 'option_run', 1], ['the option', 'option_run'], ['play action', 'pa_t'], ['play-action', 'pa_t'],
+    ['Trips', 'trips', 1], ['Bunch', 'bunch', 1], ['Empty', 'empty', 1], ['Trey (TE', 'trey', 1], ['Pistol', 'pistol', 1], ['Flexbone', 'flexbone', 1], ['Doubles', 'doubles', 1], ['I-Form', 'iform', 1], ['Ace', 'ace', 1],
+    ['Sam linebacker', 'lbs'], ['strong-side linebacker', 'lbs'], ['strength', 'strength'], ['technique', 'tech'],
+  ];
+  const LRX = LINKS.map(([p, k, cs]) => [new RegExp('(?<![\\w-])' + p.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&') + '(?![\\w-])', cs ? '' : 'i'), k]);
+  const LSKIP = /^<(button|select|option|summary|svg|a|textarea|dt|script|style)\b/i, LSKIPC = /^<\/(button|select|option|summary|svg|a|textarea|dt|script|style)>/i;
+  function link(html, self) { // links each term once per call, never inside buttons, selects, links, headings or diagrams
+    if (!html) return html; const used = new Set(self ? [self] : []); let skip = 0;
+    return String(html).split(/(<[^>]+>)/).map((tok) => {
+      if (tok.startsWith('<')) { if (LSKIP.test(tok) && !/\/>$/.test(tok)) skip++; else if (LSKIPC.test(tok)) skip = Math.max(0, skip - 1); return tok; }
+      if (skip || !tok.trim()) return tok;
+      for (const [rx, k] of LRX) {
+        if (used.has(k) || !TERMS[k]) continue;
+        const masked = tok.replace(/\u0000[^\u0002]*\u0002/g, (s) => ' '.repeat(s.length)), m = rx.exec(masked);
+        if (m) { used.add(k); tok = tok.slice(0, m.index) + '\u0000' + k + '\u0001' + tok.slice(m.index, m.index + m[0].length) + '\u0002' + tok.slice(m.index + m[0].length); }
+      }
+      return tok.replace(/\u0000(\w+)\u0001([^\u0002]*)\u0002/g, (s, k, t) => `<button type="button" class="term" data-term="${k}">${t}</button>`);
+    }).join('');
+  }
+
   const snapArt = (off, def) => (PLAY_ART[off] ? svgWrap(PLAY_ART[off] + D[def]) : '');
-  return { ADVC, acard, FRONTS, fcard, PLAYS, DEFS, TERMS, rich, tip, readTip, defLook, offLook, film, report, success, card, snapArt };
+  return { link, ADVC, acard, FRONTS, fcard, PLAYS, DEFS, TERMS, rich, tip, readTip, defLook, offLook, film, report, success, card, snapArt };
 })();
 </script>
 <script>/*ADV*/
@@ -1547,7 +1630,8 @@ const SimReplay = (() => {
   const ICON = { inside_run: '🏃', outside_run: '💨', qb_sneak: '💪', screen: '🪤', short_pass: '⚡', medium_pass: '📐', deep_pass: '🚀', play_action: '🎭', ko_deep: '🚀', ko_squib: '🥎', ko_onside: '🎲', punt: '🦵', return: '🏃‍♂️', fair: '🙌', block: '🛡️', field_goal: '🎯', base: '🧱', run_stop: '🚧', blitz: '🔥', cover2: '🔒', prevent: '🛑' };
   $('pbOff').innerHTML = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass', 'play_action', 'punt', 'field_goal'].map((k) => C.card(k, false)).join('');
   $('pbDef').innerHTML = Object.keys(C.DEFS).map((k) => C.card(k, true)).join('') + (C.FRONTS ? '<div class="h2" style="margin-top:12px">🧱 Defensive fronts (used in 🧠 advanced mode)</div><p class="hint" style="margin:0">Tight end on the right in every diagram, so the right side is the strength. ✕ = defenders; orange ✕ = the player each front is built around.</p>' + Object.keys(C.FRONTS).map((k) => C.fcard(k)).join('') : '') + (C.ADVC ? [['cov', '🧮 Coverages (advanced mode)', 'Offense going up the screen. Orange ✕ = the deep defenders, the heart of each coverage.'], ['pkg', '👥 Personnel packages (advanced mode)', 'Match what the offense sends in: their personnel decides who should be on the field.'], ['pres', '🔥 Pressures (advanced mode)', 'Orange ✕ = the rushers.']].map(([grp, h, n]) => `<div class="h2" style="margin-top:12px">${h}</div><p class="hint" style="margin:0">${n}</p>` + Object.keys(C.ADVC[grp]).map((k) => C.acard(grp, k)).join('')).join('') : '');
-  $('dict').innerHTML = Object.entries(C.TERMS).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, [t, d]]) => `<dt id="term-${k}">📌 ${t}</dt><dd>${d}</dd>`).join('');
+  $('dict').innerHTML = Object.entries(C.TERMS).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, [t, d]]) => `<dt id="term-${k}">📌 ${t}</dt><dd>${C.link ? C.link(C.rich(d), k) : d}</dd>`).join('');
+  if (C.link) for (const id of ['pbOff', 'pbDef']) $(id).querySelectorAll('.pb').forEach((el) => { el.innerHTML = C.link(el.innerHTML); });
   let pend = null; // pre-snap: { key, side, play | def, look }
   let backTo = 0;
   document.addEventListener('click', (e) => {
@@ -1749,14 +1833,14 @@ const SimReplay = (() => {
         const cap = `${flip ? '🛡️ Your defense: they\u2019re coming at you.' : me === 'watch' ? `⚔️ ${g[entry.side].name} going up the field.` : '⚔️ Your offense, going up the field.'} ${entry.play} vs ${entry.def}. O = offense, ✕ = defense, filled O = ball carrier or target, orange ✕ = made the play.`;
         try {
           const open = window.__rpOpen !== false;
-          $('replay').innerHTML = `<details class="sec rp-sec"${open ? ' open' : ''}><summary class="h2" style="margin:10px 0 0">🎞️ Play diagram</summary>${SimReplay.html(entry, { flip, caption: cap, ezColor: g[dside].color })}</details>`;
+          $('replay').innerHTML = `<details class="sec rp-sec"${open ? ' open' : ''}><summary class="h2" style="margin:10px 0 0">🎞️ Play diagram</summary>${SimReplay.html(entry, { flip, caption: C.link ? C.link(cap) : cap, ezColor: g[dside].color })}</details>`;
           const d = $('replay').querySelector('details'), id = $('replay').querySelector('svg').id;
           d.addEventListener('toggle', () => { window.__rpOpen = d.open; if (d.open) SimReplay.play(id); });
           if (open) SimReplay.play(id);
         } catch (err) { $('replay').innerHTML = ''; }
       } else $('replay').innerHTML = '';
     }
-    $('film').innerHTML = coach && entry && entry.adv ? `<div style="grid-column:1/-1">🎬 ${A.film(entry)}${mu}</div>` : coach && entry && entry.offKey ? (C.snapArt(entry.offKey, entry.defKey) + `<div>${C.film(entry, me, look)}${mu}</div>`) : '';
+    $('film').innerHTML = coach && entry && entry.adv ? `<div style="grid-column:1/-1">🎬 ${C.link ? C.link(A.film(entry)) : A.film(entry)}${mu}</div>` : coach && entry && entry.offKey ? (C.snapArt(entry.offKey, entry.defKey) + `<div>${C.film(entry, me, look)}${mu}</div>`) : '';
     render();
   }
 
@@ -2282,7 +2366,7 @@ const SimReplay = (() => {
   function renderScout() {
     if (!A || !$('advMode')) return; const on = $('advMode').checked; $('scoutBox').classList.toggle('hidden', !on); if (!on) return;
     const p = pick(), list = me === 'watch' ? [p.away, p.home] : [me === 'home' ? p.away : p.home];
-    $('scoutBox').innerHTML = list.map((n) => scoutHTML(teamObj(n))).join('');
+    $('scoutBox').innerHTML = (C.link || ((x) => x))(list.map((n) => scoutHTML(teamObj(n))).join(''));
   }
   if ($('advMode')) { $('advMode').addEventListener('change', renderScout); ['slate', 'away', 'home', 'neutral'].forEach((id) => $(id).addEventListener('change', renderScout)); $('side').addEventListener('click', () => setTimeout(renderScout, 0)); renderScout(); }
   const oppSide = () => (me === 'home' ? 'away' : 'home');
@@ -2342,7 +2426,7 @@ const SimReplay = (() => {
       if (oc.st === 'punt') { if (pend) pend.play = 'punt'; return false; }
       if (oc.st) {
         $('callTitle').textContent = oc.st === 'field_goal' ? `🎯 ${O.name} is kicking a field goal` : oc.st === 'kneel' ? `🧎 ${O.name} is in victory formation` : `▶️ ${O.name}`;
-        $('calls').className = 'adv'; $('calls').innerHTML = sit + `<div class="adv-pick"><button class="btn primary" data-ast="1">▶️ Line up${oc.st === 'field_goal' ? ` (${100 - g.ball + 17}-yard try)` : ''}</button></div>` + toolsHTML(false); $('tip').innerHTML = ''; return true;
+        $('calls').className = 'adv'; $('calls').innerHTML = (C.link || ((x) => x))(sit) + `<div class="adv-pick"><button class="btn primary" data-ast="1">▶️ Line up${oc.st === 'field_goal' ? ` (${100 - g.ball + 17}-yard try)` : ''}</button></div>` + toolsHTML(false); $('tip').innerHTML = ''; return true;
       }
       const P = A.profile(O, bk);
       const scoutLine = P.src === 'pff' ? `<br>🔒 Scouting (${A.BUCKET[bk]}): they run ${pctA(P.run)}; runs: ${topK(P.runc, 2, RUNLAB)}; passes: ${topK(P.passc, 2, (k) => FAMLAB[k] || k)}.` : `<br>🔎 ${E.STYLES[O.style].label} offense.`;
@@ -2363,7 +2447,7 @@ const SimReplay = (() => {
         $('tip').innerHTML = coach ? '🧢 <b>Take away what they love here.</b> Single-high (Cover 1, 3) adds a defender to the box against the run; two-high (Cover 2, 4, 6) takes away deep shots and verticals; man (Cover 1, 2-Man) kills zone-beaters like Flood and Stick but gets rubbed by Mesh and crossers. Pressure gets home on long downs but leaves no help behind it.' : '';
       }
     }
-    $('calls').className = 'adv'; $('calls').innerHTML = h; return true;
+    $('calls').className = 'adv'; $('calls').innerHTML = C.link ? C.link(h) : h; if (C.link) $('tip').innerHTML = C.link($('tip').innerHTML); return true;
   }
   function breakHuddle(oc) { AP.oc = oc; AP.dc = A.aiDef(g, oc); AP.look = A.look(g, AP.dc); AP.stage = 'line'; renderCalls(); }
   function snapAdv(oc, dc) { idleStop(); stopSong(); const e = A.play(g, oc, dc); if (e) e.byUser = true; AP = null; after(e, null); }
