@@ -110,6 +110,8 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 .adv-tools { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin-top:12px; font-size:13px; }
 .adv-tools label { display:flex; align-items:center; gap:6px; margin:0; color:var(--fg); font-size:13px; }
 .scout table td, .scout table th { font-size:12.5px; } .scout td { text-align:left; }
+.rp { margin-top:10px; } .rp svg { width:100%; max-height:430px; display:block; border-radius:8px; background:#2f6b3f; }
+.rp-bar { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; margin-top:6px; } .rp-bar .btn { padding:6px 10px; font-size:13px; } .rp-bar .hint { flex:1 1 200px; }
 .rx { position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.45); animation:rxin .2s ease-out; cursor:pointer; }
 .rx video { width:min(480px, 92vw); border-radius:12px; border:3px solid #fff; box-shadow:0 10px 40px rgba(0,0,0,.6); background:#000; }
 .rx.out { opacity:0; transition:opacity .25s; }
@@ -149,6 +151,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
     <label class="toggle"><input type="checkbox" id="coachMode" checked> Coach mode: learn to see the game like a coach (pre-snap reads, coach-speak with tap-to-explain terms, play diagrams, postgame report)</label>
     <label class="toggle"><input type="checkbox" id="advMode"> 🧠 Advanced mode: call it like a coordinator. Pick personnel, formation and concept (Mesh, Flood, Smash, Inside Zone, Power, RPOs and more), read the shell and the box at the line and audible; on defense pick the package, front, coverage and pressure. Timeouts, hurry-up, spikes and kneels are yours.</label>
     <div id="scoutBox" class="hidden"></div>
+    <label class="toggle"><input type="checkbox" id="replayOn" checked> 🎞️ Animated replays: watch every snap as moving X's and O's, drawn from your side of the ball</label>
     <label class="toggle"><input type="checkbox" id="rxOn" checked> 🎬 Reaction clips: the Stadium Pulse on the road and coach reactions to goal-line scores, 3rd-down stops, 3-and-outs, picks, sacks, fumbles and big losses</label>
     <label class="toggle"><input type="checkbox" id="soundOn" checked> 🔊 Game-day sound: crowd noise, the ref's whistle, band riffs on big plays, drum cadences while you pick a call, and a tap-to-play fight song after every touchdown (via Spotify)</label>
     <p class="hint" id="proj"></p>
@@ -169,6 +172,7 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
       <div class="sit" id="sit"></div>
       <div class="field" id="field"><div class="ez" id="ezL" style="left:0"></div><div class="ez" id="ezR" style="right:0"></div><div class="los" id="los"></div><div class="fd" id="fd"></div><div class="ball" id="ballDot"></div></div>
       <div class="last" id="last">Kickoff.</div>
+      <div id="replay"></div>
       <div class="film" id="film"></div>
       <div class="final hidden" id="finalLine"></div>
     </div>
@@ -1301,6 +1305,239 @@ const SimAdv = (() => {
 })();
 
 /*/ADV*/</script>
+<script>/*RP*/
+// Horick Football Lab: animated chalkboard replay of a Game Sim snap (moving X's and O's).
+// Drawn from the viewer's side of the ball: on offense you go up the screen, on defense the offense comes at you.
+// Uses the advanced-mode call (formation, concept, front, coverage, pressure) when there is one, otherwise a standard
+// look for the basic play. The result (yards, catch/incompletion/sack/pick/fumble, tackler) comes from the sim.
+const SimReplay = (() => {
+  const W = 53.3, HALF = W / 2, K = 6; // yards across, px per yard
+  const lerp = (a, b, f) => a + (b - a) * f;
+  function at(kf, t) { if (t <= kf[0][0]) return [kf[0][1], kf[0][2]]; for (let i = 1; i < kf.length; i++) { const [t1, x1, y1] = kf[i], [t0, x0, y0] = kf[i - 1]; if (t <= t1) { const f = t1 > t0 ? (t - t0) / (t1 - t0) : 1; return [lerp(x0, x1, f), lerp(y0, y1, f)]; } } const L = kf[kf.length - 1]; return [L[1], L[2]]; }
+  const T0 = 0.14, TE = 0.86, V = 34; // snap time, whistle time, player speed in yards per unit of time
+
+  // ---------- offense: formations (x = yards from the ball, + = strength / right; y = yards from the LOS) ----------
+  const FORM = {
+    doubles: { qb: -5, rb: [2, -5], r: { X: -20, H: -11, Z: 20, Y: 11 } },
+    trips: { qb: -5, rb: [-2, -5], r: { X: -20, H: 10, Y: 15, Z: 20 } },
+    bunch: { qb: -5, rb: [-2, -5], r: { X: -20, Y: [9, -1], H: [11, -2.2], Z: [12, -1] } },
+    empty: { qb: -5, rb: null, r: { X: -20, H: -11, R: [8, -1.5], Y: 14, Z: 20 } },
+    trey: { qb: -5, rb: [-2, -5], r: { X: -20, Y: [6.5, -0.8], H: 12, Z: 20 } },
+    pistol: { qb: -4, rb: [0, -7], r: { X: -20, H: -10, Y: [6.5, -0.8], Z: 20 } },
+    ace: { qb: -5, rb: [0, -6], r: { X: -20, Y: [6.5, -0.8], T: [-6.5, -0.8], Z: 20 } },
+    pro: { qb: -5, rb: [-2, -5], r: { X: -20, Y: [6.5, -0.8], Z: 18 } },
+    iform: { qb: -1.2, rb: [0, -7], fb: [0, -4.5], r: { X: -20, Y: [6.5, -0.8], Z: 18 } },
+    jumbo: { qb: -1.2, rb: [0, -7], fb: [0, -4.5], r: { Y: [6.5, -0.8], T: [-6.5, -0.8], Z: 14 } },
+    flexbone: { qb: -1.2, rb: [0, -4.5], r: { X: -18, H: [-6.5, -2.5], Y: [6.5, -2.5], Z: 18 } },
+  };
+  // route waypoints: [outward, downfield]; outward = away from the ball, so the same route mirrors on each side
+  const RT = {
+    go: [[0, 28]], seam: [[0, 26]], post: [[0, 12], [-7, 24]], corner: [[0, 10], [6, 20]], dig: [[0, 12], [-12, 12]], out: [[0, 8], [5, 8]],
+    slant: [[0, 2], [-6, 8]], flat: [[4, 1], [9, 3]], curl: [[0, 11], [-1, 9]], hitch: [[0, 6], [0, 5]], stick: [[0, 6], [-1.5, 6]],
+    drag: [[-2, 2], [-22, 4]], cross: [[0, 6], [-24, 15]], wheel: [[3, 0], [7, 4], [7, 24]], sail: [[0, 8], [9, 16]],
+    bubble: [[3, -1.5], [7, -1]], rbscreen: [[5, -3], [8, -2]], swing: [[5, -1], [9, 1]], block: [[0.5, 2]], protect: [[0.3, -0.2]], fake: [[-2, -1], [-4, 0]],
+  };
+  const CROUTE = {
+    screen_rb: { R: 'rbscreen', X: 'go', Z: 'go', H: 'go', Y: 'block' }, bubble: { H: 'bubble', X: 'block', Z: 'block', Y: 'block', R: 'protect' },
+    slant: { X: 'slant', Z: 'slant', H: 'flat', Y: 'flat', R: 'protect' }, stick: { H: 'stick', Y: 'stick', X: 'go', Z: 'go', R: 'flat' },
+    mesh: { H: 'drag', Y: 'drag', X: 'go', Z: 'corner', R: 'swing' }, smash: { X: 'hitch', Z: 'hitch', H: 'corner', Y: 'corner', R: 'protect' },
+    flood: { Z: 'go', H: 'sail', Y: 'sail', R: 'flat', X: 'post' }, curlflat: { X: 'curl', Z: 'curl', H: 'flat', Y: 'flat', R: 'protect' },
+    dagger: { H: 'seam', Z: 'dig', X: 'go', Y: 'drag', R: 'protect' }, ycross: { Y: 'cross', X: 'post', Z: 'go', H: 'drag', R: 'flat' },
+    fourverts: { X: 'go', Z: 'go', H: 'seam', Y: 'seam', R: 'protect' }, postwheel: { X: 'post', H: 'wheel', Z: 'post', Y: 'wheel', R: 'protect' },
+    shot: { X: 'go', Z: 'post', H: 'protect', Y: 'protect', R: 'protect', T: 'protect' }, pa_boot: { Y: 'cross', Z: 'go', X: 'post', H: 'flat', R: 'fake' },
+    pa_shot: { X: 'post', Z: 'dig', Y: 'drag', H: 'go', R: 'fake' }, rpo: { H: 'bubble', Z: 'slant', X: 'slant', Y: 'block' },
+  };
+  const ROLE = { WR1: 'X', WR2: 'Z', SLOT: 'H', TE: 'Y', RB: 'R', QB: 'Q' };
+  // basic-mode plays get a standard look
+  const BASIC_OFF = { inside_run: ['11', 'pistol', 'iz'], outside_run: ['11', 'pistol', 'oz'], qb_sneak: ['13', 'jumbo', 'sneak'], screen: ['11', 'doubles', 'screen_rb'], short_pass: ['11', 'doubles', 'slant'], medium_pass: ['11', 'doubles', 'dagger'], deep_pass: ['11', 'doubles', 'fourverts'], play_action: ['12', 'pro', 'pa_shot'] };
+  const BASIC_DEF = { base: ['nickel', 'over', 'c3', 'none'], run_stop: ['base', 'bear', 'c1', 'none'], blitz: ['nickel', 'over', 'c1', 'all'], cover2: ['nickel', 'over', 'c2', 'none'], prevent: ['dime', 'odd', 'c4', 'none'] };
+  const FAM = { screen_rb: 'q', bubble: 'q', slant: 'q', stick: 'q', mesh: 'q', rpo: 'q', smash: 'm', flood: 'm', curlflat: 'm', dagger: 'm', ycross: 'm', fourverts: 'd', postwheel: 'd', shot: 'd', pa_boot: 'd', pa_shot: 'd' };
+
+  function build(e) {
+    const a = e.adv, oc = a ? a.oc : (() => { const b = BASIC_OFF[e.offKey] || BASIC_OFF.inside_run; return { pers: b[0], form: b[1], concept: b[2] }; })();
+    const dc = a ? a.dc : (() => { const b = BASIC_DEF[e.defKey] || BASIC_DEF.base; return { pkg: b[0], front: b[1], cov: b[2], pres: b[3] }; })();
+    const F = FORM[oc.form] || FORM.doubles, txt = e.text || '', Y = e.yards || 0;
+    const res = e.res === 'fumble' ? (/SACKED/.test(txt) ? 'sack' : /Complete/.test(txt) ? 'comp' : 'run') : e.res, fum = e.res === 'fumble';
+    const isRun = res === 'run';
+    const O = [], X = [], add = (L, id, lab, x, y) => { const p = { id, lab, kf: [[0, x, y], [T0, x, y]] }; L.push(p); return p; };
+    // offense
+    const ol = [-4, -2, 0, 2, 4].map((x, i) => add(O, 'OL' + i, '', x, -0.8));
+    const qb = add(O, 'Q', 'Q', 0, F.qb);
+    const rb = F.rb ? add(O, 'R', 'R', F.rb[0], F.rb[1]) : null;
+    const fb = F.fb ? add(O, 'F', 'F', F.fb[0], F.fb[1]) : null;
+    const rec = {};
+    for (const [id, v] of Object.entries(F.r)) { const [x, y] = Array.isArray(v) ? v : [v, -1]; rec[id] = add(O, id, { X: 'W', Z: 'W', H: 'S', Y: 'T', T: 'T', R: 'R' }[id] || id, x, y); }
+    if (!rb && rec.R) { /* empty: the back is split out */ }
+    const carrierRole = e.offKey === 'qb_sneak' || (oc.concept === 'sneak') ? 'Q' : (ROLE[(e.offRole || 'RB').split('~')[0]] || 'R');
+    const conc = oc.concept, rpoThrow = a && a.rpo ? a.rpo.thr : false;
+    const passPlay = !isRun;
+    const routes = CROUTE[(passPlay && conc === 'rpo') ? 'rpo' : conc] || (passPlay ? CROUTE[{ screen: 'screen_rb', short_pass: 'slant', medium_pass: 'dagger', deep_pass: 'fourverts', play_action: 'pa_shot' }[e.offKey] || 'slant'] : {});
+    const fam = FAM[conc] || (e.offKey === 'deep_pass' || e.offKey === 'play_action' ? 'd' : e.offKey === 'medium_pass' ? 'm' : 'q');
+    const Tt = T0 + (fam === 'q' ? 0.15 : fam === 'm' ? 0.27 : 0.34); // throw
+    function runRoute(p, name, until = TE) {
+      const [x0, y0] = [p.kf[1][1], p.kf[1][2]], s = x0 >= 0 ? 1 : -1; let t = T0, cx = x0, cy = y0;
+      for (const [dx, dy] of RT[name] || RT.go) { const nx = x0 + dx * s, ny = dy, d = Math.hypot(nx - cx, ny - cy); t += d / V; if (t > until) { const f = 1 - (t - until) / (d / V); p.kf.push([until, lerp(cx, nx, f), lerp(cy, ny, f)]); return; } p.kf.push([t, nx, ny]); cx = nx; cy = ny; }
+      const last = p.kf[p.kf.length - 1]; if (last[0] < until && !['block', 'protect', 'fake'].includes(name)) p.kf.push([until, last[1] + (name === 'go' || name === 'seam' ? 0 : 0), last[2] + (name === 'go' || name === 'seam' ? (until - last[0]) * V : 1)]);
+    }
+    let carrier = null, ball = [[0, 0, -0.5], [T0, 0, -0.5]], finalSpot, tacklePt;
+    // ---------- runs ----------
+    if (isRun) {
+      const c = carrierRole === 'Q' ? qb : (rec[carrierRole] && carrierRole !== 'R' ? rec[carrierRole] : rb || qb); carrier = c;
+      const dir = conc === 'counter' ? 1 : (conc === 'oz' || conc === 'jet' || conc === 'option') ? 1 : 1;
+      const lane = { iz: 1.5, duo: 1, power: 3.5, counter: 3, draw: 0.5, oz: 8, jet: 13, option: 9, qbpower: 2.5, sneak: 0.5 }[conc] || 1.5;
+      const Th = T0 + 0.07, Tl = T0 + (conc === 'draw' ? 0.3 : conc === 'oz' || conc === 'jet' || conc === 'option' ? 0.24 : 0.17);
+      const fx = lane * dir + (Y > 6 ? (Y % 2 ? 2 : -2) : 0.5);
+      if (c === qb) { qb.kf.push([Tl, lane * 0.4, 0.2], [TE, fx * 0.4, Y]); ball.push([Th, 0, F.qb]); }
+      else {
+        const hx = 0.8, hy = F.qb - 0.2; c.kf.push([Th, hx, hy]);
+        if (conc === 'counter') c.kf.push([Th + 0.04, -1.5, hy + 0.5]);
+        if (Y >= 0) c.kf.push([Tl, lane * dir, 0.3], [TE, fx, Y]); else c.kf.push([TE, lane * dir * 0.6, Y]);
+        qb.kf.push([Th, 0, F.qb], [TE, -4, F.qb - 1]);
+        ball.push([Th, hx, hy]);
+      }
+      // linemen drive; the backside guard pulls on power/counter
+      ol.forEach((p, i) => { const pull = (conc === 'power' && i === 1) || (conc === 'counter' && (i === 1 || i === 0)); p.kf.push(pull ? [Tl, lane + 1, 0.4] : [T0 + 0.2, p.kf[0][1] + (conc === 'oz' ? 1.5 : 0.3), 1.2]); });
+      for (const r of Object.values(rec)) if (r !== c) r.kf.push([T0 + 0.25, r.kf[0][1] + (r.kf[0][1] > 0 ? -0.5 : 0.5), 3]);
+      if (fb && fb !== c) fb.kf.push([Tl, lane, 0.8]);
+      if (rb && rb !== c) rb.kf.push([Th + 0.05, 2, F.qb - 1], [TE, 6, -2]);
+      finalSpot = c.kf[c.kf.length - 1];
+    } else {
+      // ---------- passes ----------
+      const drop = fam === 'q' ? -6 : fam === 'm' ? -7.5 : -8.5;
+      qb.kf.push([T0 + 0.12, conc === 'pa_boot' ? 7 : 0, F.qb < -3 ? drop : drop + 1.5]);
+      ol.forEach((p) => p.kf.push([T0 + 0.12, p.kf[0][1] * 1.1, -2.2]));
+      if (['pa_boot', 'pa_shot'].includes(conc) && rb) rb.kf.push([T0 + 0.08, 1, F.qb - 0.3], [T0 + 0.18, -3, -1]);
+      for (const [id, p] of Object.entries(rec)) runRoute(p, routes[id] || (id === 'T' ? 'protect' : 'go'));
+      if (rb && !['pa_boot', 'pa_shot'].includes(conc)) runRoute(rb, routes.R || 'protect');
+      if (fb) runRoute(fb, 'protect');
+      let tgt = rec[carrierRole] || (carrierRole === 'R' ? rb : null);
+      if (!tgt || ['block', 'protect', 'fake'].includes(routes[tgt.id])) tgt = Object.values(rec).find((r) => !['block', 'protect', 'fake'].includes(routes[r.id])) || Object.values(rec)[0] || rb;
+      if (conc === 'screen_rb' && rb) tgt = rb;
+      carrier = tgt;
+      const qbAt = at(qb.kf, Tt);
+      if (res === 'sack') {
+        finalSpot = [TE, qbAt[0], Math.min(qbAt[1], Y)]; qb.kf.push([T0 + 0.42, qbAt[0], Y]); ball.push([T0 + 0.12, ...at(qb.kf, T0 + 0.12)], [T0 + 0.42, qbAt[0], Y]); carrier = qb;
+      } else {
+        let cp = at(tgt.kf, Tt + 0.08); const air = Math.hypot(cp[0] - qbAt[0], cp[1] - qbAt[1]); const Tc = Tt + 0.04 + air / 160; cp = at(tgt.kf, Tc);
+        if (res === 'comp') { if (cp[1] > Y + 3) cp = [cp[0], Math.max(Y - 1, Math.min(cp[1], Y))]; tgt.kf = tgt.kf.filter((k) => k[0] < Tc); tgt.kf.push([Tc, cp[0], cp[1]], [TE, cp[0] + (cp[0] > 0 ? 1.5 : -1.5) * (Y > cp[1] + 8 ? 2 : 1), Y]); }
+        ball.push([Tt, qbAt[0], qbAt[1]], [Tc, cp[0], cp[1]]);
+        if (res === 'inc') { ball.push([Tc + 0.06, cp[0] + 1.5, cp[1] + 1.2]); finalSpot = [TE, cp[0], cp[1]]; tacklePt = [cp[0] + 0.8, cp[1] + 0.8, Tc]; }
+        else if (res === 'int') { finalSpot = [TE, cp[0], cp[1] - 6]; tacklePt = [cp[0] + 0.4, cp[1] + 0.6, Tc]; }
+        else finalSpot = tgt.kf[tgt.kf.length - 1];
+        ball.Tc = Tc; ball.tgt = tgt;
+      }
+    }
+    if (carrier && res !== 'inc' && res !== 'int') { const startT = isRun ? ball[ball.length - 1][0] : (ball.Tc || TE); for (const k of carrier.kf) if (k[0] > startT) ball.push([k[0], k[1], k[2]]); }
+    // ---------- defense ----------
+    const FR = { over: [-6.5, -1, 3, 7], under: [-7.5, -3, 1, 5], odd: [-6.5, -3.5, 0, 3.5, 7], bear: [-6.5, -3, 0, 3, 6.5] }[dc.front] || [-6.5, -1, 3, 7];
+    const dl = FR.map((x, i) => add(X, 'DL' + i, '', x, x === FR[0] || x === FR[FR.length - 1] ? 0.9 : 0.8));
+    const dbN = { base: 4, nickel: 5, dime: 6, heavy: 3 }[dc.pkg] || 5, lbN = Math.max(1, 11 - dl.length - dbN);
+    const recs = Object.values(rec).sort((a2, b2) => a2.kf[0][1] - b2.kf[0][1]);
+    const wideL = recs[0], wideR = recs[recs.length - 1], press = ['c0', 'c1', 'c2m'].includes(dc.cov);
+    const cbL = add(X, 'CB1', '', wideL && wideL.kf[0][1] < -8 ? wideL.kf[0][1] : -16, press ? 1.5 : 6.5);
+    const cbR = add(X, 'CB2', '', wideR && wideR.kf[0][1] > 8 ? wideR.kf[0][1] : 16, press ? 1.5 : 6.5);
+    const slot = recs.filter((r) => r !== wideL && r !== wideR && Math.abs(r.kf[0][1]) > 7)[0];
+    const nb = dbN >= 5 ? add(X, 'NB', '', slot ? slot.kf[0][1] - Math.sign(slot.kf[0][1]) : 9, press ? 2 : 5) : null;
+    const db6 = dbN >= 6 ? add(X, 'DB6', '', -9, 7) : null;
+    const hi = { c0: 0, c1: 1, c3: 1, c2: 2, c2m: 2, c4: 2, c6: 2 }[dc.cov] ?? 1;
+    const fs = add(X, 'S', '', hi === 2 ? -11 : hi === 1 ? 0 : -3, hi === 0 ? 6 : 12.5);
+    const ss = add(X, 'S2', '', hi === 2 ? 11 : 6, hi === 2 ? 12.5 : 7);
+    const lbs = [];
+    const lbx = lbN === 1 ? [0] : lbN === 2 ? [-3, 3] : lbN === 3 ? [-4.5, 0, 4.5] : [-6, -2, 2, 6];
+    lbx.forEach((x, i) => lbs.push(add(X, i === 0 && lbN > 1 ? 'LB2' : 'LB' + (i > 1 ? i : ''), '', x, 4.5)));
+    if (dc.front === 'under' && lbs.length) { const sam = lbs[lbs.length - 1]; sam.kf = [[0, 8.5, 1], [T0, 8.5, 1]]; }
+    // who blitzes
+    const rushers = new Set(dl);
+    if (dc.pres === 'fire' && lbs[0]) rushers.add(lbs[0]);
+    if (dc.pres === 'all') { lbs.slice(0, 2).forEach((l) => rushers.add(l)); if (hi < 2) rushers.add(ss); }
+    if (dc.pres === 'sim' && lbs[0]) { rushers.add(lbs[0]); rushers.delete(dl[0]); }
+    const qbS = at(qb.kf, T0 + 0.3);
+    // tackler (from the sim's play log)
+    const map = { EDGE: dl[dl.length - 1], EDGE2: dl[0], DT: dl[Math.min(2, dl.length - 1)], DT2: dl[1], LB: lbs[Math.floor(lbs.length / 2)] || lbs[0], LB2: lbs[0], CB1: cbL, CB2: cbR, NB: nb || lbs[0], S: fs, S2: ss };
+    const tk = map[(e.defRole || '').split('~')[0]] || (isRun ? lbs[0] : fs);
+    // zone landmarks and man assignments
+    const ZN = { c3: [[-17, 16], [17, 16], [0, 17]], c2: [[-13, 18], [13, 18]], c4: [[-18, 15], [18, 15], [-8, 15], [8, 15]], c6: [[-12, 18], [18, 15], [8, 15]], c1: [[0, 16]], c2m: [[-13, 18], [13, 18]], c0: [] }[dc.cov] || [];
+    const deepers = dc.cov === 'c3' ? [cbL, cbR, fs] : dc.cov === 'c2' || dc.cov === 'c2m' ? [fs, ss] : dc.cov === 'c4' ? [cbL, cbR, fs, ss] : dc.cov === 'c6' ? [fs, cbR, ss] : dc.cov === 'c1' ? [fs] : [];
+    const man = ['c0', 'c1', 'c2m'].includes(dc.cov);
+    const manMap = new Map(); if (man) { const cov = [cbL, cbR, nb, db6, ss, ...lbs].filter((d) => d && !rushers.has(d) && !deepers.includes(d)); const tg = [wideL, wideR, slot, ...recs.filter((r) => r !== wideL && r !== wideR && r !== slot), rb].filter(Boolean); tg.forEach((r, i) => { if (cov[i]) manMap.set(cov[i], r); }); }
+    const under = [[-16, 5], [16, 5], [-6, 8], [6, 8], [0, 9]];
+    let ui = 0;
+    for (const d of X) {
+      const x0 = d.kf[0][1], y0 = d.kf[0][2];
+      if (rushers.has(d)) {
+        if (isRun) d.kf.push([T0 + 0.18, x0 * 0.85 + 0.6, 0.6]);
+        else { const reach = d === tk && res === 'sack'; d.kf.push(reach ? [T0 + 0.42, qbS[0] + 0.6, Math.min(qbS[1], Y) + 0.6] : [T0 + 0.3, x0 * 0.6, -2.4]); }
+      } else if (isRun) {
+        const cs = at((carrier || rb || qb).kf, T0 + 0.3); d.kf.push([T0 + 0.3, lerp(x0, cs[0], 0.35), Math.max(1, y0 - 2)]);
+      } else if (deepers.includes(d)) { const z = ZN[deepers.indexOf(d)] || [x0, 16]; d.kf.push([T0 + 0.35, z[0], z[1]]); }
+      else if (manMap.has(d)) { const r = manMap.get(d); for (const k of r.kf) if (k[0] > T0) d.kf.push([k[0] + 0.02, k[1] + (k[1] > 0 ? -0.9 : 0.9), k[2] + 0.4]); }
+      else { const z = under[ui++ % under.length]; d.kf.push([T0 + 0.3, z[0], z[1]]); }
+    }
+    // pursuit to the ball and the tackle
+    const fsp = finalSpot || [TE, 0, Y];
+    if (res === 'int' && ball.tgt) { tk.kf = tk.kf.filter((k) => k[0] < tacklePt[2]); tk.kf.push([tacklePt[2], tacklePt[0], tacklePt[1]], [TE, fsp[1], fsp[2]]); ball.push([TE, fsp[1], fsp[2]]); }
+    else if (res === 'inc') { tk.kf = tk.kf.filter((k) => k[0] < tacklePt[2] - 0.05); tk.kf.push([tacklePt[2], tacklePt[0], tacklePt[1]]); }
+    X.forEach((d, i) => d.j = ((i * 7) % 5 - 2) * 1.4); // spread the pursuit so it doesn't pile up
+    for (const d of X) {
+      if (res === 'inc' || (res === 'int' && d === tk)) continue;
+      const last = d.kf[d.kf.length - 1], tEnd = Math.max(last[0], TE - 0.12);
+      const p = at(d.kf, tEnd), dx = fsp[1] - p[0], dy = fsp[2] - p[1], dist = Math.hypot(dx, dy);
+      if (d === tk) { d.kf = d.kf.filter((k) => k[0] < TE - 0.1); d.kf.push([TE, fsp[1] + (fsp[1] > 0 ? 0.7 : -0.7), fsp[2] + 0.7]); }
+      else if (dist > 2) { const f = dl.includes(d) ? Math.min(0.45, 5 / dist + 0.1) : Math.min(0.75, 9 / dist + 0.3); d.kf.push([TE + 0.04, p[0] + dx * f + d.j, p[1] + dy * f - Math.abs(d.j) * 0.5]); }
+    }
+    if (fum) ball.push([TE + 0.03, fsp[1] + 1.5, fsp[2] + 1], [TE + 0.08, fsp[1] + 1.8, fsp[2] + 1.2]);
+    for (const P of [...O, ...X]) P.kf.sort((a2, b2) => a2[0] - b2[0]);
+    ball.sort((a2, b2) => a2[0] - b2[0]);
+    return { O, X, ball, tk, carrier, target: ball.tgt || carrier, finalSpot: fsp, isRun, oc, dc };
+  }
+
+  // ---------- drawing ----------
+  let uid = 0;
+  function html(e, opts = {}) {
+    const B = build(e), flip = !!opts.flip, Y = e.yards || 0, togo = e.togo || 10, toGoal = 100 - (e.ball0 || 25);
+    const allY = [...B.O, ...B.X].flatMap((p) => p.kf.map((k) => k[2])).concat(B.ball.map((k) => k[2]), [togo + 2, Y + 4]);
+    const yLo = Math.min(-10, Math.min(...allY) - 2), yHi = Math.min(toGoal + 10, Math.max(15, Math.max(...allY) + 3));
+    const H = (yHi - yLo) * K, Wp = W * K;
+    const SX = (x) => (flip ? HALF - x : x + HALF) * K, SY = (y) => (flip ? y - yLo : yHi - y) * K;
+    const id = 'rp' + (++uid);
+    let g = `<rect x="0" y="0" width="${Wp}" height="${H}" fill="#2f6b3f"/>`;
+    if (toGoal < yHi) { const a = SY(toGoal), b = SY(yHi); g += `<rect x="0" y="${Math.min(a, b)}" width="${Wp}" height="${Math.abs(a - b)}" fill="${opts.ezColor || '#24452f'}" opacity=".85"/><text x="${Wp / 2}" y="${(a + b) / 2 + 5}" text-anchor="middle" fill="#f4f1e6" opacity=".55" font-size="14" font-weight="700" letter-spacing="3">END ZONE</text>`; }
+    for (let y = Math.ceil(yLo); y <= Math.min(yHi, toGoal); y++) {
+      const yl = (e.ball0 || 25) + y; if (yl % 5) continue;
+      g += `<line x1="0" x2="${Wp}" y1="${SY(y)}" y2="${SY(y)}" stroke="#f4f1e6" stroke-opacity="${yl % 10 ? 0.18 : 0.35}"/>`;
+      if (yl % 10 === 0 && yl > 0 && yl < 100) { const n = yl <= 50 ? yl : 100 - yl; g += `<text x="14" y="${SY(y) + 4}" fill="#f4f1e6" opacity=".45" font-size="11" text-anchor="middle">${n}</text><text x="${Wp - 14}" y="${SY(y) + 4}" fill="#f4f1e6" opacity=".45" font-size="11" text-anchor="middle">${n}</text>`; }
+    }
+    g += `<line x1="0" x2="${Wp}" y1="${SY(0)}" y2="${SY(0)}" stroke="#7fb2ff" stroke-width="2" opacity=".9"/>`;
+    if (togo < toGoal) g += `<line x1="0" x2="${Wp}" y1="${SY(togo)}" y2="${SY(togo)}" stroke="#f2c94c" stroke-width="2" opacity=".9"/>`;
+    // planned paths (faint), like a play diagram
+    const path = (kf) => kf.map((k, i) => `${i ? 'L' : 'M'}${SX(k[1]).toFixed(1)} ${SY(k[2]).toFixed(1)}`).join(' ');
+    for (const p of B.O) if (p.lab && p.kf.length > 2) g += `<path d="${path(p.kf.filter((k) => k[0] >= T0))}" fill="none" stroke="#f4f1e6" stroke-opacity="${p === B.target ? 0.75 : 0.28}" stroke-width="${p === B.target ? 2 : 1.4}" stroke-dasharray="${p === B.target ? '' : '4 3'}"/>`;
+    for (const p of B.O) g += `<g id="${id}-${p.id}"><circle r="${p.lab ? 8 : 7}" fill="${p === B.target || p === B.carrier ? '#f4f1e6' : 'none'}" stroke="#f4f1e6" stroke-width="2"/>${p.lab ? `<text y="3.5" text-anchor="middle" font-size="9" font-weight="700" fill="${p === B.target || p === B.carrier ? '#24452f' : '#f4f1e6'}">${p.lab}</text>` : ''}</g>`;
+    for (const p of B.X) { const hot = p === B.tk; g += `<g id="${id}-${p.id}"><path d="M-6 -6 L6 6 M6 -6 L-6 6" stroke="${hot ? '#ff7a59' : '#f2c94c'}" stroke-width="${hot ? 3.2 : 2.6}" stroke-linecap="round"/></g>`; }
+    g += `<g id="${id}-ball"><ellipse rx="4.5" ry="3" fill="#a0612f" stroke="#fff" stroke-width="1.2"/></g>`;
+    const data = { O: B.O.map((p) => [p.id, p.kf]), X: B.X.map((p) => [p.id, p.kf]), ball: B.ball, flip, yLo, yHi };
+    (window.__RP = window.__RP || {})[id] = data;
+    return `<div class="rp"><svg id="${id}" viewBox="0 0 ${Wp.toFixed(0)} ${H.toFixed(0)}" role="img" aria-label="Animated replay of the play">${g}</svg><div class="rp-bar"><button class="btn rp-go" data-rp="${id}">↻ Replay</button><button class="btn rp-go" data-rp="${id}" data-slow="1">🐢 Slow-mo</button><span class="hint">${opts.caption || ''}</span></div></div>`;
+  }
+  function play(id, slow) {
+    const D = window.__RP && window.__RP[id], svg = document.getElementById(id); if (!D || !svg) return;
+    const dur = (slow ? 7000 : 3800), t0 = performance.now(), SX = (x) => (D.flip ? HALF - x : x + HALF) * K, SY = (y) => (D.flip ? y - D.yLo : D.yHi - y) * K;
+    const els = [...D.O, ...D.X].map(([pid, kf]) => [svg.querySelector(`#${id}-${pid}`), kf]), bel = svg.querySelector(`#${id}-ball`);
+    const runId = (D.run = (D.run || 0) + 1);
+    const step = (now) => {
+      if (D.run !== runId) return;
+      const t = Math.min(1, (now - t0) / dur);
+      for (const [el, kf] of els) { if (!el) continue; const [x, y] = at(kf, t); el.setAttribute('transform', `translate(${SX(x).toFixed(1)} ${SY(y).toFixed(1)})`); }
+      const [bx, by] = at(D.ball, t); bel.setAttribute('transform', `translate(${SX(bx).toFixed(1)} ${SY(by).toFixed(1)})`);
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  if (typeof document !== 'undefined') document.addEventListener('click', (ev) => { const b = ev.target.closest && ev.target.closest('[data-rp]'); if (b) play(b.dataset.rp, !!b.dataset.slow); });
+  return { build, html, play };
+})();
+
+/*/RP*/</script>
 <script>
 (() => {
   const D = window.__SIM__, E = SimEngine, $ = (id) => document.getElementById(id);
@@ -1506,6 +1743,13 @@ const SimAdv = (() => {
     const mu = entry && entry.offRole ? `<div class="mu">🆚 <b>Matchup:</b> ${nm(g[entry.side], entry.offRole)} (${posOf(entry.offRole)}) vs ${nm(g[entry.side === 'home' ? 'away' : 'home'], entry.defRole)} (${posOf(entry.defRole)})${(() => { const a = pl(g[entry.side], entry.offRole), b = pl(g[entry.side === 'home' ? 'away' : 'home'], entry.defRole); const sa = a && a.bb && a.bb <= 300, sb = b && b.bb && b.bb <= 300; return sa && !sb ? '. The ⭐ prospect had the edge.' : sb && !sa ? '. Their ⭐ prospect had the edge.' : sa && sb ? '. Star vs. star.' : ''; })()}</div>` : '';
     announce(entry);
     reactions(entry);
+    if ($('replay')) { // 🎞️ animated replay from your side of the ball
+      if ($('replayOn') && $('replayOn').checked && typeof SimReplay !== 'undefined' && entry && entry.dd && (entry.offRole || entry.adv) && !entry.special) {
+        const flip = me !== 'watch' && entry.side !== me, dside = entry.side === 'home' ? 'away' : 'home';
+        const cap = `${flip ? '🛡️ Your defense: they\u2019re coming at you.' : me === 'watch' ? `⚔️ ${g[entry.side].name} going up the field.` : '⚔️ Your offense, going up the field.'} ${entry.play} vs ${entry.def}. O = offense, ✕ = defense, filled O = ball carrier or target, orange ✕ = made the play.`;
+        try { $('replay').innerHTML = SimReplay.html(entry, { flip, caption: cap, ezColor: g[dside].color }); SimReplay.play($('replay').querySelector('svg').id); } catch (err) { $('replay').innerHTML = ''; }
+      } else $('replay').innerHTML = '';
+    }
     $('film').innerHTML = coach && entry && entry.adv ? `<div style="grid-column:1/-1">🎬 ${A.film(entry)}${mu}</div>` : coach && entry && entry.offKey ? (C.snapArt(entry.offKey, entry.defKey) + `<div>${C.film(entry, me, look)}${mu}</div>`) : '';
     render();
   }
