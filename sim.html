@@ -736,6 +736,8 @@ const SimCoach = (() => {
   };
   // ---------- coach vocabulary: {key} or {key|shown text} in any string becomes a tap-to-define term ----------
   const TERMS = {
+    tech: ['technique', 'The number for where a defensive lineman lines up. 0 = head-up on the center, 1 = shading the center, 2i/2 = inside/over the guard, 3 = outside shoulder of the guard, 4i/4 = inside/over the tackle, 5 = outside shoulder of the tackle, 6 to 9 = on or outside the tight end. "He\u2019s a 3-technique" means he lines up outside the guard.'],
+    strength: ['strength', 'The side of the formation with more players, usually the tight end side. Fronts are set toward the strength (Over) or away from it (Under).'],
     box: ['the box', 'The area near the line of scrimmage between the offensive tackles, about 5 yards deep. "Box count" = how many defenders are standing in it. Coaches count it before every snap.'],
     plus1: ['plus-one', 'Having one more player than the other side at the point of attack. "The defense is +1 in the box" means there are more run defenders than blockers, so someone goes unblocked.'],
     numbers: ['numbers', 'Counting players on each side of the ball. "We have the numbers" = more blockers than defenders where the play is going.'],
@@ -930,8 +932,18 @@ const SimCoach = (() => {
   const card = (k, isDef) => { const I = isDef ? DEFS[k] : PLAYS[k]; const IC = { inside_run: '🏃', outside_run: '💨', qb_sneak: '💪', screen: '🪤', short_pass: '⚡', medium_pass: '📐', deep_pass: '🚀', play_action: '🎭', punt: '🦵', field_goal: '🎯', base: '🧱', run_stop: '🚧', blitz: '🔥', cover2: '🔒', prevent: '🛑' }; const art = isDef ? line(true) + D[k] : (PLAY_ART[k] ? PLAY_ART[k] + D.base.replace(/class="x /g, 'class="x faint ') : '');
     return rich(`<div class="pb">${art ? svgWrap(art) : ''}<div><b>${IC[k]} ${I.name}</b><p class="cs">🗣️ ${I.coach}</p><p>${I.what}</p><p><span class="succ">✅ Works against:</span> ${I.good}</p><p><span class="fail">⚠️ Struggles against:</span> ${I.bad}</p></div></div>`); };
 
+  // ---------- defensive fronts (advanced mode). The tight end is on the right, so the strength is right. ----------
+  const FLINE = OL.map(([x, y]) => O(x, y)).join('') + O(196, 100, 'T') + O(150, 122, 'Q') + O(150, 136, 'R');
+  const FRONTS = {
+    over: { name: 'Over front (4-3 Over)', coach: '“Set it to the tight end. 3-technique to the strength, shade the nose away.”', what: 'Four down linemen shifted toward the {strength}: a {tech|3-technique} outside the strong-side guard, a {tech|1-technique} shading the center to the weak side, and ends outside both tackles. Three linebackers stack behind it.', good: 'Gap runs like Power and wide runs like outside zone: the 3-technique gets upfield and the edge is set hard. It also puts your best pass rusher one-on-one with a guard.', bad: 'Duo and inside zone: double teams on the down linemen open cutback lanes.', art: X(112, 80) + X(143, 80) + X(172, 80, 'hot') + X(206, 80) + X(130, 60) + X(160, 60) + X(212, 64) },
+    under: { name: 'Under front (4-3 Under)', coach: '“Walk the Sam up on the tight end. 3-technique to the weak side.”', what: 'The line shifts away from the {strength}: the {tech|3-technique} goes to the weak side, the nose shades the center toward the tight end, a {tech|5-technique} sits outside the strong tackle, and the strong-side linebacker walks up on the line over the tight end. That makes it a five-man front to the strong side.', good: 'Runs at the tight end (there’s an extra man on the line there) and pass rush from the weak side.', bad: 'Duo and runs to the weak side, where there are fewer bodies; play action away from the strength.', art: X(105, 80) + X(128, 80) + X(157, 80) + X(188, 80) + X(208, 80, 'hot') + X(140, 60) + X(170, 60) },
+    odd: { name: 'Odd / Tite front (3-4, 3-3-5)', coach: '“Close the A and B gaps. Make them bounce it outside.”', what: 'Three down linemen: a nose head-up on the center ({tech|0-technique}) and two {tech|4i-techniques} on the inside shoulders of the tackles, with stand-up edge players outside. The most common front against spread offenses, because it clogs the middle with only six in {box|the box}.', good: 'Inside runs (Duo, Inside Zone): the interior is closed and the linebackers run free.', bad: 'Outside zone and Power: wide runs get outside the edge players, and gap schemes get a natural kick-out block.', art: X(100, 80) + X(125, 80) + X(150, 80, 'hot') + X(175, 80) + X(212, 80) + X(125, 58) + X(150, 58) + X(175, 58) },
+    bear: { name: 'Bear front (46)', coach: '“Cover up the center and both guards. Nobody gets to our linebackers.”', what: 'A nose on the center and two {tech|3-techniques} cover all three interior linemen, so none of them can climb to a linebacker. The ends go wide and a safety walks down: eight in {box|the box}. Built to stop the run.', good: 'Inside zone, outside zone and the option: every interior lineman is covered, so there are no double teams to build a run on.', bad: 'Power and other gap schemes (pullers find room), quick passes and play action: it’s thin in coverage.', art: X(104, 80) + X(128, 80) + X(150, 80) + X(172, 80) + X(210, 80) + X(140, 62) + X(162, 62) + X(192, 66, 'hot') },
+  };
+  const fcard = (k) => { const I = FRONTS[k]; return rich(`<div class="pb">${svgWrap(FLINE + I.art)}<div><b>🧱 ${I.name}</b><p class="cs">🗣️ ${I.coach}</p><p>${I.what}</p><p><span class="succ">✅ Stops:</span> ${I.good}</p><p><span class="fail">⚠️ Vulnerable to:</span> ${I.bad}</p></div></div>`); };
+
   const snapArt = (off, def) => (PLAY_ART[off] ? svgWrap(PLAY_ART[off] + D[def]) : '');
-  return { PLAYS, DEFS, TERMS, rich, tip, readTip, defLook, offLook, film, report, success, card, snapArt };
+  return { FRONTS, fcard, PLAYS, DEFS, TERMS, rich, tip, readTip, defLook, offLook, film, report, success, card, snapArt };
 })();
 </script>
 <script>/*ADV*/
@@ -1269,7 +1281,7 @@ const SimAdv = (() => {
   const C = SimCoach;
   const ICON = { inside_run: '🏃', outside_run: '💨', qb_sneak: '💪', screen: '🪤', short_pass: '⚡', medium_pass: '📐', deep_pass: '🚀', play_action: '🎭', ko_deep: '🚀', ko_squib: '🥎', ko_onside: '🎲', punt: '🦵', return: '🏃‍♂️', fair: '🙌', block: '🛡️', field_goal: '🎯', base: '🧱', run_stop: '🚧', blitz: '🔥', cover2: '🔒', prevent: '🛑' };
   $('pbOff').innerHTML = ['inside_run', 'outside_run', 'qb_sneak', 'screen', 'short_pass', 'medium_pass', 'deep_pass', 'play_action', 'punt', 'field_goal'].map((k) => C.card(k, false)).join('');
-  $('pbDef').innerHTML = Object.keys(C.DEFS).map((k) => C.card(k, true)).join('');
+  $('pbDef').innerHTML = Object.keys(C.DEFS).map((k) => C.card(k, true)).join('') + (C.FRONTS ? '<div class="h2" style="margin-top:12px">🧱 Defensive fronts (used in 🧠 advanced mode)</div><p class="hint" style="margin:0">Tight end on the right in every diagram, so the right side is the strength. ✕ = defenders; orange ✕ = the player each front is built around.</p>' + Object.keys(C.FRONTS).map((k) => C.fcard(k)).join('') : '');
   $('dict').innerHTML = Object.entries(C.TERMS).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, [t, d]]) => `<dt id="term-${k}">📌 ${t}</dt><dd>${d}</dd>`).join('');
   let pend = null; // pre-snap: { key, side, play | def, look }
   let backTo = 0;
