@@ -1743,11 +1743,17 @@ const SimReplay = (() => {
     const mu = entry && entry.offRole ? `<div class="mu">🆚 <b>Matchup:</b> ${nm(g[entry.side], entry.offRole)} (${posOf(entry.offRole)}) vs ${nm(g[entry.side === 'home' ? 'away' : 'home'], entry.defRole)} (${posOf(entry.defRole)})${(() => { const a = pl(g[entry.side], entry.offRole), b = pl(g[entry.side === 'home' ? 'away' : 'home'], entry.defRole); const sa = a && a.bb && a.bb <= 300, sb = b && b.bb && b.bb <= 300; return sa && !sb ? '. The ⭐ prospect had the edge.' : sb && !sa ? '. Their ⭐ prospect had the edge.' : sa && sb ? '. Star vs. star.' : ''; })()}</div>` : '';
     announce(entry);
     reactions(entry);
-    if ($('replay')) { // 🎞️ animated replay from your side of the ball
+    if ($('replay')) { // 🎞️ animated replay from your side of the ball, in a collapsible section that remembers open/closed
       if ($('replayOn') && $('replayOn').checked && typeof SimReplay !== 'undefined' && entry && entry.dd && (entry.offRole || entry.adv) && !entry.special) {
         const flip = me !== 'watch' && entry.side !== me, dside = entry.side === 'home' ? 'away' : 'home';
         const cap = `${flip ? '🛡️ Your defense: they\u2019re coming at you.' : me === 'watch' ? `⚔️ ${g[entry.side].name} going up the field.` : '⚔️ Your offense, going up the field.'} ${entry.play} vs ${entry.def}. O = offense, ✕ = defense, filled O = ball carrier or target, orange ✕ = made the play.`;
-        try { $('replay').innerHTML = SimReplay.html(entry, { flip, caption: cap, ezColor: g[dside].color }); SimReplay.play($('replay').querySelector('svg').id); } catch (err) { $('replay').innerHTML = ''; }
+        try {
+          const open = window.__rpOpen !== false;
+          $('replay').innerHTML = `<details class="sec rp-sec"${open ? ' open' : ''}><summary class="h2" style="margin:10px 0 0">🎞️ Play diagram</summary>${SimReplay.html(entry, { flip, caption: cap, ezColor: g[dside].color })}</details>`;
+          const d = $('replay').querySelector('details'), id = $('replay').querySelector('svg').id;
+          d.addEventListener('toggle', () => { window.__rpOpen = d.open; if (d.open) SimReplay.play(id); });
+          if (open) SimReplay.play(id);
+        } catch (err) { $('replay').innerHTML = ''; }
       } else $('replay').innerHTML = '';
     }
     $('film').innerHTML = coach && entry && entry.adv ? `<div style="grid-column:1/-1">🎬 ${A.film(entry)}${mu}</div>` : coach && entry && entry.offKey ? (C.snapArt(entry.offKey, entry.defKey) + `<div>${C.film(entry, me, look)}${mu}</div>`) : '';
