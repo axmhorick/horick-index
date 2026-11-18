@@ -1167,6 +1167,7 @@ const SimAdv = (() => {
     return t >= 7 ? 'L' : 'm';
   }
   const BUCKET = { e: '1st down / 2nd & medium', l: '2nd & long', s: 'short yardage', m: '3rd & medium', L: '3rd & long', rz: 'red zone', gl: 'goal line' };
+  const sitLabel = (g) => { const bk = bucket(g); return g.down === 4 && ['s', 'm', 'L'].includes(bk) ? { s: '4th & short', m: '4th & medium', L: '4th & long' }[bk] : g.down === 4 ? '4th down, ' + BUCKET[bk] : BUCKET[bk]; };
 
   // ---------- team profiles ----------
   const STY_PERS = { option: { 21: 0.5, 22: 0.4, 12: 0.1 }, power: { 12: 0.45, 11: 0.35, 21: 0.12, 13: 0.08 }, balanced: { 11: 0.6, 12: 0.3, 21: 0.05, 13: 0.05 }, spread: { 11: 0.75, 10: 0.15, 12: 0.1 }, airraid: { 10: 0.45, 11: 0.5, 12: 0.05 }, vertical: { 11: 0.7, 12: 0.2, 10: 0.1 } };
@@ -1384,7 +1385,7 @@ const SimAdv = (() => {
     if (a.dc.disg) t += 'The shell was disguised pre-snap. ';
     return t + (ok ? '✅' : '❌');
   }
-  return { PERS, FORMS, CON, COV, PKG, FRONT, PRES, FAMS, BUCKET, K, setTend: (t) => { TEND = t; }, hasTend: () => !!TEND, bucket, formsFor, conceptsFor, allowed, profile, dprofile, look, resolve, aiOff, aiDef, setup, play, kneel, spike, simDrive, simToEnd, callSheet, scout, film, labelOff, labelDef, boxOf, weightOf };
+  return { PERS, FORMS, CON, COV, PKG, FRONT, PRES, FAMS, BUCKET, K, setTend: (t) => { TEND = t; }, hasTend: () => !!TEND, bucket, sitLabel, formsFor, conceptsFor, allowed, profile, dprofile, look, resolve, aiOff, aiDef, setup, play, kneel, spike, simDrive, simToEnd, callSheet, scout, film, labelOff, labelDef, boxOf, weightOf };
 })();
 
 /*/ADV*/</script>
@@ -2343,7 +2344,7 @@ const SimReplay = (() => {
     const onO = userOnOffense(), row = (onO ? PLAN.off : PLAN.def).find((x) => x.sit.k === k); if (!row) return;
     const best = (onO ? PLAN.ch.script : PLAN.ch.dscript)[k] || row.ranked[0][0], attr = onO ? 'data-o' : 'data-d';
     const b = $('calls').querySelector(`[${attr}="${best}"]`); if (!b) return;
-    b.classList.add('plan'); b.insertAdjacentHTML('beforeend', `<span class="planTag">📋 Your plan (${row.sit.name})</span>`);
+    b.classList.add('plan'); b.insertAdjacentHTML('beforeend', `<span class="planTag">📋 Your plan (${g.down === 4 ? row.sit.name.replace(/^3rd/, '4th') : row.sit.name})</span>`);
   }
 
   // ---------- 🧠 Advanced mode (SimAdv): coordinator-level play calling ----------
@@ -2397,19 +2398,21 @@ const SimReplay = (() => {
   function advRender() {
     const key = `${g.log.length}|${g.poss}|${g.down}|${g.ball}`, bk = A.bucket(g), opp = oppSide();
     if (!AP || AP.key !== key) AP = { key, stage: userOnOffense() ? 'call' : 'pers' };
-    const sit = `<div class="adv-sit"><span>📍 ${A.BUCKET[bk]}</span><span>⏱️ Timeouts: you ${g.timeouts[me]}, them ${g.timeouts[opp]}</span>${g.hurry[g.poss] && g.poss !== me ? '<span>⚡ They’re in hurry-up</span>' : ''}</div>`;
+    const sit = `<div class="adv-sit"><span>📍 ${A.sitLabel ? A.sitLabel(g) : A.BUCKET[bk]}</span><span>⏱️ Timeouts: you ${g.timeouts[me]}, them ${g.timeouts[opp]}</span>${g.hurry[g.poss] && g.poss !== me ? '<span>⚡ They’re in hurry-up</span>' : ''}</div>`;
     let h = sit;
     $('read').innerHTML = '';
     if (userOnOffense()) {
       if (AP.stage === 'call') {
         $('callTitle').textContent = '🧠 Your call, coordinator';
         const sheet = AP.sheet || (AP.sheet = A.callSheet(g, me, bk));
-        h += `<div class="h2" style="margin:6px 0">📋 Call sheet: ${A.BUCKET[bk]}</div><div class="adv-sheet">${sheet.map((c, i) => `<button class="btn" data-ac="${i}"><b>${A.CON[c.concept].label}</b><small>${c.pers} personnel · ${A.FORMS[c.form].label}</small><small>${c.why}</small></button>`).join('')}</div>`;
-        h += buildHTML();
-        if (g.down === 4 || (g.ot === 0 && g.qtr >= 2 && g.clock < 30)) {
+        if (g.down === 4 || (g.ot === 0 && g.qtr >= 2 && g.clock < 30)) { // 4th down (or the end of the half): the decision comes first
           const fgDist = 100 - g.ball + 17, pr = E.fgProb(g, g.poss);
-          h += '<div class="adv-pick" style="margin-top:10px">' + (!g.ot ? `<button class="btn" data-o="punt">🦵 Punt<small>Flip the field</small></button>` : '') + (fgDist <= 65 ? `<button class="btn" data-o="field_goal">🎯 Field goal (${fgDist} yds)<small>~${Math.round(pr * 100)}% to make</small></button>` : '') + '</div>';
+          if (g.down === 4 && !AP.rec) { const d = E.aiOffense(g); AP.rec = d === 'punt' ? '🦵 punt' : d === 'field_goal' ? `🎯 kick the ${fgDist}-yard field goal` : '🏈 go for it'; }
+          h += `<div class="adv-line">4️⃣ <b>${g.down === 4 ? `4th & ${Math.min(g.togo, 100 - g.ball) >= 100 - g.ball ? 'goal' : g.togo}: your decision` : 'End of the half: your decision'}</b>${AP.rec ? `. The analytics call: <b>${AP.rec}</b>` : ''}. Go for it with a play from the call sheet below, or:</div>`;
+          h += '<div class="adv-pick" style="margin-bottom:10px">' + (!g.ot ? `<button class="btn" data-o="punt">🦵 Punt<small>Flip the field</small></button>` : '') + (fgDist <= 65 ? `<button class="btn" data-o="field_goal">🎯 Field goal (${fgDist} yds)<small>~${Math.round(pr * 100)}% to make</small></button>` : '') + '</div>';
         }
+        h += `<div class="h2" style="margin:6px 0">📋 Call sheet${g.down === 4 ? ' if you go for it' : ''}: ${A.sitLabel(g)}</div><div class="adv-sheet">${sheet.map((c, i) => `<button class="btn" data-ac="${i}"><b>${A.CON[c.concept].label}</b><small>${c.pers} personnel · ${A.FORMS[c.form].label}</small><small>${c.why}</small></button>`).join('')}</div>`;
+        h += buildHTML();
         h += toolsHTML(true);
         $('tip').innerHTML = coach ? READ_TIP : '';
       } else {
@@ -2429,7 +2432,7 @@ const SimReplay = (() => {
         $('calls').className = 'adv'; $('calls').innerHTML = (C.link || ((x) => x))(sit) + `<div class="adv-pick"><button class="btn primary" data-ast="1">▶️ Line up${oc.st === 'field_goal' ? ` (${100 - g.ball + 17}-yard try)` : ''}</button></div>` + toolsHTML(false); $('tip').innerHTML = ''; return true;
       }
       const P = A.profile(O, bk);
-      const scoutLine = P.src === 'pff' ? `<br>🔒 Scouting (${A.BUCKET[bk]}): they run ${pctA(P.run)}; runs: ${topK(P.runc, 2, RUNLAB)}; passes: ${topK(P.passc, 2, (k) => FAMLAB[k] || k)}.` : `<br>🔎 ${E.STYLES[O.style].label} offense.`;
+      const scoutLine = P.src === 'pff' ? `<br>🔒 Scouting (${A.sitLabel ? A.sitLabel(g) : A.BUCKET[bk]}): they run ${pctA(P.run)}; runs: ${topK(P.runc, 2, RUNLAB)}; passes: ${topK(P.passc, 2, (k) => FAMLAB[k] || k)}.` : `<br>🔎 ${E.STYLES[O.style].label} offense.`;
       if (AP.stage === 'pers') {
         $('callTitle').textContent = '🛡️ Match their personnel';
         h += `<div class="adv-line">🔄 They're sending in <b>${A.PERS[oc.pers].label}</b> (${A.PERS[oc.pers].who}).${scoutLine}</div>`;
