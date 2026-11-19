@@ -265,6 +265,72 @@ window.__DATA__ = {"rankings":[{"week":"12","rank":"1","team":"Georgia","wins":"
 .bx-res .win b { color: #2e7d4f; } .bx-res .loss b { color: #b3412f; }
 .ig-foot { border-top: 1px solid #111; margin-top: 14px; padding-top: 6px; font: 10px/1.4 Arial, sans-serif; color: #666; }
 @media (max-width: 600px) { .ig { padding: 12px 10px 14px; } .ig-top, .ig-mm, .ig-form, .ig-notes { grid-template-columns: 1fr; } .ig-bf { grid-template-columns: 1fr 86px 1fr; } }
+
+/* ---- Retro TV view of the game breakdown ---- */
+.rt-switch { display: block; width: 100%; margin: 0 0 10px; padding: 8px 10px; font: 700 13px/1.1 Arial, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: #f6c445; background: linear-gradient(#123a7a, #081d45); border: 2px solid #c9a227; border-radius: 4px; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+.rt { max-width: 760px; margin: 0 auto; background: #050505; color: #f3ead3; box-shadow: 0 10px 40px rgba(0,0,0,.7); font-family: 'Oswald', 'Arial Narrow', Arial, sans-serif; }
+.rt * { box-sizing: border-box; }
+.rt-bar { display: flex; gap: 6px; justify-content: flex-end; padding: 8px; background: #050505; }
+.rt-bar .ig-close, .rt-bar .ig-save { float: none; margin: 0; }
+.rt-open { position: relative; overflow: hidden; padding: 16px 16px 20px; min-height: 380px; isolation: isolate; }
+.rt-bg { position: absolute; left: 0; right: 0; z-index: -2; }
+.rt-sky { top: 0; height: 12%; background: linear-gradient(#86aed3, #b9cfe2); }
+.rt-stands { top: 12%; height: 46%; background:
+  radial-gradient(circle at 2px 2px, rgba(255,255,255,.55) 1px, transparent 1.7px) 0 0/6px 6px,
+  radial-gradient(circle at 4px 3px, rgba(220,70,50,.55) 1px, transparent 1.7px) 0 0/9px 7px,
+  radial-gradient(circle at 1px 5px, rgba(240,200,60,.45) 1px, transparent 1.7px) 0 0/11px 8px,
+  radial-gradient(circle at 5px 1px, rgba(60,90,200,.45) 1px, transparent 1.7px) 0 0/7px 9px,
+  linear-gradient(#2c2c2c, #4b4b47); }
+.rt-stands::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 14px; background: linear-gradient(#1b1b1b, #3a3a3a); border-bottom: 2px solid #6d6d6d; }
+.rt-stands::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 9px; background: var(--rt-h, #444); border-top: 2px solid rgba(255,255,255,.55); }
+.rt-field { top: 58%; bottom: 0; background: repeating-linear-gradient(97deg, transparent 0 52px, rgba(255,255,255,.6) 52px 54px), linear-gradient(#4f9a44, #2e6b2a); }
+.rt-shade { position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at 40% 50%, rgba(0,0,0,.05) 0, rgba(0,0,0,.5) 100%); }
+.rt-week { display: inline-block; padding: 4px 8px; background: #111; border: 2px solid #555; color: #ffb300; font: 700 13px/1 'Oswald', 'Arial Narrow', sans-serif; letter-spacing: .12em; text-shadow: 0 0 6px rgba(255,179,0,.8); }
+.rt-bug { position: absolute; top: 12px; right: 14px; text-align: center; line-height: .9; }
+.rt-bug b { display: block; font: 700 15px/1 'Oswald', 'Arial Narrow', sans-serif; letter-spacing: .14em; color: #fff; text-shadow: 2px 2px 0 #000, 0 0 8px rgba(0,0,0,.6); }
+.rt-bug i { display: block; font: 400 30px/1 'Yellowtail', 'Brush Script MT', cursive; color: #f6c445; text-shadow: 2px 2px 0 #000, 3px 3px 4px rgba(0,0,0,.7); margin-top: -2px; }
+.rt-row { display: grid; grid-template-columns: minmax(84px, 27%) 1fr; align-items: center; gap: 10px; margin-top: 10px; }
+.rt-helm { width: 100%; height: auto; filter: drop-shadow(4px 5px 3px rgba(0,0,0,.7)); }
+.rt-sub, .rt-sub2 { font: 700 clamp(14px, 3.6vw, 21px)/1.05 'Oswald', 'Arial Narrow', sans-serif; color: #f3ead3; text-transform: uppercase; letter-spacing: .06em; text-shadow: 2px 2px 0 #000, 3px 3px 4px rgba(0,0,0,.8); }
+.rt-name, .rt-name2 { font: 400 clamp(28px, 7.6vw, 52px)/.98 'Alfa Slab One', 'Rockwell Extra Bold', 'Arial Black', serif; color: #f6c445; text-transform: uppercase; letter-spacing: .01em; -webkit-text-stroke: 1px #2a1d00; text-shadow: 1px 1px 0 #7a5500, 2px 2px 0 #3d2a00, 3px 3px 0 #000, 4px 4px 0 #000, 5px 6px 10px rgba(0,0,0,.75); overflow-wrap: anywhere; }
+.rt-vs { font: 400 clamp(20px, 5vw, 32px)/1 'Alfa Slab One', 'Arial Black', serif; color: #f3ead3; text-align: center; margin: 4px 0 -4px; padding-left: 27%; text-shadow: 2px 2px 0 #000, 3px 3px 5px rgba(0,0,0,.8); }
+.rt-site { text-align: center; margin-top: 16px; }
+.rt-name2 { font-size: clamp(20px, 5.2vw, 36px); }
+.rt-sub2 { font-size: clamp(16px, 4vw, 26px); }
+.rt-crew { margin-top: 6px; font: 700 12.5px/1.3 'Oswald', 'Arial Narrow', sans-serif; letter-spacing: .05em; color: #f3ead3; text-shadow: 1px 1px 0 #000, 2px 2px 3px #000; text-transform: uppercase; }
+.rt-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; background: repeating-linear-gradient(0deg, #0a0a0a 0 2px, #050505 2px 4px); }
+.rt-p { background: linear-gradient(#123a7a, #06163a); border: 3px solid #c9a227; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25), 0 4px 10px rgba(0,0,0,.6); padding: 0 10px 10px; min-width: 0; }
+.rt-p.wide { grid-column: 1 / -1; }
+.rt-ph { margin: 0 -10px 8px; padding: 6px 10px; background: linear-gradient(#c8102e, #7d0a1c); border-bottom: 2px solid #c9a227; font: 700 14px/1 'Oswald', 'Arial Narrow', sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #fff; text-shadow: 1px 1px 0 #000; }
+.rt-t { width: 100%; border-collapse: collapse; font: 500 14px/1.25 'Oswald', 'Arial Narrow', sans-serif; font-variant-numeric: tabular-nums; }
+.rt-t td { padding: 4px 4px; border-bottom: 1px solid rgba(201,162,39,.3); color: #f3ead3; }
+.rt-t td.l { text-align: center; color: #9fb4d8; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; }
+.rt-t td.a { text-align: right; width: 34%; } .rt-t td.h { text-align: left; width: 34%; }
+.rt-t td.w { color: #f6c445; font-weight: 700; }
+.rt-t tr.hd td { color: #f6c445; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-bottom: 2px solid #c9a227; }
+.rt-kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font: 500 14px/1.3 'Oswald', 'Arial Narrow', sans-serif; }
+.rt-kv b { color: #9fb4d8; font-weight: 500; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; padding-top: 2px; }
+.rt-kv span.g { color: #f6c445; font-weight: 700; }
+.rt-sb { background: #0b0b0b; border: 3px solid #333; border-radius: 4px; padding: 8px; background-image: radial-gradient(circle, #1d1d1d 1px, transparent 1.5px); background-size: 5px 5px; }
+.rt-sbr { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 3px 4px; }
+.rt-sbr .tm { font: 700 15px/1 'Oswald', 'Arial Narrow', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-sbr .pt { font: 700 34px/1 'Oswald', 'Arial Narrow', sans-serif; color: #ffb300; text-shadow: 0 0 6px rgba(255,179,0,.9), 0 0 14px rgba(255,120,0,.6); min-width: 64px; text-align: right; letter-spacing: .06em; }
+.rt-sbc { text-align: center; font: 700 11px/1 'Oswald', sans-serif; letter-spacing: .2em; color: #ff5b3b; text-shadow: 0 0 5px rgba(255,91,59,.8); margin-top: 6px; }
+.rt-wp { display: flex; height: 28px; border: 2px solid #c9a227; margin: 4px 0 4px; }
+.rt-wp div { display: flex; align-items: center; padding: 0 8px; font: 700 15px/1 'Oswald', sans-serif; color: #fff; text-shadow: 1px 1px 0 #000; white-space: nowrap; }
+.rt-wp div:last-child { justify-content: flex-end; }
+.rt-inj { font: 500 13.5px/1.35 'Oswald', 'Arial Narrow', sans-serif; padding: 3px 0; border-bottom: 1px solid rgba(201,162,39,.25); }
+.rt-inj .pos { display: inline-block; min-width: 32px; text-align: center; background: #c9a227; color: #06163a; font-weight: 700; font-size: 11px; padding: 1px 3px; margin-right: 5px; }
+.rt-inj .st { color: #ff7a5c; text-transform: uppercase; font-size: 11.5px; letter-spacing: .05em; }
+.rt-tn { font: 700 13px/1.2 'Oswald', sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #f6c445; margin: 6px 0 2px; }
+.rt-form { display: flex; gap: 4px; }
+.rt-form span { flex: 1; text-align: center; padding: 4px 2px; border: 1px solid #c9a227; font: 700 13px/1.1 'Oswald', sans-serif; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-form span.w { background: #1f6b35; } .rt-form span.l { background: #8a1c1c; }
+.rt-form small { display: block; font: 500 10px/1.1 'Oswald', sans-serif; letter-spacing: .03em; color: #e8e2cf; }
+.rt-foot { padding: 8px 12px 12px; font: 500 11px/1.4 'Oswald', 'Arial Narrow', sans-serif; letter-spacing: .04em; color: #8c8c8c; background: #050505; }
+.rt.ig-print { width: 760px; max-width: none; }
+.rt.ig-print .rt-name { font-size: 52px; } .rt.ig-print .rt-sub { font-size: 21px; }
+@media (max-width: 560px) { .rt-panels { grid-template-columns: 1fr; } .rt-open { min-height: 0; padding: 12px 10px 16px; } .rt-bug b { font-size: 12px; } .rt-bug i { font-size: 22px; } }
 </style>
 
 <div class="pr">
@@ -871,7 +937,7 @@ function openMatchup(r) {
   const x = igEl('button', 'ig-close', 'Close ✕'); x.type = 'button'; x.onclick = close;
   const sec = (t) => ig.append(igEl('div', 'ig-h', t));
 
-  ig.append(x, igSaveBtn(ig, igFile(r, 'breakdown')), igEl('div', 'ig-kick', `Game breakdown · Week ${r.week}`));
+  ig.append(x, igSaveBtn(ig, igFile(r, 'breakdown')), igEl('div', 'ig-kick', `Game breakdown · Week ${r.week}`), rtBtn(r, close));
   const title = igEl('div', 'ig-title');
   const tm = (T, t, cls) => { const d = igEl('div', 'ig-tm ' + cls); const c = cfpRank(t);
     const tr = igEl('div', 'ig-tr'); tr.innerHTML = `<b>${T.record || ''}</b> · Index <b>#${T.rank}</b>${c ? ` · CFP <b>#${c}</b>` : ''}`;
@@ -995,6 +1061,109 @@ function openMatchup(r) {
   });
   ig.append(nt, igEl('div', 'ig-foot', 'Sources: No Name Index power ratings and projections; team stats from cfbstats.com; kickoff forecast from the National Weather Service; TV and broadcast crews from Awful Announcing / 506 Sports. Win probability assumes a 14-point standard deviation.'));
   back.append(ig); document.body.append(back); document.body.style.overflow = 'hidden'; x.focus();
+}
+// ---- 📺 Retro TV view of the game breakdown (old-school broadcast open + stat panels) ----
+function rtFont() {
+  if (document.getElementById('rt-font')) return;
+  const l = document.createElement('link'); l.id = 'rt-font'; l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Oswald:wght@500;700&family=Yellowtail&display=swap';
+  document.head.append(l);
+}
+function rtEsc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+function rtName(t) { return String(t).replace(/\bSt\.$/, 'State').replace(/\bSt\. /, 'State '); }
+function rtHelmet(color) { // plain helmet in the team's color: no logos
+  const c = /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#666';
+  return `<svg class="rt-helm" viewBox="0 0 124 100" role="img" aria-hidden="true">
+    <path d="M18 64 C12 30 40 8 70 10 C98 12 112 34 110 58 L101 61 L97 76 C82 82 62 86 44 88 L30 88 C22 82 19 74 18 64 Z" fill="${c}" stroke="#111" stroke-width="3"/>
+    <path d="M27 34 C44 14 78 8 104 30" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+    <path d="M27 34 C44 14 78 8 104 30" fill="none" stroke="#111" stroke-width="1.5" stroke-linecap="round" opacity=".35"/>
+    <ellipse cx="58" cy="30" rx="22" ry="8" fill="#fff" opacity=".22"/>
+    <circle cx="56" cy="60" r="6.5" fill="#111"/>
+    <path d="M98 54 L121 56 M99 67 L121 67 M94 79 L119 79 M112 52 L114 86" fill="none" stroke="#c9c9c9" stroke-width="4" stroke-linecap="round"/>
+    <path d="M98 54 L121 56 M99 67 L121 67 M94 79 L119 79 M112 52 L114 86" fill="none" stroke="#555" stroke-width="1" stroke-linecap="round" opacity=".6"/>
+    <path d="M44 88 L70 94" stroke="#111" stroke-width="3" stroke-linecap="round"/>
+  </svg>`;
+}
+function rtBtn(r, close) { const b = igEl('button', 'rt-switch', '📺 Switch to the retro TV view'); b.type = 'button'; b.onclick = () => { close(); openRetro(r); }; return b; }
+function openRetro(r) {
+  rtFont();
+  const R = ok('rankings') || [], S = ok('stats') || [];
+  const A = R.find((x) => x.team === r.away) || {}, H = R.find((x) => x.team === r.home) || {};
+  const SA = S.find((x) => x.team === r.away) || {}, SH = S.find((x) => x.team === r.home) || {};
+  const ca = igColor(r.away), ch = igColor(r.home);
+  const back = igEl('div', 'ig-back'); back.setAttribute('role', 'dialog'); back.setAttribute('aria-label', `${r.away} at ${r.home} retro breakdown`);
+  const card = igEl('div', 'rt');
+  const close = () => { back.remove(); document.removeEventListener('keydown', escK); document.body.style.overflow = ''; };
+  const escK = (e) => { if (e.key === 'Escape') close(); };
+  back.addEventListener('click', (e) => { if (e.target === back) close(); }); document.addEventListener('keydown', escK);
+  const bar = igEl('div', 'rt-bar');
+  const std = igEl('button', 'ig-save', '📰 Standard view'); std.type = 'button'; std.onclick = () => { close(); openMatchup(r); };
+  const x = igEl('button', 'ig-close', 'Close ✕'); x.type = 'button'; x.onclick = close;
+  bar.append(std, igSaveBtn(card, igFile(r, 'retro')), x);
+  const e = rtEsc, final = r.result && r.away_pts !== '';
+  const stl = ok('stadiums'), sr = stl && (stl.find((s) => s.team === `${r.away}@${r.home}`) || (+r.neutral ? null : stl.find((s) => s.team === r.home)));
+  const venue = sr ? sr.stadium : (+r.neutral ? 'Neutral site' : r.home);
+  const tvl = ok('tv'), tv = tvl && tvl.find((t) => t.away === r.away && t.home === r.home && String(t.week) === String(r.week));
+  const line1 = (T, t) => { const c = cfpRank(t); return [T.record, T.rank ? `No. ${T.rank} in the Index` : '', c ? `CFP No. ${c}` : ''].filter(Boolean).join(' · '); };
+  const kick = kickText(r) + ' ET';
+  const open = igEl('div', 'rt-open'); open.style.setProperty('--rt-h', ch);
+  open.innerHTML = `<div class="rt-bg rt-sky"></div><div class="rt-bg rt-stands"></div><div class="rt-bg rt-field"></div><div class="rt-shade"></div>
+    <div class="rt-week">WEEK ${e(r.week)} · COLLEGE FOOTBALL</div>
+    <div class="rt-bug" aria-label="The No Name Index"><b>THE NO NAME</b><i>Index</i></div>
+    <div class="rt-row">${rtHelmet(ca)}<div><div class="rt-sub">${e(line1(A, r.away))}</div><div class="rt-name">${e(rtName(r.away))}</div></div></div>
+    <div class="rt-vs">${+r.neutral ? 'VS' : 'AT'}</div>
+    <div class="rt-row">${rtHelmet(ch)}<div><div class="rt-sub">${e(line1(H, r.home))}</div><div class="rt-name">${e(rtName(r.home))}</div></div></div>
+    <div class="rt-site"><div class="rt-sub2">${e(venue)}${+r.neutral && sr ? ' (neutral site)' : ''}</div><div class="rt-name2">${e(kick)}${tv ? ' · ' + e(tv.network) : ''}</div>
+    ${tv && tv.announcers ? `<div class="rt-crew">🎙️ ${e(tv.announcers.replace(/ \((play-by-play|analyst|reporter)\)/g, (m, k) => ({ 'play-by-play': ' (PxP)', analyst: ' (analyst)', reporter: ' (sideline)' })[k]))}</div>` : ''}</div>`;
+  // ---- panels ----
+  const P = (title, inner, wide) => `<div class="rt-p${wide ? ' wide' : ''}"><div class="rt-ph">${title}</div>${inner}</div>`;
+  const ml = +r.model_line, pH = igPhi(ml / 14), pA = 1 - pH, sp = +r.home_spread;
+  const vf = sp < 0 ? `${r.home} -${Math.abs(sp)}` : sp > 0 ? `${r.away} -${sp}` : 'Pick’em';
+  const hf = ml > 0 ? `${r.home} -${Math.abs(ml).toFixed(1)}` : ml < 0 ? `${r.away} -${Math.abs(ml).toFixed(1)}` : 'Even';
+  const edge = (v) => (v === '' || v == null ? '' : ` (${Math.abs(+v).toFixed(1)} off)`);
+  const res = (x) => (x ? ` · <span class="g">${e(x.toUpperCase())}</span>` : '');
+  const lineP = P('The line', `<div class="rt-kv"><b>Vegas</b><span>${e(vf)} · O/U ${e(r.total || '—')}</span><b>Index line</b><span>${e(hf)} · total ${(+r.model_total).toFixed(1)}</span>
+    <b>Spread pick</b><span class="g">${e(r.pick || '—')}${edge(r.edge)}${res(r.result)}</span><b>Total pick</b><span class="g">${e(r.total_pick || '—')}${edge(r.total_edge)}${res(r.total_result)}</span></div>`);
+  const ab = (t) => e(String(t).toUpperCase().slice(0, 14));
+  const sb = P(final ? 'Final' : 'Projected final', `<div class="rt-sb"><div class="rt-sbr"><span class="tm">${ab(r.away)}</span><span class="pt">${e(final ? r.away_pts : r.model_away_pts)}</span></div>
+    <div class="rt-sbr"><span class="tm">${ab(r.home)}</span><span class="pt">${e(final ? r.home_pts : r.model_home_pts)}</span></div>
+    <div class="rt-sbc">${final ? `MODEL HAD ${e(r.model_away_pts)}–${e(r.model_home_pts)}` : 'NO NAME INDEX PROJECTION'}</div></div>`);
+  const wp = P('Win probability', `<div class="rt-wp"><div style="width:${pA * 100}%;background:${ca}">${Math.round(pA * 100)}%</div><div style="width:${pH * 100}%;background:${ch}">${Math.round(pH * 100)}%</div></div>
+    <div class="rt-kv"><b>${e(r.away)}</b><span>${Math.round(pA * 100)}% to win</span><b>${e(r.home)}</b><span>${Math.round(pH * 100)}% to win</span></div>`);
+  // tale of the tape
+  const rows = [];
+  const tr = (lab, a, h, fmt, low) => { if (a === '' || h === '' || a == null || h == null) return; const av = +a, hv = +h; const num = !isNaN(av) && !isNaN(hv);
+    const aw = num && (low ? av < hv : av > hv), hw = num && (low ? hv < av : hv > av);
+    rows.push(`<tr><td class="a${aw ? ' w' : ''}">${e(fmt ? fmt(a) : a)}</td><td class="l">${lab}</td><td class="h${hw ? ' w' : ''}">${e(fmt ? fmt(h) : h)}</td></tr>`); };
+  const o = (v) => igOrd(v), f1 = (v) => (+v).toFixed(1), f0 = (v) => (+v).toFixed(0);
+  rows.push(`<tr class="hd"><td class="a">${e(r.away)}</td><td class="l"></td><td class="h">${e(r.home)}</td></tr>`);
+  if (A.record || H.record) rows.push(`<tr><td class="a">${e(A.record || '')}</td><td class="l">Record</td><td class="h">${e(H.record || '')}</td></tr>`);
+  tr('Index rank', A.rank, H.rank, (v) => '#' + v, true);
+  const cA = cfpRank(r.away), cH = cfpRank(r.home); if (cA || cH) rows.push(`<tr><td class="a${cA && (!cH || cA < cH) ? ' w' : ''}">${cA ? '#' + cA : '—'}</td><td class="l">CFP rank</td><td class="h${cH && (!cA || cH < cA) ? ' w' : ''}">${cH ? '#' + cH : '—'}</td></tr>`);
+  tr('Offense', A.off_rk, H.off_rk, o, true); tr('Defense', A.def_rk, H.def_rk, o, true); tr('Special teams', A.st_rk, H.st_rk, o, true);
+  tr('Schedule faced', A.sos_rk, H.sos_rk, o, true); tr('Roster talent', A.talent_rk, H.talent_rk, o, true); tr('Toughness', A.toughness_rk, H.toughness_rk, o, true);
+  tr('Pass yds/game', SA.pass_ypg, SH.pass_ypg, f0); tr('Rush yds/carry', SA.rush_ypc, SH.rush_ypc, f1);
+  tr('Pass yds allowed', SA.pass_ypg_allowed, SH.pass_ypg_allowed, f0, true); tr('Rush yds/carry allowed', SA.rush_ypc_allowed, SH.rush_ypc_allowed, f1, true);
+  tr('Penalty yds/game', SA.pen_yds_g, SH.pen_yds_g, f0, true);
+  const tape = P('Tale of the tape', `<table class="rt-t">${rows.join('')}</table>`, true);
+  // injuries
+  const INJ = ok('injuries') || [], rankSt = (s) => /season/i.test(s) ? 0 : /^out/i.test(s) ? 1 : /doubt/i.test(s) ? 2 : /quest/i.test(s) ? 3 : 4;
+  const posRank = { QB: 0, OT: 1, EDGE: 2, WR: 3, CB: 4, DL: 5, IOL: 6, S: 7, LB: 8, TE: 9, RB: 10 };
+  const inj = [[r.away], [r.home]].map(([t]) => { const L = INJ.filter((i) => i.team === t && i.starter === '1' && !/probable/i.test(i.status)).sort((a, b) => rankSt(a.status) - rankSt(b.status) || (posRank[a.pos] ?? 11) - (posRank[b.pos] ?? 11));
+    return `<div class="rt-tn">${e(t)}</div>` + (L.length ? L.slice(0, 6).map((i) => `<div class="rt-inj"><span class="pos">${e(i.pos)}</span>${e(i.player)} <span class="st">${e(/season/i.test(i.status) ? 'Out for season' : i.status)}</span></div>`).join('') + (L.length > 6 ? `<div class="rt-inj">+${L.length - 6} more</div>` : '') : '<div class="rt-inj">No starters listed out.</div>'); }).join('');
+  const injP = P('Injury report', inj);
+  // recent form
+  const form = [[r.away, A], [r.home, H]].map(([t, T]) => { const g = String(T.form_note || '').split(';').map((s) => s.trim()).filter(Boolean).slice(0, 4).reverse();
+    const tiles = g.map((s) => { const m = s.match(/^([WL])\s+(vs|at)\s+(.+?)\s+([+-]\d+)$/); return m ? `<span class="${m[1] === 'W' ? 'w' : 'l'}">${m[1]}<small>${e((m[2] === 'at' ? '@ ' : '') + m[3])}</small></span>` : ''; }).join('');
+    return `<div class="rt-tn">${e(t)}</div><div class="rt-form">${tiles || '<span>—</span>'}</div>`; }).join('');
+  const formP = P('Last four games', form + '<div class="rt-kv" style="margin-top:6px"><b>Oldest to newest</b><span></span></div>');
+  // game day
+  const gd = P('Game day', `<div class="rt-kv"><b>Kickoff</b><span>${e(kick)}${+r.night ? ' (night)' : ''}</span><b>Site</b><span>${e(venue)}</span><b>Weather</b><span>${e(igWx(r))}</span>
+    ${tv ? `<b>TV</b><span>${e(tv.network)}</span>` : ''}${tv && tv.announcers ? `<b>Booth</b><span>${e(tv.announcers)}</span>` : ''}<b>Home field</b><span>${+r.neutral ? 'Neutral site' : (+r.hfa).toFixed(1) + ' pts'}</span></div>`);
+  const panels = igEl('div', 'rt-panels'); panels.innerHTML = sb + lineP + wp + gd + tape + injP + formP;
+  const foot = igEl('div', 'rt-foot', 'The No Name Index · No names on the jerseys. Just the numbers. Ratings, projections and picks: The No Name Index. Team stats: cfbstats.com. Forecast: National Weather Service. TV: Awful Announcing / 506 Sports. Win probability assumes a 14-point standard deviation.');
+  card.append(bar, open, panels, foot);
+  back.append(card); document.body.append(back); document.body.style.overflow = 'hidden'; x.focus();
 }
 // ---- Box score (completed games) ----
 function boxFor(r) { const B = ok('box'); return B && B.find((x) => x.away === r.away && x.home === r.home && String(x.week) === String(r.week)) || null; }
