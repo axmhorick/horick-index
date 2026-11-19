@@ -329,6 +329,26 @@ window.__DATA__ = {"rankings":[{"week":"12","rank":"1","team":"Georgia","wins":"
 .rt-form small { display: block; font: 500 10px/1.1 'Oswald', sans-serif; letter-spacing: .03em; color: #e8e2cf; }
 .rt-foot { padding: 8px 12px 12px; font: 500 11px/1.4 'Oswald', 'Arial Narrow', sans-serif; letter-spacing: .04em; color: #8c8c8c; background: #050505; }
 .rt.ig-print { width: 760px; max-width: none; }
+/* saved image: a compact 3-column card whatever the screen size (Nov 19) */
+.rt.ig-print .rt-bar { display: none; }
+.rt.ig-print .rt-open { min-height: 0; padding: 12px 18px 14px; }
+.rt.ig-print .rt-row { grid-template-columns: 120px 1fr; margin-top: 4px; gap: 14px; }
+.rt.ig-print .rt-name { font-size: 44px; } .rt.ig-print .rt-sub { font-size: 18px; }
+.rt.ig-print .rt-vs { padding-left: 134px; font-size: 24px; margin: 0 0 -6px; }
+.rt.ig-print .rt-site { margin-top: 8px; } .rt.ig-print .rt-name2 { font-size: 28px; } .rt.ig-print .rt-sub2 { font-size: 20px; }
+.rt.ig-print .rt-bug b { font-size: 15px; } .rt.ig-print .rt-bug i { font-size: 30px; }
+.rt.ig-print .rt-panels { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px;
+  grid-template-areas: "sb line line" "wp gd gd" "tape tape inj" "tape tape form"; }
+.rt.ig-print .rt-panels > :nth-child(1) { grid-area: sb; } .rt.ig-print .rt-panels > :nth-child(2) { grid-area: line; }
+.rt.ig-print .rt-panels > :nth-child(3) { grid-area: wp; } .rt.ig-print .rt-panels > :nth-child(4) { grid-area: gd; }
+.rt.ig-print .rt-panels > :nth-child(5) { grid-area: tape; } .rt.ig-print .rt-panels > :nth-child(6) { grid-area: inj; }
+.rt.ig-print .rt-panels > :nth-child(7) { grid-area: form; }
+.rt.ig-print .rt-p { padding: 0 8px 8px; } .rt.ig-print .rt-ph { margin: 0 -8px 6px; padding: 5px 8px; font-size: 13px; }
+.rt.ig-print .rt-t td { padding: 2px 4px; font-size: 13px; } .rt.ig-print .rt-t td.l { font-size: 10.5px; }
+.rt.ig-print .rt-kv { font-size: 13px; gap: 2px 8px; } .rt.ig-print .rt-inj { font-size: 12.5px; padding: 2px 0; }
+.rt.ig-print .rt-sbr .pt { font-size: 28px; } .rt.ig-print .rt-sb { padding: 6px; }
+.rt.ig-print .rt-form span { font-size: 12px; padding: 3px 1px; } .rt.ig-print .rt-form small { font-size: 9px; }
+.rt.ig-print .rt-foot { padding: 6px 12px 8px; font-size: 10px; }
 .rt.ig-print .rt-name { font-size: 52px; } .rt.ig-print .rt-sub { font-size: 21px; }
 @media (max-width: 560px) { .rt-panels { grid-template-columns: 1fr; } .rt-open { min-height: 0; padding: 12px 10px 16px; } .rt-bug b { font-size: 12px; } .rt-bug i { font-size: 22px; } }
 </style>
