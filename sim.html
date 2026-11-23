@@ -2608,11 +2608,13 @@ const SimReplay = (() => {
   const realPos = (p) => ({ DL: 'DT', ATH: R() < 0.5 ? 'WR' : 'CB' })[p] || p;
 
   // ---- roster model ----
-  const SLOTS = ['QB', 'RB', 'WR1', 'WR2', 'SLOT', 'TE', 'EDGE', 'DT', 'DT2', 'EDGE2', 'LB', 'LB2', 'CB1', 'CB2', 'NB', 'S', 'S2', 'K', 'P'];
-  const GROUP = { QB: 'QB', RB: 'RB', WR1: 'WR', WR2: 'WR', SLOT: 'WR', TE: 'TE', EDGE: 'EDGE', EDGE2: 'EDGE', DT: 'DT', DT2: 'DT', LB: 'LB', LB2: 'LB', CB1: 'CB', CB2: 'CB', NB: 'CB', S: 'S', S2: 'S', K: 'K', P: 'P' };
-  const GROUPS = ['QB', 'RB', 'WR', 'TE', 'EDGE', 'DT', 'LB', 'CB', 'S', 'K', 'P'];
-  const NEED = { QB: 3, RB: 3, WR: 6, TE: 3, EDGE: 4, DT: 4, LB: 4, CB: 5, S: 4, K: 1, P: 1 }; // target roster size by group
-  const OFF_W = { QB: 3, RB: 1, WR1: 1, WR2: 1, SLOT: 0.8, TE: 0.8 };
+  const SLOTS = ['QB', 'RB', 'WR1', 'WR2', 'SLOT', 'TE', 'LT', 'LG', 'C', 'RG', 'RT', 'EDGE', 'DT', 'DT2', 'EDGE2', 'LB', 'LB2', 'CB1', 'CB2', 'NB', 'S', 'S2', 'K', 'P'];
+  const GROUP = { QB: 'QB', RB: 'RB', WR1: 'WR', WR2: 'WR', SLOT: 'WR', TE: 'TE', LT: 'OT', RT: 'OT', LG: 'IOL', C: 'IOL', RG: 'IOL', EDGE: 'EDGE', EDGE2: 'EDGE', DT: 'DT', DT2: 'DT', LB: 'LB', LB2: 'LB', CB1: 'CB', CB2: 'CB', NB: 'CB', S: 'S', S2: 'S', K: 'K', P: 'P' };
+  const GROUPS = ['QB', 'RB', 'WR', 'TE', 'OT', 'IOL', 'EDGE', 'DT', 'LB', 'CB', 'S', 'K', 'P'];
+  const NEED = { QB: 4, RB: 6, WR: 12, TE: 6, OT: 9, IOL: 9, EDGE: 9, DT: 10, LB: 10, CB: 11, S: 9, K: 3, P: 3 }; // a realistic 101-man spread (roster limit 105)
+  const ROSTER_MAX = 105, CLASS_LO = 20, CLASS_HI = 25;
+  const FIELD = GROUPS.filter((g) => g !== 'K' && g !== 'P');
+  const OFF_W = { QB: 3, RB: 1, WR1: 1, WR2: 1, SLOT: 0.8, TE: 0.8, LT: 0.9, RT: 0.8, LG: 0.7, C: 0.7, RG: 0.7 };
   const DEF_W = { EDGE: 1, EDGE2: 1, DT: 1, DT2: 1, LB: 1, LB2: 0.8, CB1: 1, CB2: 1, NB: 0.8, S: 0.9, S2: 0.9 };
   const CLS = ['', 'FR', 'SO', 'JR', 'SR'];
   const clsText = (p) => (p.rs ? 'RS ' : '') + CLS[p.cls] + (p.tr ? '/TR' : '');
@@ -2635,10 +2637,10 @@ const SimReplay = (() => {
     return fillRoster(out, base);
   }
   function fakeRoster(rating) { return fillRoster([], teamBaseOvr(rating)); }
-  function fillRoster(list, base) { // top up every position group to its target size with fictional players
+  function fillRoster(list, base, fresh) { // top up every position group to its target size with fictional players (never past 105)
     for (const g of GROUPS) {
       let have = list.filter((p) => p.pos === g).length;
-      while (have < NEED[g]) { const cls = 1 + Math.floor(R() * 4); list.push(mkPlayer(fakeName(), g, cls, base - 9 + cls * 2 + gauss() * 4, { rs: R() < 0.3 })); have++; }
+      while (have < NEED[g] && list.length < ROSTER_MAX) { const cls = fresh ? 1 : 1 + Math.floor(R() * 4); list.push(mkPlayer(fakeName(), g, cls, base - 9 + cls * 2 + gauss() * 4, { rs: R() < 0.3 })); have++; }
     }
     return list;
   }
@@ -2855,35 +2857,35 @@ const SimReplay = (() => {
     }
     // backups who aren't starting may hit the portal
     S.roster = keep; const d = depth(); const starters = new Set(SLOTS.map((s) => d[s].st).filter(Boolean).map((p) => p.id));
-    for (const p of keep.slice()) { if (!starters.has(p.id) && p.cls <= 3 && p.ovr >= 70 && R() < 0.22 * (1 - Math.min(0.5, nilOf(S.team) / 100))) { gone.push({ p, why: 'entered the transfer portal' }); S.roster = S.roster.filter((x) => x !== p); } }
+    for (const p of keep.slice()) { if (!starters.has(p.id) && p.cls <= 3 && p.ovr >= 70 && R() < 0.09 * (1 - Math.min(0.5, nilOf(S.team) / 100))) { gone.push({ p, why: 'entered the transfer portal' }); S.roster = S.roster.filter((x) => x !== p); } }
     const pr = prestige(), base = teamBaseOvr((rating(S.team) + TM(S.team).base) / 2);
-    const portal = []; for (let i = 0; i < 12; i++) { const g = pickOne(GROUPS.slice(0, 9)); const c = 2 + Math.floor(R() * 2); portal.push(mkPlayer(fakeName(), g, c, clamp(base - 4 + gauss() * 6 + (R() < 0.2 ? 8 : 0), 60, 94), { tr: true })); }
+    const portal = []; for (let i = 0; i < 24; i++) { const g = pickOne(FIELD); const c = 2 + Math.floor(R() * 2); portal.push(mkPlayer(fakeName(), g, c, clamp(base - 4 + gauss() * 6 + (R() < 0.2 ? 8 : 0), 60, 94), { tr: true })); }
     let recruits;
     const R0 = S.rec;
     if (R0) { // late signing period: whoever on your board is still uncommitted, plus a few new names
-      recruits = R0.board.filter((p) => p.st === 'open'); for (const x of makeBoard(pr, 26 - recruits.length, true)) recruits.push(x);
-    } else recruits = makeBoard(pr, 26);
+      recruits = R0.board.filter((p) => p.st === 'open'); for (const x of makeBoard(pr, 45 - recruits.length, true)) recruits.push(x);
+    } else recruits = makeBoard(pr, 45);
     S.offseason = { step: 'departures', gone: gone.map(({ p, why }) => ({ n: p.n, pos: p.pos, ovr: p.ovr, cls: clsText(p), why })), portal, recruits, pickedPortal: [], pickedRec: [], signed: [], portalSigned: [], prestige: Math.round(pr), pool: +(nilOf(S.team) * 0.35).toFixed(1), classes: null, commits: R0 ? R0.board.filter((p) => p.st === 'me') : [], elsewhere: R0 ? R0.board.filter((p) => p.st === 'other').map((p) => [p.n, p.ct]) : [] };
     S.phase = 'offseason'; S.nextId = nextId; save();
   }
   function makeBoard(pr, n, fakeOnly) {
     const recruits = [];
-    const real = !fakeOnly && S.year === Y.year && Y.recruits && Y.recruits.length ? Y.recruits.filter((r) => !/^(OT|IOL)$/.test(r[2])) : [];
+    const real = !fakeOnly && S.year === Y.year && Y.recruits && Y.recruits.length ? Y.recruits : [];
     if (real.length) { // the real class of 2027: the board centers on recruits a program like yours can realistically get
       const ctr = clamp(Math.round((96 - pr) * 3.2), 0, real.length - 1); const pool = real.filter((r, i) => Math.abs(i - ctr) <= 28 || (i < 6 && pr >= 70));
       const pick = []; while (pick.length < Math.round(n * 0.55) && pool.length) pick.push(pool.splice(Math.floor(R() * pool.length), 1)[0]);
       for (const [rk, nm, ps] of pick) recruits.push(mkPlayer(nm, realPos(ps), 1, 69 + (realRating(rk) - 89) * 1.3 + gauss() * 1.5, { stars: rk <= 32 ? 5 : 4, rank: rk, real: 1 }));
     }
-    while (recruits.length < n) { const i = recruits.length; const x = R() * (0.55 + pr / 220); const stars = x > 0.93 ? 5 : x > 0.72 ? 4 : x > 0.32 ? 3 : 2; const g = i === 0 && !real.length && !fakeOnly ? 'K' : needPos(); const ovr = { 5: 77, 4: 71, 3: 64, 2: 57 }[stars] + 0.5 * (teamBaseOvr(TM(S.team).base) - 74) + gauss() * 3; recruits.push(mkPlayer(fakeName(), g, 1, ovr, { stars: real.length ? Math.min(stars, 3) : stars })); }
+    while (recruits.length < n) { const i = recruits.length; const x = R() * 0.5 + pr / 200; const stars = x > 0.93 ? 5 : x > 0.72 ? 4 : x > 0.32 ? 3 : 2; const g = i === 0 && !real.length && !fakeOnly ? 'K' : needPos(); const ovr = { 5: 77, 4: 71, 3: 64, 2: 57 }[stars] + 0.5 * (teamBaseOvr(TM(S.team).base) - 74) + gauss() * 3; recruits.push(mkPlayer(fakeName(), g, 1, ovr, { stars: real.length ? Math.min(stars, 3) : stars })); }
     recruits.sort((a, b) => (a.rank || 999) - (b.rank || 999) || b.stars - a.stars || b.ovr - a.ovr);
     return recruits;
   }
   // ---- in-season recruiting: a weekly board, recruiting hours, interest vs a rival school, commitments ----
   const nm = (t) => String(t).replace(/\.$/, '');
-  const HOURS = 50, COST = { call: 5, offer: 0, nil: 10, visit: 15 };
+  const HOURS = 90, COST = { call: 5, offer: 0, nil: 10, visit: 15 };
   const NEED_PR = { 5: 90, 4: 72, 3: 45, 2: 18 };
   function initRec() {
-    const pr = prestige(), board = makeBoard(pr, 30);
+    const pr = prestige(), board = makeBoard(pr, 55);
     const order = Object.keys(S.teams).filter((t) => t !== S.team).sort((a, b) => prestigeOf(b) - prestigeOf(a));
     const win = { 5: [0, 15], 4: [0, 50], 3: [25, 100], 2: [60, order.length] };
     for (const p of board) {
@@ -2892,31 +2894,41 @@ const SimReplay = (() => {
       p.st = 'open'; p.off = false; p.vis = 0; p.wk = {}; p.pref = pickOne(['Playing time', 'NIL money', 'Winning', 'Big stage']);
     }
     const seniors = S.roster.filter((x) => x.cls >= 4).length;
-    S.rec = { board, used: 0, spots: clamp(seniors + 3 + Math.max(0, 41 - S.roster.length), 6, 25), offers: 0 };
+    S.rec = { board, used: 0, spots: clamp(seniors + 2 + Math.max(0, 101 - S.roster.length) - 6, CLASS_LO, CLASS_HI), offers: 0 }; // ~6 roster spots are saved for the transfer portal
   }
   const recCommits = () => (S.rec ? S.rec.board.filter((p) => p.st === 'me') : []);
   const thin = (pos) => S.roster.filter((x) => x.pos === pos && !x.inj).length < NEED[pos];
   function tryCommit(p) {
     if (p.st !== 'open' || !p.off || p.mi < 100) return;
     if (recCommits().length >= S.rec.spots) return;
-    if (recCommits().filter((x) => x.pos === p.pos).length >= (p.pos === 'QB' || p.pos === 'K' ? 1 : p.pos === 'WR' || p.pos === 'CB' ? 3 : 2)) { p.full = 1; return; }
+    if (recCommits().filter((x) => x.pos === p.pos).length >= Math.max(1, Math.round(NEED[p.pos] * 0.32))) { p.full = 1; return; }
     p.st = 'me'; S.news.unshift(`✍️ Commit! ${'★'.repeat(p.stars)} ${p.pos} ${p.n}${p.rank ? ' (No. ' + p.rank + ' nationally)' : ''} commits to ${nm(S.team)}.`);
   }
   function recAct(id, kind) {
     const p = S.rec.board.find((x) => x.id === id); if (!p || p.st !== 'open' || p.wk[kind]) return 'Already done this week.';
     if (S.rec.used + COST[kind] > HOURS) return 'Not enough recruiting hours left this week.';
-    if (kind === 'offer') { if (p.off) return 'Already offered.'; if (S.rec.offers >= 25) return 'You are out of offers (25 a year).'; p.off = true; S.rec.offers++; p.mi += 6; }
-    if (kind === 'call') p.mi += 3 + Math.floor(R() * 4);
-    if (kind === 'nil') { const fit = p.pref === 'NIL money' ? 1.6 : 1; p.mi += Math.round((4 + Math.min(8, nilOf(S.team) / 6)) * fit); }
-    if (kind === 'visit') { const mg = currentGames().find((g) => g.a === S.team || g.h === S.team); if (!mg || mg.h !== S.team || mg.n || mg.res) return 'Visits happen at your home games: invite him before a home game.'; if (p.vis) return 'He already took his official visit.'; p.vis = 1; p.visW = true; p.mi += 10 + (p.pref === 'Big stage' ? 6 : 0) + (mg.label || rankOf(mg.a) <= 25 ? 4 : 0); }
+    if (kind === 'offer') { if (p.off) return 'Already offered.'; if (S.rec.offers >= 60) return 'You are out of offers (60 a year).'; p.off = true; S.rec.offers++; p.mi += 6; }
+    const eff = ({ 5: 0.8, 4: 0.9, 3: 1.15, 2: 1.4 })[p.stars]; // lower-rated prospects commit faster
+    if (kind === 'call') p.mi += Math.round((3 + Math.floor(R() * 4)) * eff);
+    if (kind === 'nil') { const fit = p.pref === 'NIL money' ? 1.6 : 1; p.mi += Math.round((4 + Math.min(8, nilOf(S.team) / 6)) * fit * eff); }
+    if (kind === 'visit') { const mg = currentGames().find((g) => g.a === S.team || g.h === S.team); if (!mg || mg.h !== S.team || mg.n || mg.res) return 'Visits happen at your home games: invite him before a home game.'; if (p.vis) return 'He already took his official visit.'; p.vis = 1; p.visW = true; p.mi += Math.round(10 * eff) + (p.pref === 'Big stage' ? 6 : 0) + (mg.label || rankOf(mg.a) <= 25 ? 4 : 0); }
     p.wk[kind] = 1; S.rec.used += COST[kind]; p.mi = Math.min(110, p.mi); tryCommit(p); save(); return '';
+  }
+  function recAuto() { // the staff offers the best realistic targets at thin spots, then works whoever is closest to committing
+    const B = S.rec.board, need = Math.max(0, S.rec.spots - recCommits().length);
+    const val = (p) => p.stars * 6 + (p.mi - p.ci);
+    const cand = B.filter((p) => p.st === 'open' && !p.full && p.mi - p.ci > -35).sort((a, b) => val(b) - val(a));
+    for (const p of cand) { if (B.filter((x) => x.off && x.st === 'open').length >= need + 6) break; if (!p.off) recAct(p.id, 'offer'); }
+    const focus = B.filter((x) => x.st === 'open' && x.off && !x.full).sort((a, b) => val(b) - val(a)).slice(0, Math.max(6, Math.ceil(need * 0.6)));
+    for (const kind of ['visit', 'nil', 'call']) for (const p of focus) recAct(p.id, kind);
+    recMsg = 'Your staff worked the phones.'; save();
   }
   function recWeek(res) { // after the week's games
     if (!S.rec) return;
     const losses = TM(S.team).l;
     for (const p of S.rec.board) {
       if (p.st === 'other') continue;
-      p.ci += Math.round(2 + R() * 5 * (p.stars >= 4 ? 1.2 : 1));
+      p.ci += Math.round((2 + R() * 5) * ({ 5: 1.25, 4: 1.1, 3: 0.85, 2: 0.6 })[p.stars]);
       if (p.st === 'me') { if (p.ci > 100 && R() < 0.015 + (losses >= 5 ? 0.03 : 0) + (res === 'L' ? 0.01 : 0)) { p.st = 'other'; S.news.unshift(`💔 Decommit: ${p.pos} ${p.n} flips to ${nm(p.ct)}.`); } continue; }
       const wf = p.pref === 'Winning' ? 2 : 1;
       if (res === 'W') p.mi += 1.5 * wf + (p.visW ? 8 : 0); else if (res === 'L') p.mi -= 2 * wf;
@@ -2930,20 +2942,21 @@ const SimReplay = (() => {
     S.rec.used = 0;
   }
   function needPos() { // recruit board leans toward thin position groups
-    const w = GROUPS.slice(0, 9).map((g) => [g, Math.max(0.5, NEED[g] + 2 - S.roster.filter((x) => x.pos === g).length) * (g === 'WR' || g === 'CB' ? 1.3 : 1)]);
+    const w = FIELD.map((g) => [g, Math.max(0.6, NEED[g] / 3 + NEED[g] + 1 - S.roster.filter((x) => x.pos === g && x.cls < 4).length)]);
     let x = R() * w.reduce((t, [, v]) => t + v, 0); for (const [g, v] of w) { x -= v; if (x <= 0) return g; } return 'WR';
   }
-  const openSpots = () => Math.max(0, 45 - S.roster.length);
+  const openSpots = () => Math.max(0, ROSTER_MAX - S.roster.length);
   function chanceRecruit(p) { const need = { 5: 90, 4: 72, 3: 45, 2: 18 }[p.stars]; const groupNeed = NEED[p.pos] - S.roster.filter((x) => x.pos === p.pos).length; return clamp(0.45 + (S.offseason.prestige - need) / 45 + (groupNeed > 0 ? 0.08 : -0.06), 0.03, 0.92); }
   function chancePortal(p) { const d = depth(); const slots = SLOTS.filter((s) => GROUP[s] === p.pos); const worst = Math.min(...slots.map((s) => (d[s].st ? d[s].st.ovr : 0))); return clamp(0.35 + (S.offseason.prestige - 60) / 90 + (p.ovr > worst ? 0.2 : -0.15) + (nilOf(S.team) - 20) / 120, 0.05, 0.92); }
-  function resolvePortal() { const O = S.offseason; for (const id of O.pickedPortal) { const p = O.portal.find((x) => x.id === id); if (R() < chancePortal(p)) { S.roster.push(p); O.portalSigned.push(p.n + ` (${p.pos}, ${p.ovr})`); } } O.step = 'recruiting'; }
+  function resolvePortal() { const O = S.offseason; for (const id of O.pickedPortal) { const p = O.portal.find((x) => x.id === id); if (S.roster.length < ROSTER_MAX && R() < chancePortal(p)) { S.roster.push(p); O.portalSigned.push(p.n + ` (${p.pos}, ${p.ovr})`); } } O.step = 'recruiting'; }
   function resolveRecruiting() {
     const O = S.offseason; let spots = openSpots();
-    for (const p of O.commits || []) { S.roster.push(p); O.signed.push(p); spots--; }
+    let room = CLASS_HI;
+    for (const p of O.commits || []) { if (spots <= 0 || room <= 0) { O.noRoom = (O.noRoom || 0) + 1; continue; } S.roster.push(p); O.signed.push(p); spots--; room--; }
     const tgt = O.pickedRec.map((id) => O.recruits.find((x) => x.id === id)).sort((a, b) => b.stars - a.stars);
-    for (const p of tgt) { if (spots <= 0) break; if (R() < chanceRecruit(p)) { S.roster.push(p); O.signed.push(p); spots--; } }
+    for (const p of tgt) { if (spots <= 0 || room <= 0) break; if (R() < chanceRecruit(p)) { S.roster.push(p); O.signed.push(p); spots--; room--; } }
     // walk-ons and late signees fill any group that's short
-    fillRoster(S.roster, teamBaseOvr(TM(S.team).base) - 6);
+    fillRoster(S.roster, teamBaseOvr(TM(S.team).base) - 4, true); // walk-ons join as freshmen
     if (S.year === Y.year && Y.recruits) { // everyone you didn't sign picks a school: weighted by program pull and NIL money
       const mine = new Set(O.signed.filter((p) => p.real).map((p) => p.n)); const fixed = new Map(O.elsewhere || []); const teams = Object.keys(S.teams).filter((t) => t !== S.team);
       const w = teams.map((t) => Math.pow(prestigeOf(t) / 50, 5) * nilOf(t)); const pts = {}, dest = [];
@@ -3019,6 +3032,7 @@ const SimReplay = (() => {
 
   function render() {
     if (!S) return renderNew();
+    if (S.roster && !S.roster.some((p) => p.pos === 'OT')) { nextId = Math.max(nextId, S.nextId || 0, ...S.roster.map((p) => p.id + 1)); fillRoster(S.roster, teamBaseOvr(TM(S.team).base)); syncOrder(); S.base = rosterAvgs(); S.nextId = nextId; save(); }
     if (S.phase === 'review') return renderReview();
     if (S.phase === 'offseason') return renderOffseason();
     renderHub();
@@ -3085,10 +3099,10 @@ const SimReplay = (() => {
         <div style="display:grid;grid-template-columns:52px 1fr 34px;gap:4px;align-items:center;font-size:11px"><span>You</span><div class="meter"><div style="width:${pct(p.mi)}%;background:var(--accent)"></div></div><span>${p.mi}</span><span>${esc(p.ct.length > 8 ? p.ct.slice(0, 8) + '…' : p.ct)}</span><div class="meter"><div style="width:${pct(p.ci)}%;background:var(--muted)"></div></div><span>${p.ci}</span></div>` : ''}${btns}</div>`;
     };
     const mine = B.filter((p) => p.st === 'me'), open = B.filter((p) => p.st === 'open').sort((a, b) => (b.off - a.off) || (b.stars - a.stars) || ((a.rank || 999) - (b.rank || 999)) || (b.mi - a.mi)), gone = B.filter((p) => p.st === 'other');
-    return `<p class="hint">Each week you get ${HOURS} recruiting hours. Offer a scholarship (needed to commit), call, make an NIL pitch, or bring him in for an official visit at a home game (a win that week helps). Recruits commit at 100 interest; rival schools are recruiting them too, and wins and losses move everyone. ${S.year === Y.year && Y.recruits ? 'Real names: the 2027 Rivals/On3 top 200.' : ''}</p>${recMsg ? `<p><b>${esc(recMsg)}</b></p>` : ''}
-      ${mine.length ? `<b>🤝 Commits (${mine.length}/${S.rec.spots})</b>${mine.map(row).join('')}` : ''}<b>🎯 Your board</b>${open.slice(0, Math.max(8, open.filter((p) => p.off).length)).map(row).join('') || '<p class="hint">Nobody left on the board.</p>'}${open.length > Math.max(8, open.filter((p) => p.off).length) ? `<details style="margin-top:6px"${S.rec.more ? ' open' : ''} id="recMore"><summary class="hint">More prospects (${open.length - Math.max(8, open.filter((p) => p.off).length)})</summary>${open.slice(Math.max(8, open.filter((p) => p.off).length)).map(row).join('')}</details>` : ''}
+    return `<p class="hint">Most programs sign ${CLASS_LO}-${CLASS_HI} high schoolers a year; your class target is ${S.rec.spots} (a few roster spots stay open for transfers). Each week your staff has ${HOURS} recruiting hours. Offer a scholarship (needed to commit), call, make an NIL pitch, or bring him in for an official visit at a home game (a win that week helps). Recruits commit at 100 interest; rival schools are recruiting them too, and wins and losses move everyone. ${S.year === Y.year && Y.recruits ? 'Real names: the 2027 Rivals/On3 top 200.' : ''}</p>${recMsg ? `<p><b>${esc(recMsg)}</b></p>` : ''}
+      ${mine.length ? `<b>🤝 Commits (${mine.length}/${S.rec.spots})</b>${mine.map(row).join('')}` : ''}<button class="btn" id="recAuto" style="width:100%;margin:6px 0">🧑‍💼 Let my staff spend the rest of this week's hours</button><b>🎯 Your board</b>${open.slice(0, Math.max(8, open.filter((p) => p.off).length)).map(row).join('') || '<p class="hint">Nobody left on the board.</p>'}${open.length > Math.max(8, open.filter((p) => p.off).length) ? `<details style="margin-top:6px"${S.rec.more ? ' open' : ''} id="recMore"><summary class="hint">More prospects (${open.length - Math.max(8, open.filter((p) => p.off).length)})</summary>${open.slice(Math.max(8, open.filter((p) => p.off).length)).map(row).join('')}</details>` : ''}
       ${gone.length ? `<details style="margin-top:6px"><summary class="hint">Committed elsewhere (${gone.length})</summary>${gone.map((p) => `<div class="pl">${'★'.repeat(p.stars)} ${esc(p.pos)} ${esc(p.n)}<span class="o">${esc(p.ct)}</span></div>`).join('')}</details>` : ''}
-      <p class="hint">Offers left: ${25 - S.rec.offers}. Scholarships for this class: ${S.rec.spots}.</p>`;
+      <p class="hint">Offers left: ${60 - S.rec.offers}. Scholarships for this class: ${S.rec.spots}.</p>`;
   }
   function resText(g) { const home = g.h === S.team, my = home ? g.res[1] : g.res[0], th = home ? g.res[0] : g.res[1]; return `<span class="${my > th ? 'w' : 'l'}">${my > th ? 'W' : 'L'} ${my}-${th}</span>`; }
   function schedTable() {
@@ -3110,7 +3124,8 @@ const SimReplay = (() => {
     const st = myStrength();
     let h = `<p class="hint">Starters play; injured players sit until healthy and the next man up moves in. Use ▲▼ to set the order. Your offense rates ${st.off.toFixed(1)} and defense ${st.def.toFixed(1)} (points scored/allowed scale).</p><button class="btn" id="dynAuto">🔁 Auto-sort by overall</button>`;
     for (const g of GROUPS) {
-      h += `<div class="grp"><b>${g}</b>` + S.order[g].map((id, i) => { const p = byId(id); if (!p) return ''; return `<div class="pl">${starters.has(p.id) ? '<span class="tag st1">Starter</span>' : ''}${p.inj ? `<span class="tag inj">🩹 ${esc(p.injNote)}</span>` : ''} ${esc(p.n)} <span class="hint">#${esc(p.num)} ${esc(clsText(p))}${p.stars ? ' ' + '★'.repeat(p.stars) : ''}</span><span class="o">${p.ovr}</span><button data-up="${g}:${i}">▲</button><button data-dn="${g}:${i}">▼</button></div>`; }).join('') + '</div>';
+      const ids = S.order[g], st0 = ids.map(byId).filter((p) => p && starters.has(p.id));
+      h += `<details class="grp"${S.openGrp === g ? ' open' : ''} data-grp="${g}"><summary><b>${g}</b> <span class="hint">${ids.length} players · ${st0.map((p) => esc(p.n.split(' ').slice(-1)[0]) + ' ' + p.ovr).join(', ')}</span></summary>` + ids.map((id, i) => { const p = byId(id); if (!p) return ''; return `<div class="pl">${starters.has(p.id) ? '<span class="tag st1">Starter</span>' : ''}${p.inj ? `<span class="tag inj">🩹 ${esc(p.injNote)}</span>` : ''} ${esc(p.n)} <span class="hint">#${esc(p.num)} ${esc(clsText(p))}${p.stars ? ' ' + '★'.repeat(p.stars) : ''}</span><span class="o">${p.ovr}</span><button data-up="${g}:${i}">▲</button><button data-dn="${g}:${i}">▼</button></div>`; }).join('') + '</details>';
     }
     return h;
   }
@@ -3128,8 +3143,9 @@ const SimReplay = (() => {
     on('dynPlay', () => { const g = currentGames().find((x) => x.a === S.team || x.h === S.team); playMine(g); });
     on('dynAuto', () => { autoDepth(); save(); render(); openSec('Depth'); });
     const rm = $('recMore'); if (rm) rm.ontoggle = () => { S.rec.more = rm.open; };
+    on('recAuto', () => { recAuto(); render(); openSec('Recruiting'); });
     box.querySelectorAll('[data-ra]').forEach((b) => b.onclick = () => { const [k, id] = b.dataset.ra.split(':'); recMsg = recAct(+id, k); render(); openSec('Recruiting'); });
-    box.querySelectorAll('[data-up],[data-dn]').forEach((b) => b.onclick = () => { const [g, i] = (b.dataset.up || b.dataset.dn).split(':'); const k = +i, o = S.order[g], j = b.dataset.up ? k - 1 : k + 1; if (j < 0 || j >= o.length) return; [o[k], o[j]] = [o[j], o[k]]; save(); render(); openSec('Depth'); });
+    box.querySelectorAll('[data-up],[data-dn]').forEach((b) => b.onclick = () => { const [g, i] = (b.dataset.up || b.dataset.dn).split(':'); S.openGrp = g; const k = +i, o = S.order[g], j = b.dataset.up ? k - 1 : k + 1; if (j < 0 || j >= o.length) return; [o[k], o[j]] = [o[j], o[k]]; save(); render(); openSec('Depth'); });
   }
   function openSec(word) { box.querySelectorAll('details.sec').forEach((d) => { if (d.querySelector('summary').textContent.includes(word)) d.open = true; }); }
   box.addEventListener('toggle', (e) => { const d = e.target; if (d.tagName === 'DETAILS' && d.classList.contains('sec') && d.querySelector('summary').textContent.includes('Recruiting')) recOpen = d.open; }, true);
@@ -3194,18 +3210,18 @@ const SimReplay = (() => {
     const o = $('dynOff'); if (o) o.onclick = () => { startOffseason(); render(); };
   }
   function renderOffseason() {
-    const O = S.offseason; let h = `<div class="h2">🗓️ ${S.year} offseason · ${esc(S.team)}</div><p class="hint">Recruiting pull: ${O.prestige}/100 (from your rating, wins, conference and NIL money). Roster: ${S.roster.length}/45.</p><p class="hint">💰 NIL pool for new players: ${money(O.pool)} (35% of your ${money(nilOf(S.team))} budget; the rest keeps your current roster). Left: <b id="dynPool">${money(O.pool - (O.commits || []).reduce((t, p) => t + askRecruit(p), 0) - spent(O.pickedPortal, O.portal, askPortal) - spent(O.pickedRec, O.recruits, askRecruit))}</b>${(O.commits || []).length ? ' (after your in-season commits)' : ''}</p>`;
+    const O = S.offseason; let h = `<div class="h2">🗓️ ${S.year} offseason · ${esc(S.team)}</div><p class="hint">Recruiting pull: ${O.prestige}/100 (from your rating, wins, conference and NIL money). Roster: ${S.roster.length}/${ROSTER_MAX}. Most programs sign ${CLASS_LO}-${CLASS_HI} high schoolers a year plus transfers.</p><p class="hint">💰 NIL pool for new players: ${money(O.pool)} (35% of your ${money(nilOf(S.team))} budget; the rest keeps your current roster). Left: <b id="dynPool">${money(O.pool - (O.commits || []).reduce((t, p) => t + askRecruit(p), 0) - spent(O.pickedPortal, O.portal, askPortal) - spent(O.pickedRec, O.recruits, askRecruit))}</b>${(O.commits || []).length ? ' (after your in-season commits)' : ''}</p>`;
     if (O.step === 'departures') {
       h += `<div class="gm"><b>👋 Leaving the program</b>${O.gone.length ? O.gone.map((x) => `<div class="pl">${esc(x.pos)} ${esc(x.n)} <span class="hint">${esc(x.cls)} · ${esc(x.why)}</span><span class="o">${x.ovr}</span></div>`).join('') : '<p class="hint">Nobody. Everyone is back.</p>'}</div>
         <button class="btn primary" id="dynNext" style="width:100%">➡️ Hit the transfer portal</button>`;
     } else if (O.step === 'portal') {
-      h += `<div class="gm"><b>🔄 Transfer portal</b><p class="hint">Pick up to 3 players to pursue. Your chance depends on your pull and whether they would start for you.</p>${O.portal.map((p) => `<label class="pick"><input type="checkbox" data-pp="${p.id}" ${O.pickedPortal.includes(p.id) ? 'checked' : ''}> ${esc(p.pos)} ${esc(p.n)} <span class="hint">${esc(clsText(p))}</span><span style="margin-left:auto"><b>${p.ovr}</b> · ${money(askPortal(p))} · ${Math.round(chancePortal(p) * 100)}%</span></label>`).join('')}</div>
+      h += `<div class="gm"><b>🔄 Transfer portal</b><p class="hint">Pick up to 8 players to pursue (most programs add 5 to 15 transfers a year). Your chance depends on your pull and whether they would start for you.</p>${O.portal.map((p) => `<label class="pick"><input type="checkbox" data-pp="${p.id}" ${O.pickedPortal.includes(p.id) ? 'checked' : ''}> ${esc(p.pos)} ${esc(p.n)} <span class="hint">${esc(clsText(p))}</span><span style="margin-left:auto"><b>${p.ovr}</b> · ${money(askPortal(p))} · ${Math.round(chancePortal(p) * 100)}%</span></label>`).join('')}</div>
         <button class="btn primary" id="dynNext" style="width:100%">✍️ Make the pitches</button>`;
     } else if (O.step === 'recruiting') {
       const open = openSpots();
       h += `<div class="gm"><b>🔄 Portal results</b><p>${O.portalSigned.length ? 'Signed: ' + O.portalSigned.map(esc).join(', ') : 'No portal additions this year.'}</p></div>
         ${(O.commits || []).length ? `<div class="gm"><b>🤝 Your commits (they sign first)</b>${O.commits.map((p) => `<div class="pl"><span class="stars">${'★'.repeat(p.stars)}</span> ${esc(p.pos)} ${esc(p.n)}${p.rank ? ` <span class="hint">No. ${p.rank}</span>` : ''}<span class="o">${p.ovr}</span></div>`).join('')}</div>` : ''}
-        <div class="gm"><b>✍️ Late signing period</b><p class="hint">${Math.max(0, open - (O.commits || []).length)} scholarships left after your commits. Pick up to ${Math.min(14, open + 4)} recruits to chase; you can only sign as many as you have spots. Higher-star players need more pull.</p>${O.recruits.map((p) => `<label class="pick"><input type="checkbox" data-rc="${p.id}" ${O.pickedRec.includes(p.id) ? 'checked' : ''}> <span class="stars">${'★'.repeat(p.stars)}</span> ${esc(p.pos)} ${esc(p.n)}${p.rank ? ` <span class="hint">No. ${p.rank} nationally</span>` : ''}<span style="margin-left:auto"><b>${p.ovr}</b> · ${money(askRecruit(p))} · ${Math.round(chanceRecruit(p) * 100)}%</span></label>`).join('')}</div>${O.recruits.some((p) => p.real) ? '<p class="hint">Real names and rankings: the 2027 Rivals/On3 top 200 (offensive linemen left out, since the sim has no line slots). Later classes are made up.</p>' : ''}
+        <div class="gm"><b>✍️ Late signing period</b><p class="hint">${Math.max(0, open - (O.commits || []).length)} scholarships left after your commits. Pick up to ${Math.min(30, Math.max(0, CLASS_HI - (O.commits || []).length) + 6)} recruits to chase; you can only sign as many as you have spots. Higher-star players need more pull.</p>${O.recruits.map((p) => `<label class="pick"><input type="checkbox" data-rc="${p.id}" ${O.pickedRec.includes(p.id) ? 'checked' : ''}> <span class="stars">${'★'.repeat(p.stars)}</span> ${esc(p.pos)} ${esc(p.n)}${p.rank ? ` <span class="hint">No. ${p.rank} nationally</span>` : ''}<span style="margin-left:auto"><b>${p.ovr}</b> · ${money(askRecruit(p))} · ${Math.round(chanceRecruit(p) * 100)}%</span></label>`).join('')}</div>${O.recruits.some((p) => p.real) ? '<p class="hint">Real names and rankings: the 2027 Rivals/On3 top 200. Later classes are made up.</p>' : ''}
         <button class="btn primary" id="dynNext" style="width:100%">📝 National signing day</button>`;
     } else {
       h += `<div class="gm"><b>📝 Your ${S.year + 1} class</b>${O.signed.length ? O.signed.map((p) => `<div class="pl"><span class="stars">${'★'.repeat(p.stars)}</span> ${esc(p.pos)} ${esc(p.n)}<span class="o">${p.ovr}</span></div>`).join('') : '<p class="hint">No signees from your board; walk-ons fill the gaps.</p>'}</div>
@@ -3214,8 +3230,8 @@ const SimReplay = (() => {
     }
     box.innerHTML = h;
     const left = () => O.pool - (O.commits || []).reduce((t, p) => t + askRecruit(p), 0) - spent(O.pickedPortal, O.portal, askPortal) - spent(O.pickedRec, O.recruits, askRecruit); const showLeft = () => { const e = $('dynPool'); if (e) e.textContent = money(left()); };
-    box.querySelectorAll('[data-pp]').forEach((c) => c.onchange = () => { const id = +c.dataset.pp; O.pickedPortal = O.pickedPortal.filter((x) => x !== id); if (c.checked) { const p = O.portal.find((x) => x.id === id); if (O.pickedPortal.length >= 3 || askPortal(p) > left() + 1e-9) { c.checked = false; return; } O.pickedPortal.push(id); } showLeft(); save(); });
-    box.querySelectorAll('[data-rc]').forEach((c) => c.onchange = () => { const id = +c.dataset.rc, max = Math.min(14, openSpots() + 4); O.pickedRec = O.pickedRec.filter((x) => x !== id); if (c.checked) { const p = O.recruits.find((x) => x.id === id); if (O.pickedRec.length >= max || askRecruit(p) > left() + 1e-9) { c.checked = false; return; } O.pickedRec.push(id); } showLeft(); save(); });
+    box.querySelectorAll('[data-pp]').forEach((c) => c.onchange = () => { const id = +c.dataset.pp; O.pickedPortal = O.pickedPortal.filter((x) => x !== id); if (c.checked) { const p = O.portal.find((x) => x.id === id); if (O.pickedPortal.length >= 8 || askPortal(p) > left() + 1e-9) { c.checked = false; return; } O.pickedPortal.push(id); } showLeft(); save(); });
+    box.querySelectorAll('[data-rc]').forEach((c) => c.onchange = () => { const id = +c.dataset.rc, max = Math.min(30, Math.max(0, CLASS_HI - (O.commits || []).length) + 6); O.pickedRec = O.pickedRec.filter((x) => x !== id); if (c.checked) { const p = O.recruits.find((x) => x.id === id); if (O.pickedRec.length >= max || askRecruit(p) > left() + 1e-9) { c.checked = false; return; } O.pickedRec.push(id); } showLeft(); save(); });
     $('dynNext').onclick = () => { if (O.step === 'departures') O.step = 'portal'; else if (O.step === 'portal') resolvePortal(); else if (O.step === 'recruiting') resolveRecruiting(); else { newSeason(); } save(); render(); window.scrollTo(0, 0); };
   }
   // testing hook
