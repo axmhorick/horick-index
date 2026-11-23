@@ -2658,8 +2658,33 @@ const SimReplay = (() => {
 
   // ---- state ----
   let S = null;
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); return true; } catch (e) { return false; } }
-  function load() { try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+  // ---- save slots: several dynasties on one device, each saved on its own ----
+  const IDX = 'nni_dyn_slots';
+  let curId = null, saveOk = true;
+  function slots() { try { return JSON.parse(localStorage.getItem(IDX) || '[]'); } catch (e) { return []; } }
+  function setSlots(L) { try { localStorage.setItem(IDX, JSON.stringify(L)); } catch (e) {} }
+  function slotMeta() { const T = S.teams && S.teams[S.team]; return { id: curId, team: S.team, coach: S.coach, year: S.year, step: S.phase === 'offseason' ? 'Offseason' : S.phase === 'review' ? 'Season review' : stepLabel(), rec: T ? `${T.w}-${T.l}` : '', career: S.career ? `${S.career.w}-${S.career.l}` : '', titles: S.career ? S.career.titles : 0, upd: Date.now() }; }
+  function save() {
+    if (!S) return false; if (!curId) curId = Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
+    try { localStorage.setItem(KEY + ':' + curId, JSON.stringify(S)); saveOk = true; } catch (e) { saveOk = false; return false; }
+    const L = slots().filter((x) => x.id !== curId); L.unshift(slotMeta()); setSlots(L); return true;
+  }
+  function loadSlot(id) { try { const x = localStorage.getItem(KEY + ':' + id); return x ? JSON.parse(x) : null; } catch (e) { return null; } }
+  function deleteSlot(id) { try { localStorage.removeItem(KEY + ':' + id); } catch (e) {} setSlots(slots().filter((x) => x.id !== id)); if (curId === id) { curId = null; S = null; } }
+  function migrateOld() { // the single save from before slots existed becomes slot one
+    try { const old = localStorage.getItem(KEY); if (!old) return; const st = JSON.parse(old); localStorage.removeItem(KEY); const keep = S; S = st; curId = null; save(); S = keep; curId = null; } catch (e) {}
+  }
+  function openSlot(id) { const st = loadSlot(id); if (!st) return false; S = st; curId = id; nextId = Math.max(1, S.nextId || 0, ...S.roster.map((p) => p.id + 1)); tab = 'home'; view = null; offTab = 'off'; return true; }
+  function backup(id) {
+    const st = id === curId && S ? S : loadSlot(id); if (!st) return;
+    const blob = new Blob([JSON.stringify({ nniDynasty: 1, saved: new Date().toISOString(), state: st })], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `dynasty-${String(st.team).replace(/[^A-Za-z0-9]+/g, '-')}-${st.year}.json`; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function restore(file, done) {
+    const fr = new FileReader();
+    fr.onload = () => { try { const j = JSON.parse(fr.result), st = j.state || j; if (!st || !st.team || !st.roster || !st.teams) throw new Error('bad'); S = st; curId = null; nextId = Math.max(1, S.nextId || 0, ...S.roster.map((p) => p.id + 1)); tab = 'home'; view = null; offTab = 'off'; done(save() ? '' : 'Loaded, but this device is out of storage space: delete an old dynasty to keep it.'); } catch (e) { done('That file isn\'t a dynasty backup.'); } };
+    fr.readAsText(file);
+  }
   const TM = (t) => S.teams[t];
   const isFbs = (t) => !!(S && S.teams[t]);
 
@@ -3550,6 +3575,8 @@ const SimReplay = (() => {
   #dyn .pick input { width:18px; height:18px; }
   #dyn .stars { color:#c9a227; letter-spacing:1px; }
   #dynBack { width:100%; margin-top:8px; }
+  #dyn .savebar { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:-4px 0 8px; } #dyn .savebar .btn { padding:5px 10px; font-size:13px; }
+  #dyn .row3 { display:grid; grid-template-columns:1.3fr 1fr 1fr; gap:6px; margin-top:8px; } #dyn .btn.danger { border-color:var(--bad); color:var(--bad); }
   #dyn .tabs { display:flex; gap:5px; overflow-x:auto; margin:10px 0 8px; padding-bottom:4px; scrollbar-width:thin; }
   #dyn .tabs button { flex:0 0 auto; border:1px solid var(--line); background:var(--panel); color:var(--fg); border-radius:18px; padding:6px 11px; font:600 13px/1.2 inherit; cursor:pointer; }
   #dyn .tabs button.on { background:var(--fg); color:var(--bg); border-color:var(--fg); }
@@ -3578,12 +3605,34 @@ const SimReplay = (() => {
   const btn = document.createElement('button'); btn.id = 'dynBtn'; btn.type = 'button'; btn.textContent = '🏆 Dynasty mode: coach a program season after season';
   setup.parentNode.insertBefore(btn, setup);
   const box = document.createElement('div'); box.className = 'card hidden'; box.id = 'dyn'; setup.parentNode.insertBefore(box, setup.nextSibling);
-  btn.onclick = () => { S = S || load(); if (S) nextId = Math.max(nextId, S.nextId || 0); setup.classList.add('hidden'); btn.classList.add('hidden'); box.classList.remove('hidden'); render(); window.scrollTo(0, 0); };
+  btn.onclick = () => { migrateOld(); if (!S) { const L = slots(); if (L.length === 1) openSlot(L[0].id); } setup.classList.add('hidden'); btn.classList.add('hidden'); box.classList.remove('hidden'); render(); window.scrollTo(0, 0); };
   if (location.hash === '#dynasty') setTimeout(() => btn.click(), 0); // linked straight from the home page
   const backToSingle = () => { box.classList.add('hidden'); setup.classList.remove('hidden'); btn.classList.remove('hidden'); };
 
+  let menuMsg = '', showMenu = false, newMode = false;
   function render() {
+    if (showMenu || (!S && slots().length && !newMode)) return renderSaves();
     if (!S) return renderNew();
+    renderGame();
+    box.insertAdjacentHTML('afterbegin', `<div class="savebar"><span class="hint">${saveOk ? '💾 Saved on this device' : '⚠️ Not saved: this device is out of storage. Delete an old dynasty or download a backup.'}</span><button class="btn" id="dynMenu">📁 My dynasties</button></div>`);
+    $('dynMenu').onclick = () => { save(); showMenu = true; menuMsg = ''; render(); window.scrollTo(0, 0); };
+  }
+  function renderSaves() {
+    const L = slots(), ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' hr ago' : new Date(t).toLocaleDateString(); };
+    box.innerHTML = `<div class="h2">📁 My dynasties</div><p class="hint" style="margin-top:0">Each dynasty saves on this device as you play. Download a backup to keep it safe or move it to another phone or computer.</p>${menuMsg ? `<p><b>${esc(menuMsg)}</b></p>` : ''}
+      ${L.map((x) => `<div class="gm"><div style="display:flex;gap:8px;align-items:center"><span class="chipD" style="background:${(D.teams[x.team] || {}).color || '#666'}"></span><div style="flex:1"><b>${esc(x.team)}</b>${x.id === curId ? ' <span class="tag st1">Open</span>' : ''}<div class="hint">${esc(x.coach)} · ${x.year} · ${esc(x.step || '')}${x.rec ? ' · ' + esc(x.rec) : ''} · career ${esc(x.career || '0-0')}${x.titles ? ` · 🏆 ${x.titles}` : ''}</div><div class="hint">Saved ${ago(x.upd)}</div></div></div>
+        <div class="row3"><button class="btn primary" data-open="${x.id}">▶️ ${x.id === curId ? 'Back to it' : 'Continue'}</button><button class="btn" data-bk="${x.id}">⬇️ Backup</button><button class="btn" data-del="${x.id}">🗑️ Delete</button></div></div>`).join('')}
+      <button class="btn primary" id="dynNew" style="width:100%;margin-top:6px">➕ Start a new dynasty</button>
+      <label class="btn" style="display:block;width:100%;margin-top:6px;text-align:center;box-sizing:border-box;cursor:pointer">📂 Load a backup file<input type="file" id="dynFile" accept=".json,application/json" style="display:none"></label>
+      <button class="btn" id="dynBack" style="margin-top:6px">⬅️ Back to single games</button>`;
+    box.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => { if (b.dataset.open !== curId) { if (S) save(); if (!openSlot(b.dataset.open)) { menuMsg = 'That save could not be read.'; return render(); } } showMenu = false; render(); window.scrollTo(0, 0); });
+    box.querySelectorAll('[data-bk]').forEach((b) => b.onclick = () => backup(b.dataset.bk));
+    box.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => { if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = '⚠️ Tap again'; b.classList.add('danger'); return; } const x = slots().find((y) => y.id === b.dataset.del); deleteSlot(b.dataset.del); menuMsg = x ? `Deleted the ${x.team} dynasty.` : ''; showMenu = !!S || slots().length > 0; render(); });
+    $('dynNew').onclick = () => { if (S) save(); S = null; curId = null; showMenu = false; newMode = true; render(); window.scrollTo(0, 0); };
+    $('dynFile').onchange = (e) => { const f = e.target.files[0]; if (!f) return; restore(f, (msg) => { menuMsg = msg; showMenu = !!msg && !S; render(); window.scrollTo(0, 0); }); };
+    $('dynBack').onclick = () => { showMenu = false; backToSingle(); };
+  }
+  function renderGame() {
     if (!S.prog) { initProg(); save(); }
     if (S.prog && !('SD' in S.prog.staff)) S.prog.staff.SD = mkCoach('SD', 60);
     if (!S.inbox) S.inbox = [];
@@ -3603,10 +3652,12 @@ const SimReplay = (() => {
       <label style="margin-top:8px;display:block">🧢 Coach name</label><input id="dynCoach" maxlength="30" value="Coach" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit">
       <p class="hint" id="dynTeamInfo"></p>
       <button class="btn primary" id="dynGo" style="width:100%">🏁 Start the ${Y.year} season</button>
+      ${slots().length ? '<button class="btn" id="dynSaves" style="width:100%;margin-top:6px">📁 My saved dynasties</button>' : ''}
       <button class="btn" id="dynBack">⬅️ Back to single games</button>`;
+    { const sv = $('dynSaves'); if (sv) sv.onclick = () => { newMode = false; showMenu = true; render(); }; }
     const info = () => { const n = $('dynTeam').value, t = D.teams[n]; $('dynTeamInfo').textContent = `${n}: ${t.record} this season, No. ${t.rank} in the No Name Index. NIL budget about ${money(nilOf(n))} a year (${nilSrc(n)}). ${t.roster ? 'Real depth chart to start.' : 'Starts with a generated roster (no depth chart on file).'}`; };
     $('dynTeam').value = 'Penn St.' in D.teams ? 'Penn St.' : names[0]; info(); $('dynTeam').onchange = info;
-    $('dynGo').onclick = () => { newDynasty($('dynTeam').value, $('dynCoach').value.trim() || 'Coach'); markConf(); save(); render(); };
+    $('dynGo').onclick = () => { curId = null; newMode = false; tab = 'home'; view = null; offTab = 'off'; newDynasty($('dynTeam').value, $('dynCoach').value.trim() || 'Coach'); markConf(); save(); render(); };
     $('dynBack').onclick = backToSingle;
   }
   function secMeter(v) { const c = v >= 60 ? 'var(--good)' : v >= 30 ? '#c9a227' : 'var(--bad)'; return `<div class="meter" title="Job security ${v}/100"><div style="width:${v}%;background:${c}"></div></div>`; }
@@ -3720,7 +3771,7 @@ const SimReplay = (() => {
     return `<details class="sec" open><summary>📅 Schedule & results</summary>${schedTable()}</details>` + (S.post && S.post.field && S.post.field.length ? `<details class="sec" open><summary>🎟️ Playoff bracket</summary>${bracket()}</details>` : '') +
       `<details class="sec"><summary>🏆 Top 25</summary>${top25()}</details><details class="sec"><summary>📊 ${esc(confOf(S.team))} standings</summary>${confTable(confOf(S.team))}</details><details class="sec"><summary>📰 All program news</summary><ul class="news">${S.news.slice(0, 40).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`;
   }
-  function histTab() { return histUI() + `<details class="sec"><summary>⚙️ Dynasty settings</summary><p class="hint">Saved on this device only. Starting over deletes this dynasty.</p><button class="btn" id="dynReset">🗑️ Delete this dynasty</button></details>`; }
+  function histTab() { return histUI() + `<details class="sec"><summary>⚙️ Dynasty settings</summary><p class="hint">Saved on this device. Use 📁 My dynasties at the top to switch, back up or start another. Deleting removes only this dynasty.</p><button class="btn" id="dynBk">⬇️ Download a backup</button> <button class="btn" id="dynReset">🗑️ Delete this dynasty</button></details>`; }
   function wireFM() {
     box.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { tab = b.dataset.tab; view = null; talkMsg = ''; mailMsg = ''; render(); window.scrollTo(0, 0); });
     box.querySelectorAll('[data-otab]').forEach((b) => b.onclick = () => { offTab = b.dataset.otab; view = null; talkMsg = ''; render(); window.scrollTo(0, 0); });
@@ -3812,7 +3863,8 @@ const SimReplay = (() => {
     wireFM();
     const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
     on('dynBack', backToSingle);
-    on('dynReset', () => { if ($('dynReset').dataset.sure) { try { localStorage.removeItem(KEY); } catch (e) {} S = null; render(); } else { $('dynReset').dataset.sure = 1; $('dynReset').textContent = '⚠️ Tap again to delete for good'; } });
+    on('dynBk', () => backup(curId));
+    on('dynReset', () => { if ($('dynReset').dataset.sure) { const t = S.team; deleteSlot(curId); menuMsg = `Deleted the ${t} dynasty.`; render(); } else { $('dynReset').dataset.sure = 1; $('dynReset').textContent = '⚠️ Tap again to delete for good'; } });
     on('dynAdv', () => { recMsg = ''; advance(); render(); });
     on('dynSim', () => { const g = currentGames().find((x) => x.a === S.team || x.h === S.team); quickSimMine(g); render(); });
     on('dynPlay', () => { const g = currentGames().find((x) => x.a === S.team || x.h === S.team); playMine(g); });
