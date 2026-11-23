@@ -2628,14 +2628,18 @@ const SimReplay = (() => {
   function mkPlayer(n, pos, cls, ovr, extra) { const p = Object.assign({ id: nextId++, n, pos, cls, rs: false, tr: false, ovr: Math.round(clamp(ovr, 40, 99)), inj: 0, injNote: '', bb: 0, num: String(1 + Math.floor(R() * 98)), stars: 0 }, extra || {}); genExtra(p); return p; }
   // real 2026 rosters for every FBS team (name, position, class, jersey, height, weight; depth-chart role; NFL big board rank)
   const RR = Y.rosters || {};
+  // private build only: PFF season grades (window.__DYNPFF__) set ratings for players with real snaps
+  const pffOf = (team, g, num) => { const P = window.__DYNPFF__; if (!P || !P[team] || num === '' || num == null) return null; return P[team][(['QB', 'RB', 'WR', 'TE', 'OT', 'IOL'].includes(g) ? 'O' : 'D') + '|' + num] || null; };
+  function pffOvr([grade, snaps], fallback, base, bb) { const w = Math.min(1, snaps / 300); return w * (base + (grade - 68) * 0.35 + 0.5 + bbBonus(bb) / 2 + gauss()) + (1 - w) * fallback; }
   function realRoster(team, rt) {
     const T = D.teams[team], base = teamBaseOvr(rt ?? T.rating), out = [];
     if (RR[team]) {
       const age = S ? S.year - Y.year : 0;
       for (const [n, g, cls0, num, h, w, role, bb] of RR[team]) {
         const cls = cls0 + age; if (cls > 4) continue;
-        const ovr = base + (role === 'S' ? 2 : role === 'B' ? -5 : -9 + cls * 2) + gauss() * 3 + bbBonus(bb) + (age && role ? cls - cls0 : 0);
-        out.push(mkPlayer(n, g, cls, ovr, { rs: cls >= 2 && R() < 0.3, bb: bb || 0, num: String(num || ''), h, w, rl: 1 }));
+        let ovr = base + (role === 'S' ? 2 : role === 'B' ? -5 : -9 + cls * 2) + gauss() * 3 + bbBonus(bb) + (age && role ? cls - cls0 : 0);
+        const pf = pffOf(team, g, num); if (pf) ovr = pffOvr(pf, ovr, base, bb);
+        out.push(mkPlayer(n, g, cls, ovr, Object.assign({ rs: cls >= 2 && R() < 0.3, bb: bb || 0, num: String(num || ''), h, w, rl: 1 }, pf ? { pff: pf[0], pffSnaps: pf[1] } : {})));
       }
       return fillRoster(out, base);
     }
@@ -3449,7 +3453,7 @@ const SimReplay = (() => {
     if (prev && prev.cls < 4 && !(prev.q >= base + 7 && prev.cls === 3 && R() < 0.55)) return Object.assign({}, prev, { cls: prev.cls + 1, q: Math.min(99, prev.q + 2) });
     const L = (RR[t] || []).filter((p) => p[1] === g && p[2] + age <= 4 && p[2] + age >= 1 && !used.has(p[0])).sort((a, b) => ((a[6] === 'S' ? 0 : a[6] === 'B' ? 1 : 2) - (b[6] === 'S' ? 0 : b[6] === 'B' ? 1 : 2)) || (b[7] > 0) - (a[7] > 0) || (b[2] - a[2]));
     const r = L[0];
-    if (r) return { n: r[0], cls: r[2] + age, pos: g, q: Math.round(base + (r[6] === 'S' ? 2 : r[6] === 'B' ? -2 : -4) + gauss() * 3 + bbBonus(r[7])) };
+    if (r) { let q = base + (r[6] === 'S' ? 2 : r[6] === 'B' ? -2 : -4) + gauss() * 3 + bbBonus(r[7]); const pf = !age && pffOf(t, g, r[3]); if (pf) q = pffOvr(pf, q, base, r[7]); return { n: r[0], cls: r[2] + age, pos: g, q: Math.round(q) }; }
     return { n: fakeName(), cls: 1 + Math.floor(R() * 4), pos: g, q: Math.round(base - 1 + gauss() * 4) };
   }
   function initAw() {
@@ -3816,7 +3820,7 @@ const SimReplay = (() => {
     let h = `<div class="gm"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div class="big">${esc(p.n)}</div><div class="hint">${esc(p.pos)}${p.num ? ' · #' + esc(p.num) : ''}${p.h ? ` · ${Math.floor(p.h / 12)}'${p.h % 12}" ${p.w} lbs` : ''}${p.from ? ' · from ' + esc(p.from) : ''} · ${mine ? esc(clsText(p)) : p.tr ? 'Transfer' : 'High school recruit'}${p.stars ? ' · ' + '★'.repeat(p.stars) + ' recruit' : ''}${p.rank ? ' · No. ' + p.rank + ' nationally' : ''}</div></div><button class="btn" data-close="1" style="padding:4px 10px">✕</button></div>
       <div class="pgrid"><div><div class="hint">Overall</div><b style="font-size:20px">${mine ? p.ovr : ovrTxt(p)}</b></div><div><div class="hint">Ability</div>${starTxt(caStars(p))}</div><div><div class="hint">Potential</div>${potTxt(p)}</div><div><div class="hint">Scheme fit</div>${fl[0]} ${fl[1]}</div></div>
       ${mine ? '' : `<p class="hint">🔍 Scouted ${k}%. ${k < 100 ? 'Ranges narrow as your scouts see more of him.' : ''}</p>`}
-      <div class="h3">Attributes</div><div class="attrs">${Object.keys(POS_ATTR[p.pos]).sort((a, b) => POS_ATTR[p.pos][b] - POS_ATTR[p.pos][a]).map((a) => { const t = mine ? String(p.at[a]) : attrTxt(p, a), v = +t.split('-')[0]; return `<div class="arow"><span>${keyA.has(a) ? '🔑 ' : ''}${ATTR_LAB[a]}</span><span class="av ${mine || k >= 100 ? acol(p.at[a]) : acol(v)}">${t}</span></div>`; }).join('')}</div>
+      ${p.pff != null ? `<p class="hint">🔒 PFF season grade ${p.pff} on ${p.pffSnaps} snaps (sets his starting rating in this private build).</p>` : ''}<div class="h3">Attributes</div><div class="attrs">${Object.keys(POS_ATTR[p.pos]).sort((a, b) => POS_ATTR[p.pos][b] - POS_ATTR[p.pos][a]).map((a) => { const t = mine ? String(p.at[a]) : attrTxt(p, a), v = +t.split('-')[0]; return `<div class="arow"><span>${keyA.has(a) ? '🔑 ' : ''}${ATTR_LAB[a]}</span><span class="av ${mine || k >= 100 ? acol(p.at[a]) : acol(v)}">${t}</span></div>`; }).join('')}</div>
       <p class="hint">Attributes run 1-20. 🔑 marks what your ${OFFP.has(p.pos) ? esc(offS().n) : esc(defS().n)} asks of a ${esc(p.pos)}.</p>
       <div class="h3">Personality: ${mine || k >= 60 ? esc(perLabel(p)) : 'unknown'}</div>${mine || k >= 60 ? `<div class="attrs">${Object.entries(PER_KEYS).map(([q, t]) => `<div class="arow"><span>${t}</span><span>${perWord(p.per[q])}</span></div>`).join('')}</div>` : '<p class="hint">Scout him to at least 60% to learn his personality.</p>'}`;
     if (mine) {
