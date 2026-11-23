@@ -2669,7 +2669,7 @@ const SimReplay = (() => {
     for (const [n, t] of Object.entries(D.teams)) teams[n] = { off: t.off, def: t.def, base: t.rating, r: t.rating, w: 0, l: 0, cw: 0, cl: 0, pf: 0, pa: 0, color: t.color };
     S = { v: 1, coach: coach || 'Coach', team, year: 2026, startYear: 2026, teams, roster: realRoster(team), order: {}, wi: 0, phase: 'regular', sched: buildSeason(false),
       post: null, news: [], hist: [], career: { w: 0, l: 0, titles: 0, conf: 0, playoffs: 0 }, ad: null, offseason: null, nextId: 0 };
-    syncAll(); initTac(); S.inbox = []; autoDepth(); S.base = rosterAvgs(); initProg(); setGoals(); initRec(); S.nextId = nextId; welcomeMail();
+    syncAll(); initTac(); S.inbox = []; autoDepth(); S.base = rosterAvgs(); initProg(); setGoals(); initRec(); initAw(); S.nextId = nextId; welcomeMail();
     S.news.unshift(`🧢 ${S.coach} takes over at ${team} for the ${S.year} season.`);
     save();
   }
@@ -2734,7 +2734,7 @@ const SimReplay = (() => {
     return [ap, hp];
   }
   function record(gm, ap, hp) {
-    gm.res = [ap, hp];
+    gm.res = [ap, hp]; if (S.aw && S.phase !== 'review') awGame(gm);
     const exp = expMargin(gm), act = hp - ap, perf = clamp(act - exp, -28, 28);
     const upd = (t, sgn, pts, opp, won) => { const T = TM(t); if (!T) return;
       T.w += won ? 1 : 0; T.l += won ? 0 : 1; T.pf += pts; T.pa += opp;
@@ -2850,7 +2850,7 @@ const SimReplay = (() => {
     recWeek(myRes);
     progWeek(mg, myRes);
     if (S.phase === 'regular') { S.wi++; if (S.wi >= S.sched.length) startCCG(); }
-    else if (S.phase === 'ccg') { finishCCG(); selectField(); }
+    else if (S.phase === 'ccg') { finishCCG(); finalizeAwards(); selectField(); }
     else if (S.phase === 'playoff') { if (!nextRound()) endSeason(); }
     save();
   }
@@ -2863,6 +2863,7 @@ const SimReplay = (() => {
     const sec0 = S.ad.sec; S.ad.sec = clamp(Math.round(sec0 + d), 0, 100);
     S.hist.unshift({ year: S.year, team: S.team, w: T.w, l: T.l, cw: T.cw, cl: T.cl, rank: rankOf(S.team), result, conf, champion: P.champion });
     S.career.w += T.w; S.career.l += T.l; if (champ) S.career.titles++; if (conf) S.career.conf++; if (inField) S.career.playoffs++;
+    careerRollup();
     S.phase = 'review'; S.review = { met, sec0, sec: S.ad.sec, result, champion: P.champion, fired: S.ad.sec < 15 };
     S.news.unshift(`🏁 ${S.year} final: ${S.team} ${T.w}-${T.l}. ${result}. National champion: ${P.champion}.`);
   }
@@ -3027,12 +3028,12 @@ const SimReplay = (() => {
     S.sched = buildSeason((S.year - S.startYear) % 2 === 1); markConf();
     { const B = budget(), pr = payroll(); if (S.prog && pr > B * 0.95) { const k = B * 0.95 / pr; for (const p of S.roster) p.pay = +((p.pay || 0) * k).toFixed(2); S.news.unshift('💵 Payroll was over budget: every deal was restructured to fit.'); } }
     if (S.prog) { S.prog.fat = 10; S.prog.lobbied = false; S.prog.press = null; S.prog.event = null; academicsCheck(); }
-    syncAll(); if (!S.tac) initTac(); autoDepth(); S.base = rosterAvgs(); setGoals(); initRec(); S.nextId = nextId; seasonMail();
+    syncAll(); if (!S.tac) initTac(); autoDepth(); S.base = rosterAvgs(); setGoals(); initRec(); initAw(); S.nextId = nextId; seasonMail();
     S.news.unshift(`📅 The ${S.year} season begins. Preseason rank: ${rankOf(S.team) <= 25 ? '#' + rankOf(S.team) : 'unranked'}.`);
     save();
   }
   function takeJob(team) {
-    const keepAd = S.ad.sec; S.team = team; S.roster = RR[team] ? realRoster(team, rating(team)) : fakeRoster(rating(team)); nextId = Math.max(nextId, S.nextId || 0); initTac(); autoDepth(); S.base = rosterAvgs(); const keepFund = S.prog ? S.prog.fund : 0; initProg(); S.prog.fund = Math.max(S.prog.fund, keepFund * 0.3);
+    const keepAd = S.ad.sec; S.team = team; S.roster = RR[team] ? realRoster(team, rating(team)) : fakeRoster(rating(team)); if (S.aw && S.aw.stars) delete S.aw.stars[team]; nextId = Math.max(nextId, S.nextId || 0); initTac(); autoDepth(); S.base = rosterAvgs(); const keepFund = S.prog ? S.prog.fund : 0; initProg(); S.prog.fund = Math.max(S.prog.fund, keepFund * 0.3);
     S.ad.sec = Math.max(55, Math.min(70, keepAd)); S.news.unshift(`✍️ ${S.coach} is the new head coach at ${team}.`);
   }
   function jobOffers(better) {
@@ -3174,7 +3175,7 @@ const SimReplay = (() => {
     // boosters
     if (mg && res) { const tro = typeof trophyFor === 'function' ? trophyFor({ away: mg.a, home: mg.h, week: 1 }) : null; P.boost = clamp(P.boost + (res === 'W' ? 2 : -3) + (tro ? (res === 'W' ? 4 : -4) : 0), 0, 100); }
     if (mg && res) makePress(res);
-    makeEvent(); syncAll(); inboxWeek(mg);
+    makeEvent(); syncAll(); inboxWeek(mg); poyMail();
   }
   // ---- offseason pieces ----
   function staffCarousel() { // good assistants get poached after good seasons
@@ -3394,6 +3395,133 @@ const SimReplay = (() => {
   }
   function seasonMail() { mail({ from: 'Athletic director', ic: '🏛️', subj: `Expectations for ${S.year}`, body: `Here's what the board expects this season: ${S.ad.goals.map((g) => g.t.toLowerCase()).join(', ')}. Job security: ${S.ad.sec}/100.`, cat: 'ad' }); }
 
+  // ==== Awards: season stats for every key player in the country, a weekly Player of the Year race,
+  // position awards, All-Americans and all-conference teams (decided after championship week, like the real ones) ====
+  const AW_SLOTS = ['QB', 'RB', 'WR1', 'WR2', 'SLOT', 'TE', 'LT', 'LG', 'C', 'RG', 'RT', 'EDGE', 'EDGE2', 'DT', 'LB', 'LB2', 'CB1', 'CB2', 'S', 'K', 'P'];
+  const AWARDS = [['QB', 'Best Quarterback'], ['RB', 'Best Running Back'], ['WR', 'Best Receiver'], ['TE', 'Best Tight End'], ['OL', 'Best Offensive Lineman'], ['EDGE', 'Best Pass Rusher'], ['DT', 'Best Interior Lineman'], ['LB', 'Best Linebacker'], ['DB', 'Best Defensive Back'], ['K', 'Best Kicker'], ['P', 'Best Punter']];
+  const AA_SLOTS = [['QB', 1], ['RB', 2], ['WR', 3], ['TE', 1], ['OL', 5], ['EDGE', 2], ['DT', 2], ['LB', 3], ['DB', 4], ['K', 1], ['P', 1]];
+  const awGrp = (pos) => (pos === 'OT' || pos === 'IOL' ? 'OL' : pos === 'CB' || pos === 'S' ? 'DB' : pos);
+  const pois = (l) => { let k = 0, p = Math.exp(-l), s = p; const u = R(); while (u > s && k < 15) { k++; p *= l / k; s += p; } return k; };
+  const split = (n, ws) => { const out = ws.map(() => 0), tot = ws.reduce((a, b) => a + b, 0); for (let i = 0; i < n; i++) { let x = R() * tot; for (let j = 0; j < ws.length; j++) { x -= ws[j]; if (x <= 0) { out[j]++; break; } } } return out; };
+  function awStar(t, slot, prev, used) { // keep last year's guy if he's still eligible, else the next real player, else a made-up one
+    const base = teamBaseOvr(rating(t)), g = GROUP[slot], age = S.year - Y.year;
+    if (prev && prev.cls < 4 && !(prev.q >= base + 7 && prev.cls === 3 && R() < 0.55)) return Object.assign({}, prev, { cls: prev.cls + 1, q: Math.min(99, prev.q + 2) });
+    const L = (RR[t] || []).filter((p) => p[1] === g && p[2] + age <= 4 && p[2] + age >= 1 && !used.has(p[0])).sort((a, b) => ((a[6] === 'S' ? 0 : a[6] === 'B' ? 1 : 2) - (b[6] === 'S' ? 0 : b[6] === 'B' ? 1 : 2)) || (b[7] > 0) - (a[7] > 0) || (b[2] - a[2]));
+    const r = L[0];
+    if (r) return { n: r[0], cls: r[2] + age, pos: g, q: Math.round(base + (r[6] === 'S' ? 2 : r[6] === 'B' ? -2 : -4) + gauss() * 3 + bbBonus(r[7])) };
+    return { n: fakeName(), cls: 1 + Math.floor(R() * 4), pos: g, q: Math.round(base - 1 + gauss() * 4) };
+  }
+  function initAw() {
+    const old = S.aw && S.aw.stars || {}; const stars = {};
+    for (const t of Object.keys(S.teams)) { if (t === S.team) continue; const used = new Set(), L = {}; for (const s of AW_SLOTS) { const p = awStar(t, s, old[t] && old[t][s], used); used.add(p.n); L[s] = p; } stars[t] = L; }
+    S.aw = { stars, st: {}, final: null, pre: Object.fromEntries(Object.keys(S.teams).map((t) => [t, +rating(t).toFixed(1)])) };
+  }
+  function lineup(t) { // [key, player info] for the players who get stats this game
+    if (t === S.team) { const d = depth(); return SLOTS.filter((s) => d[s].st).map((s) => { const p = d[s].st; return [s, 'me|' + p.id, { n: p.n, pos: p.pos, cls: p.cls, q: p.ovr, pid: p.id }]; }); }
+    const L = S.aw.stars[t]; return L ? AW_SLOTS.map((s) => [s, t + '|' + s, L[s]]) : null;
+  }
+  function runShare(t) { if (t === S.team) { const m = { option: 0.78, power: 0.62, balanced: 0.53, vertical: 0.46, airraid: 0.42, spread: 0.48 }; return m[offS().eng] || 0.5; } const x = D.teams[t] && D.teams[t].run_share; return clamp(x || 0.5, 0.35, 0.8); }
+  function teamStats(t, pf, pa) {
+    const L = lineup(t); if (!L) return;
+    const st = (k, info) => { const o = S.aw.st[k] || (S.aw.st[k] = { team: t, n: info.n, pos: info.pos, cls: info.cls, q: info.q, pid: info.pid, g: 0 }); o.g++; return o; };
+    const by = {}; for (const [s, k, info] of L) by[s] = st(k, info);
+    const add = (o, f, v) => { if (o && v) o[f] = (o[f] || 0) + Math.round(v); };
+    const qm = (o) => (o ? 1 + (o.q - 75) / 55 : 1);
+    const rs = runShare(t), yds = Math.max(140, 250 + pf * 5 + gauss() * 45), passY = yds * (1 - rs * 0.8), rushY = yds - passY;
+    const fgm = Math.min(pois(1.3), Math.floor(pf / 3)), tds = Math.max(0, Math.round((pf - 3 * fgm) / 7)), [ptd, rtd] = split(tds, [1 - rs + 0.08, rs]);
+    const qb = by.QB; if (qb) { const ypa = 7.8 + (qb.q - 75) / 12, att = Math.max(8, Math.round(passY / ypa)); add(qb, 'att', att); add(qb, 'cmp', att * clamp(0.6 + (qb.q - 75) / 160, 0.45, 0.75)); add(qb, 'py', passY); add(qb, 'ptd', ptd); add(qb, 'int', pois(clamp(0.85 - (qb.q - 75) / 70, 0.25, 1.4))); }
+    const [rtdRB, rtdQB] = split(rtd, [0.62, 0.2]);
+    if (by.RB) { const ry = rushY * 0.43 * qm(by.RB) * (0.75 + R() * 0.5); add(by.RB, 'car', ry / (5 + (by.RB.q - 75) / 25)); add(by.RB, 'ry', ry); add(by.RB, 'rtd', rtdRB); add(by.RB, 'rec', pois(1.6)); add(by.RB, 'recy', pois(1.6) * 8); }
+    if (qb) { add(qb, 'qry', Math.max(0, rushY * 0.14 + gauss() * 12)); add(qb, 'rtd', rtdQB); }
+    const rec = ['WR1', 'WR2', 'SLOT', 'TE'].filter((s) => by[s]), ws = rec.map((s) => ({ WR1: 0.34, WR2: 0.24, SLOT: 0.18, TE: 0.13 })[s] * qm(by[s]));
+    const rtds = split(ptd, ws.concat([0.15])), wsum = ws.reduce((a, b) => a + b, 0) || 1;
+    rec.forEach((s, i) => { const y = passY * 0.85 * ws[i] / wsum * (0.8 + R() * 0.4); add(by[s], 'recy', y); add(by[s], 'rec', y / (11.5 + R() * 4)); add(by[s], 'rectd', rtds[i]); });
+    // defense: fewer points allowed = more sacks and picks
+    const def = ['EDGE', 'EDGE2', 'DT', 'DT2', 'LB', 'LB2', 'CB1', 'CB2', 'NB', 'S', 'S2'].filter((s) => by[s]);
+    const sk = split(pois(clamp(2.8 - pa / 16, 0.6, 3.6)), def.map((s) => ({ EDGE: 0.3, EDGE2: 0.22, DT: 0.14, DT2: 0.1, LB: 0.12, LB2: 0.07 })[s] * qm(by[s]) || 0.01));
+    const it = split(pois(clamp(1.2 - pa / 45, 0.3, 1.4)), def.map((s) => ({ CB1: 0.27, CB2: 0.22, NB: 0.1, S: 0.22, S2: 0.12, LB: 0.07 })[s] * qm(by[s]) || 0.005));
+    def.forEach((s, i) => { const o = by[s]; add(o, 'sk', sk[i]); add(o, 'dint', it[i]); add(o, 'tk', ({ LB: 7.5, LB2: 6, S: 5.5, S2: 4.5, CB1: 3.8, CB2: 3.5, NB: 3.5, EDGE: 3.5, EDGE2: 3, DT: 2.8, DT2: 2.2 })[s] * (0.7 + R() * 0.6)); add(o, 'tfl', pois(({ EDGE: 0.9, EDGE2: 0.7, DT: 0.7, DT2: 0.5, LB: 0.6, LB2: 0.4 })[s] || 0.15)); add(o, 'pd', pois(({ CB1: 0.9, CB2: 0.8, NB: 0.6, S: 0.5, S2: 0.4 })[s] || 0)); });
+    if (by.K) { add(by.K, 'fgm', fgm); add(by.K, 'fga', fgm + pois(0.35)); }
+    for (const s of ['LT', 'LG', 'C', 'RG', 'RT']) if (by[s]) { add(by[s], 'ry', rushY / 5); add(by[s], 'sa', pois(clamp(0.45 - (by[s].q - 75) / 100, 0.05, 1))); }
+    if (by.P) add(by.P, 'pun', pois(4));
+  }
+  function awGame(gm) { const [ap, hp] = gm.res; for (const [t, pf, pa] of [[gm.h, hp, ap], [gm.a, ap, hp]]) if (isFbs(t)) teamStats(t, pf, pa); }
+  function pv(o) { // production score for awards
+    const v = (f) => o[f] || 0, g = awGrp(o.pos);
+    if (g === 'QB') return v('py') / 22 + v('ptd') * 5 - v('int') * 4 + v('qry') / 12 + v('rtd') * 6;
+    if (g === 'RB') return v('ry') / 10 + v('rtd') * 6 + v('recy') / 12;
+    if (g === 'WR' || g === 'TE') return (v('recy') / 10 + v('rectd') * 6 + v('rec') * 0.3) * (g === 'TE' ? 1.35 : 1);
+    if (g === 'OL') return (o.q - 70) * 4 + v('ry') / 40 - v('sa') * 3;
+    if (g === 'EDGE' || g === 'DT') return (v('sk') * 8 + v('tfl') * 3 + v('tk') * 0.5) * (g === 'DT' ? 1.35 : 1);
+    if (g === 'LB') return v('tk') * 0.8 + v('sk') * 6 + v('tfl') * 2 + v('dint') * 8;
+    if (g === 'DB') return v('dint') * 10 + v('pd') * 3 + v('tk') * 0.5;
+    if (g === 'K') return v('fgm') * 4 - (v('fga') - v('fgm')) * 4 + o.q * 0.2;
+    return o.q + R();
+  }
+  const teamBoost = (t) => { const T = TM(t), rk = rankOf(t); return 1 + T.w / 18 + (rk <= 4 ? 0.3 : rk <= 12 ? 0.15 : 0); };
+  function poyScore(o) { const g = awGrp(o.pos); const m = g === 'QB' ? 1.15 : g === 'RB' || g === 'WR' ? 1 : g === 'TE' ? 0.6 : ['EDGE', 'LB', 'DB', 'DT'].includes(g) ? 0.55 : 0; return pv(o) * m * teamBoost(o.team); }
+  const awList = () => Object.entries(S.aw ? S.aw.st : {}).map(([k, o]) => Object.assign({ k }, o));
+  function race(n) { return awList().filter((o) => o.g >= 2).map((o) => Object.assign(o, { sc: poyScore(o) })).sort((a, b) => b.sc - a.sc).slice(0, n); }
+  function statTxt(o) {
+    const v = (f) => o[f] || 0, g = awGrp(o.pos), c = (x) => Math.round(x).toLocaleString('en-US');
+    if (g === 'QB') return `${c(v('cmp'))}/${c(v('att'))}, ${c(v('py'))} yds, ${v('ptd')} TD, ${v('int')} INT${v('qry') > 200 ? `, ${c(v('qry'))} rush yds` : ''}`;
+    if (g === 'RB') return `${c(v('car'))} car, ${c(v('ry'))} yds, ${v('rtd')} TD`;
+    if (g === 'WR' || g === 'TE') return `${v('rec')} rec, ${c(v('recy'))} yds, ${v('rectd')} TD`;
+    if (g === 'OL') return `${o.g} starts, ${v('sa')} sacks allowed`;
+    if (g === 'EDGE' || g === 'DT' || g === 'LB') return `${v('tk')} tkl, ${v('tfl')} TFL, ${v('sk')} sacks${v('dint') ? `, ${v('dint')} INT` : ''}`;
+    if (g === 'DB') return `${v('dint')} INT, ${v('pd')} PD, ${v('tk')} tkl`;
+    if (g === 'K') return `${v('fgm')}/${v('fga')} FG`;
+    return `${v('pun')} punts`;
+  }
+  const who = (o) => `${o.pos} ${o.n}, ${o.team}`;
+  function finalizeAwards() { // awards night, after championship week
+    if (!S.aw || S.aw.final) return;
+    const L = awList().filter((o) => o.g >= 3).map((o) => Object.assign(o, { v: pv(o) }));
+    const best = (g, pool = L) => pool.filter((o) => awGrp(o.pos) === g).sort((a, b) => b.v - a.v);
+    const poy = race(5), fresh = L.filter((o) => o.cls === 1).map((o) => Object.assign({}, o, { sc: poyScore(o) + pv(o) * 0.3 })).sort((a, b) => b.sc - a.sc)[0];
+    const pos = Object.fromEntries(AWARDS.map(([g]) => [g, best(g)[0]]));
+    const aa1 = [], aa2 = [], conf = [], myConf = confOf(S.team);
+    for (const [g, n] of AA_SLOTS) { const b = best(g); aa1.push(...b.slice(0, n)); aa2.push(...b.slice(n, 2 * n)); conf.push(...best(g, L.filter((o) => confOf(o.team) === myConf)).slice(0, n)); }
+    const coy = Object.keys(S.teams).map((t) => [t, TM(t).w - (6 + (S.aw.pre[t] || 0) / 4.5)]).sort((a, b) => b[1] - a[1])[0][0];
+    const pick = (o) => o && { n: o.n, pos: o.pos, team: o.team, pid: o.pid, s: statTxt(o) };
+    S.aw.final = { poy: poy.map(pick), fresh: pick(fresh), coy, pos: Object.fromEntries(Object.entries(pos).map(([g, o]) => [g, pick(o)])), aa1: aa1.map(pick), aa2: aa2.map(pick), conf: conf.map(pick), confName: myConf };
+    // honors for your players
+    const F = S.aw.final, mine = (o) => o && o.team === S.team && o.pid, honor = (o, t, sec) => { if (!mine(o)) return; const p = byId(o.pid); if (p) (p.hon = p.hon || []).push(`${S.year} ${t}`); S.ad.sec = clamp(S.ad.sec + sec, 0, 100); };
+    honor(F.poy[0], 'Player of the Year 🏆', 6); honor(F.fresh, 'Freshman of the Year', 2);
+    for (const [g, t] of AWARDS) honor(F.pos[g], t, 1);
+    for (const o of F.aa1) honor(o, 'All-American (1st team)', 1); for (const o of F.aa2) honor(o, 'All-American (2nd team)', 0); for (const o of F.conf) honor(o, `All-${F.confName} (1st team)`, 0);
+    const nMine = F.aa1.filter(mine).length + F.aa2.filter(mine).length;
+    S.awHist = S.awHist || []; S.awHist.unshift({ y: S.year, poy: F.poy[0], fresh: F.fresh, coy, mine: [...F.aa1, ...F.aa2].filter(mine).map((o) => `${o.pos} ${o.n}`) });
+    S.news.unshift(`🏆 Player of the Year: ${who(F.poy[0])}.${nMine ? ` ${S.team} has ${nMine} All-American${nMine > 1 ? 's' : ''}.` : ''}`);
+    if (coy === S.team) { S.news.unshift(`🧢 ${S.coach} is the national Coach of the Year!`); S.ad.sec = clamp(S.ad.sec + 5, 0, 100); }
+    if (S.inbox) mail({ from: 'National awards committee', ic: '🏅', subj: `Awards night: ${F.poy[0].n} wins Player of the Year`, body: `Player of the Year: ${who(F.poy[0])} (${F.poy[0].s}). Runners-up: ${F.poy.slice(1, 4).map((o) => `${o.n} (${o.team})`).join(', ')}. Coach of the Year: ${coy === S.team ? 'you' : 'the ' + coy + ' head coach'}. ${nMine ? `Your All-Americans: ${[...F.aa1, ...F.aa2].filter(mine).map((o) => o.n).join(', ')}.` : 'None of your players made an All-American team.'} Full results are on the Awards tab.`, cat: 'ad' });
+  }
+  function careerRollup() { // your players' season stats go into their career totals
+    for (const p of S.roster) { const o = S.aw && S.aw.st['me|' + p.id]; if (!o) continue; p.car = p.car || {}; for (const [f, v] of Object.entries(o)) if (typeof v === 'number' && !['q', 'cls', 'pid'].includes(f)) p.car[f] = (p.car[f] || 0) + v; p.last = { y: S.year, s: statTxt(o), g: o.g }; }
+  }
+  function poyMail() { if (S.phase !== 'regular' || S.wi < 5 || S.wi % 3) return; const r = race(5), me = r.findIndex((o) => o.team === S.team); mail({ from: 'National media', ic: '📰', subj: `Player of the Year watch: ${r[0].n} leads`, body: r.map((o, i) => `${i + 1}. ${who(o)}: ${statTxt(o)}`).join('. ') + (me >= 0 ? `. Your ${r[me].pos} ${r[me].n} is in the race.` : '.'), cat: 'report' }); }
+  function awardsTab() {
+    if (!S.aw) initAw(); const F = S.aw.final;
+    const row = (o, i) => `<div class="pl" style="display:block"><div style="display:flex;gap:6px">${i != null ? `<b>${i + 1}.</b>` : ''} ${o.team === S.team && o.pid ? `<a class="pf" data-pf="${o.pid}">${esc(o.n)}</a>` : esc(o.n)} <span class="hint">${esc(o.pos)} · ${esc(o.team)}${o.cls ? ' · ' + CLS[Math.min(4, o.cls)] : ''}</span></div><div class="hint">${esc(o.s || statTxt(o))}</div></div>`;
+    let h = '';
+    if (F) {
+      h += `<div class="gm"><b>🏆 ${S.year} Player of the Year</b>${row(F.poy[0])}<p class="hint">Finalists: ${F.poy.slice(1).map((o) => `${esc(o.n)} (${esc(o.team)})`).join(', ')}. Freshman of the Year: ${F.fresh ? `${esc(F.fresh.n)} (${esc(F.fresh.team)})` : '—'}. Coach of the Year: ${F.coy === S.team ? '<b>you</b>' : 'the ' + esc(F.coy) + ' head coach'}.</p></div>
+        <details class="sec" open><summary>🏅 Position awards</summary>${AWARDS.map(([g, t]) => F.pos[g] ? `<div class="h3" style="margin:8px 0 0">${t}</div>${row(F.pos[g])}` : '').join('')}</details>
+        <details class="sec"><summary>⭐ All-American first team</summary>${F.aa1.map((o) => row(o)).join('')}</details>
+        <details class="sec"><summary>⭐ All-American second team</summary>${F.aa2.map((o) => row(o)).join('')}</details>
+        <details class="sec"><summary>🏟️ All-${esc(F.confName)} first team</summary>${F.conf.map((o) => row(o)).join('')}</details>`;
+    } else {
+      const r = race(10);
+      h += `<div class="gm"><b>🏆 Player of the Year race</b><p class="hint">Voters reward big numbers on winning teams. Awards are handed out after championship week, before the bowls and playoff.</p>${r.length ? r.map((o, i) => row(o, i)).join('') : '<p class="hint">The race starts after week 2.</p>'}</div>`;
+      const L = awList().filter((o) => o.g >= 2);
+      h += `<details class="sec" open><summary>🏅 Position award leaders</summary>${AWARDS.map(([g, t]) => { const b = L.filter((o) => awGrp(o.pos) === g).sort((a, b) => pv(b) - pv(a))[0]; return b ? `<div class="h3" style="margin:8px 0 0">${t}</div>${row(b)}` : ''; }).join('')}</details>`;
+    }
+    const M = awList().filter((o) => o.team === S.team && o.g), lead = (f, lbl) => { const b = M.slice().sort((a, b) => (b[f] || 0) - (a[f] || 0))[0]; return b && b[f] ? `<div class="pl">${lbl}: ${b.pid ? `<a class="pf" data-pf="${b.pid}">${esc(b.n)}</a>` : esc(b.n)}<span class="o">${Math.round(b[f]).toLocaleString('en-US')}</span></div>` : ''; };
+    h += `<details class="sec"><summary>📊 ${esc(S.team)} stat leaders</summary>${lead('py', 'Passing yards')}${lead('ptd', 'Passing TDs')}${lead('ry', 'Rushing yards')}${lead('recy', 'Receiving yards')}${lead('rectd', 'Receiving TDs')}${lead('tk', 'Tackles')}${lead('sk', 'Sacks')}${lead('dint', 'Interceptions')}${lead('fgm', 'Field goals')}${M.length ? '' : '<p class="hint">No games played yet.</p>'}</details>`;
+    if (S.awHist && S.awHist.length) h += `<details class="sec"><summary>📜 Award history</summary><table><tr><th>Year</th><th>Player of the Year</th><th>Your All-Americans</th></tr>${S.awHist.map((x) => `<tr><td>${x.y}</td><td>${esc(x.poy.n)} <span class="hint">${esc(x.poy.pos)}, ${esc(x.poy.team)}</span></td><td>${x.mine.length ? x.mine.map(esc).join(', ') : '—'}${x.coy === S.team ? ' · 🧢 Coach of the Year' : ''}</td></tr>`).join('')}</table></details>`;
+    return h + '<p class="hint">Stats come from each game\'s final score, both teams\' strength and every player\'s ratings. Award names are generic stand-ins for the real ones.</p>';
+  }
+
   // ---- UI ----
   const css = `
   #dynBtn { width:100%; margin:0 0 12px; padding:12px; border-radius:10px; border:0; cursor:pointer; font:700 15px/1.2 inherit; color:#fff; background:linear-gradient(120deg,#1e3a6b,#2f5aa8 60%,#c9a227); box-shadow:0 4px 14px rgba(0,0,0,.15); }
@@ -3458,6 +3586,7 @@ const SimReplay = (() => {
     if (!S.prog) { initProg(); save(); }
     if (S.prog && !('SD' in S.prog.staff)) S.prog.staff.SD = mkCoach('SD', 60);
     if (!S.inbox) S.inbox = [];
+    if (!S.aw) { initAw(); save(); }
     if (!S.tac || !S.roster[0].at) { syncAll(); if (!S.tac) initTac(); S.base = rosterAvgs(); save(); }
     if (S.roster && !S.roster.some((p) => p.pos === 'OT')) { nextId = Math.max(nextId, S.nextId || 0, ...S.roster.map((p) => p.id + 1)); fillRoster(S.roster, teamBaseOvr(TM(S.team).base)); syncOrder(); S.base = rosterAvgs(); S.nextId = nextId; save(); }
     if (S.phase === 'review') return renderReview();
@@ -3489,7 +3618,7 @@ const SimReplay = (() => {
   // ---- FM-style dashboard: tabs, inbox, squad, player profiles, tactics ----
   let tab = 'home', view = null, talkMsg = '', mailMsg = '', offTab = 'off';
   const sq = { sort: 'pos', grp: 'All' };
-  const TABS = [['home', '🏠', 'Home'], ['inbox', '📥', 'Inbox'], ['squad', '👥', 'Squad'], ['tactics', '📋', 'Tactics'], ['recruit', '🎯', 'Recruiting'], ['staff', '👔', 'Staff'], ['money', '💵', 'Finances'], ['league', '🏆', 'League'], ['hist', '📜', 'History']];
+  const TABS = [['home', '🏠', 'Home'], ['inbox', '📥', 'Inbox'], ['squad', '👥', 'Squad'], ['tactics', '📋', 'Tactics'], ['recruit', '🎯', 'Recruiting'], ['staff', '👔', 'Staff'], ['money', '💵', 'Finances'], ['awards', '🏅', 'Awards'], ['league', '🏆', 'League'], ['hist', '📜', 'History']];
   const OTABS = [['off', '🗓️', 'Offseason'], ['squad', '👥', 'Squad'], ['tactics', '📋', 'Tactics'], ['inbox', '📥', 'Inbox']];
   function findAny(id) { return byId(id) || (S.rec && S.rec.board.find((p) => p.id === id)) || (S.offseason && [...S.offseason.portal, ...S.offseason.recruits].find((p) => p.id === id)) || null; }
   function tabBar(list, cur, attr) { const n = unread(); return `<div class="tabs">${list.map(([k, ic, t]) => `<button data-${attr}="${k}" class="${cur === k ? 'on' : ''}">${ic} ${t}${k === 'inbox' && n ? ` <span class="badge">${n}</span>` : ''}</button>`).join('')}</div>`; }
@@ -3503,7 +3632,7 @@ const SimReplay = (() => {
     markConf(); if (!S.rec) initRec();
     let h = hubHeader() + tabBar(TABS, view != null ? '' : tab, 'tab');
     if (view != null) h += profileUI(findAny(view));
-    else h += ({ home: homeTab, inbox: inboxTab, squad: squadTab, tactics: tacticsTab, recruit: recTab, staff: () => staffUI(), money: () => budgetUI() + '<div class="h3">🏛️ Boosters & facilities</div>' + boostUI(), league: leagueTab, hist: histTab })[tab]();
+    else h += ({ home: homeTab, inbox: inboxTab, squad: squadTab, tactics: tacticsTab, recruit: recTab, staff: () => staffUI(), money: () => budgetUI() + '<div class="h3">🏛️ Boosters & facilities</div>' + boostUI(), awards: awardsTab, league: leagueTab, hist: histTab })[tab]();
     h += `<button class="btn" id="dynBack">⬅️ Back to single games</button>`;
     box.innerHTML = h; wire();
   }
@@ -3567,6 +3696,7 @@ const SimReplay = (() => {
       <p class="hint">Attributes run 1-20. 🔑 marks what your ${OFFP.has(p.pos) ? esc(offS().n) : esc(defS().n)} asks of a ${esc(p.pos)}.</p>
       <div class="h3">Personality: ${mine || k >= 60 ? esc(perLabel(p)) : 'unknown'}</div>${mine || k >= 60 ? `<div class="attrs">${Object.entries(PER_KEYS).map(([q, t]) => `<div class="arow"><span>${t}</span><span>${perWord(p.per[q])}</span></div>`).join('')}</div>` : '<p class="hint">Scout him to at least 60% to learn his personality.</p>'}`;
     if (mine) {
+      { const o = S.aw && S.aw.st['me|' + p.id]; h += `<div class="h3">📊 Stats</div>${o && o.g ? `<p style="margin:2px 0">${S.year}: ${esc(statTxt(o))} <span class="hint">(${o.g} games)</span></p>` : `<p class="hint">No ${S.year} stats yet${p.last ? '' : ' (stats count for starters)'}.</p>`}${p.last ? `<p class="hint" style="margin:2px 0">${p.last.y}: ${esc(p.last.s)}</p>` : ''}${p.car ? `<p class="hint" style="margin:2px 0">Career: ${esc(statTxt(Object.assign({ pos: p.pos, q: p.ovr }, p.car)))}</p>` : ''}${p.hon && p.hon.length ? `<p>🏅 ${p.hon.map(esc).join(' · ')}</p>` : ''}`; }
       h += `<div class="h3">Status</div><div class="attrs"><div class="arow"><span>Morale</span><span>${moodE(p.m)} ${p.m ?? 70}</span></div><div class="arow"><span>NIL deal</span><span>${money(p.pay || 0)} (worth ~${money(value(p))})</span></div><div class="arow"><span>GPA</span><span>${(p.gpa ?? 3).toFixed(2)}</span></div><div class="arow"><span>Games this year</span><span>${p.gp || 0}${!p.rs ? ' (redshirt open)' : ''}</span></div>${p.inj ? `<div class="arow"><span>Injury</span><span>${esc(p.injNote)}</span></div>` : ''}${p.promise ? '<div class="arow"><span>Promise</span><span>🤝 playing time</span></div>' : ''}</div>
         <div class="h3">💬 Talk to him</div>${talkMsg ? `<p><b>${esc(talkMsg)}</b></p>` : ''}<div style="display:flex;flex-wrap:wrap;gap:4px">${Object.entries(TALKS).map(([q, t]) => `<button class="btn" data-talk="${q}" style="padding:5px 9px">${t}</button>`).join('')}</div>
         <p class="hint">How he takes it depends on his personality, his role and his mood. One conversation per player per week.</p>`;
@@ -3743,7 +3873,8 @@ const SimReplay = (() => {
     let h = `<div class="h2">🏁 ${S.year} season review</div><div class="big">${esc(S.team)} ${T.w}-${T.l}</div><p>${esc(rv.result)}${T.conf ? ' · 🏅 Conference champions' : ''} · Final rank: ${T.rank <= 25 ? '#' + T.rank : 'unranked'}</p>
       <p>🏆 National champion: <b>${esc(rv.champion)}</b></p>
       <div class="gm"><b>Athletic director's review</b>${rv.met.map((g) => `<div>${g.ok ? '✅' : '❌'} ${esc(g.t)}</div>`).join('')}
-      <div class="hint" style="margin:6px 0 2px">Job security: ${rv.sec0} → ${rv.sec}</div>${secMeter(rv.sec)}</div>`;
+      <div class="hint" style="margin:6px 0 2px">Job security: ${rv.sec0} → ${rv.sec}</div>${secMeter(rv.sec)}</div>
+      ${S.aw && S.aw.final ? (() => { const F = S.aw.final, hon = S.roster.filter((p) => (p.hon || []).some((x) => x.startsWith(String(S.year)))); return `<div class="gm"><b>🏅 Awards</b><div>🏆 Player of the Year: ${esc(F.poy[0].n)} (${esc(F.poy[0].pos)}, ${esc(F.poy[0].team)})</div>${F.coy === S.team ? '<div>🧢 You are the national Coach of the Year!</div>' : ''}${hon.length ? hon.map((p) => `<div>⭐ ${esc(p.pos)} ${esc(p.n)}: ${p.hon.filter((x) => x.startsWith(String(S.year))).map((x) => esc(x.slice(5))).join(', ')}</div>`).join('') : '<div class="hint">No All-Americans or award winners from your program this year.</div>'}</div>`; })() : ''}`;
     if (rv.fired) {
       const offers = rv.offers || (rv.offers = jobOffers(false)); save();
       h += `<p><b>You've been fired.</b> A few programs still want you:</p>${offers.map((t) => `<button class="btn" data-job="${esc(t)}" style="width:100%;margin:4px 0">✍️ Take the ${esc(t)} job (${esc(confOf(t))})</button>`).join('')}`;
@@ -3826,7 +3957,7 @@ const SimReplay = (() => {
       save(); render(); window.scrollTo(0, 0); };
   }
   // testing hook
-  window.NNIDynasty = { state: () => S, setTab: (t) => { tab = t; view = null; }, setOffTab: (t) => { offTab = t; view = null; }, openProfile: (id) => { view = id; }, talk, mailAct, setScheme, ovrOf, syncAll, know, paStars, fitPts, slotVal, estOvr, answerPress, resolveEvent, resolveRetention, hireCoach, upgrade, lobbyAD, progAdj, teamMorale, budget, payroll, retentionList, mkCoach, advance, newDynasty: (t, c) => { newDynasty(t, c); markConf(); }, startOffseason, newSeason, resolvePortal, resolveRecruiting, render, quickSimMine, currentGames, endSeasonForTest: () => S.phase };
+  window.NNIDynasty = { state: () => S, race, finalizeAwards, pv, setTab: (t) => { tab = t; view = null; }, setOffTab: (t) => { offTab = t; view = null; }, openProfile: (id) => { view = id; }, talk, mailAct, setScheme, ovrOf, syncAll, know, paStars, fitPts, slotVal, estOvr, answerPress, resolveEvent, resolveRetention, hireCoach, upgrade, lobbyAD, progAdj, teamMorale, budget, payroll, retentionList, mkCoach, advance, newDynasty: (t, c) => { newDynasty(t, c); markConf(); }, startOffseason, newSeason, resolvePortal, resolveRecruiting, render, quickSimMine, currentGames, endSeasonForTest: () => S.phase };
 })();
 
 /*/DY*/</script>
