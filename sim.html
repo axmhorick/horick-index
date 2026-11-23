@@ -3579,6 +3579,7 @@ const SimReplay = (() => {
   setup.parentNode.insertBefore(btn, setup);
   const box = document.createElement('div'); box.className = 'card hidden'; box.id = 'dyn'; setup.parentNode.insertBefore(box, setup.nextSibling);
   btn.onclick = () => { S = S || load(); if (S) nextId = Math.max(nextId, S.nextId || 0); setup.classList.add('hidden'); btn.classList.add('hidden'); box.classList.remove('hidden'); render(); window.scrollTo(0, 0); };
+  if (location.hash === '#dynasty') setTimeout(() => btn.click(), 0); // linked straight from the home page
   const backToSingle = () => { box.classList.add('hidden'); setup.classList.remove('hidden'); btn.classList.remove('hidden'); };
 
   function render() {
