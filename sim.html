@@ -2283,6 +2283,7 @@ const SimReplay = (() => {
     return `${you} ${playText(e)}`;
   }
   $('calls').onclick = (e) => {
+    if (e.target.closest('.term')) return; // a coaching term opens the dictionary; it never snaps the ball
     const b = e.target.closest('button'); if (!b || g.over) return;
     if (ADV && advClick(b)) return;
     idleStop(); stopSong(); // next call: any song ends, the drums come back after the play
