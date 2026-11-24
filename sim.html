@@ -4194,6 +4194,7 @@ const SimReplay = (() => {
     if (S.prog && !S.prog.pos) { const rs = realStaffFor(S.team); S.prog.pos = rs.pos; save(); }
     if (!S.aw) { initAw(); save(); }
     if (!S.contract) { initContract(); save(); }
+    { const L = [...(S.rec ? S.rec.board : []), ...(S.offseason ? S.offseason.recruits || [] : [])].filter((p) => !p.town && !p.tr); if (L.length) { for (const p of L) { if (!p.real && !p.hs) p.hs = pickState(stOf(S.team)); homeTown(p); } save(); } } // older saves: give every recruit a hometown and high school
     if (!S.tac || !S.roster[0].at) { syncAll(); if (!S.tac) initTac(); S.base = rosterAvgs(); save(); }
     if (S.roster && !S.roster.some((p) => p.pos === 'OT')) { nextId = Math.max(nextId, S.nextId || 0, ...S.roster.map((p) => p.id + 1)); fillRoster(S.roster, teamBaseOvr(TM(S.team).base)); syncOrder(); S.base = rosterAvgs(); S.nextId = nextId; save(); }
     if (S.phase === 'review') return renderReview();
