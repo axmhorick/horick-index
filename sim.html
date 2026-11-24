@@ -126,7 +126,24 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 .rx video { width:min(480px, 92vw); border-radius:12px; border:3px solid #fff; box-shadow:0 10px 40px rgba(0,0,0,.6); background:#000; }
 .rx.out { opacity:0; transition:opacity .25s; }
 @keyframes rxin { from { opacity:0; transform:scale(.9); } to { opacity:1; transform:none; } }
-</style>
+/*PSCSS*/
+.ps { margin:4px 0 10px; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:rgba(8,12,22,.55); }
+.ps-hd { display:flex; flex-wrap:wrap; gap:2px 10px; align-items:baseline; justify-content:space-between; padding:8px 12px; background:rgba(255,255,255,.04); border-bottom:1px solid var(--line); }
+.ps-hd b { font-family:var(--hd, inherit); letter-spacing:.08em; text-transform:uppercase; font-size:14px; } .ps-hd span { color:var(--muted); font-size:12px; }
+.ps-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:0; background:rgba(12,18,32,.96); }
+.ps-col { padding:0 0 4px; box-shadow:inset -1px 0 0 var(--line), inset 0 -1px 0 var(--line); }
+.ps-ch { font-family:var(--hd, inherit); text-transform:uppercase; letter-spacing:.08em; font-size:13px; font-weight:700; color:#0a0f1a; background:var(--c); padding:5px 10px; }
+.ps-row { display:block; padding:6px 10px; border-bottom:1px dashed rgba(130,160,230,.14); cursor:pointer; border-left:3px solid transparent; transition:background .12s; }
+.ps-row:hover, .ps-row:focus { background:rgba(62,224,255,.08); border-left-color:var(--c); outline:none; }
+.ps-row:active { background:rgba(62,224,255,.16); }
+.ps-row.star { background:rgba(255,197,61,.07); border-left-color:var(--accent2, #ffc53d); }
+.ps-nm { display:block; font-weight:700; font-size:14px; line-height:1.25; } .ps-f { display:block; color:var(--muted); font-size:11px; letter-spacing:.02em; }
+.ps-w { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:#9fb0d6; font-size:11.5px; line-height:1.3; }
+.ps-pk { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 10px; } .ps-pk > span { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin-right:4px; }
+.ps-pk .btn { padding:6px 10px; font-size:13px; text-align:left; } .ps-pk .btn small { display:block; font-size:11px; color:var(--muted); font-weight:400; }
+.ps-pk .btn.on { border-color:var(--neon, #3ee0ff); box-shadow:0 0 0 2px rgba(62,224,255,.35); }
+@media (max-width:520px) { .ps-grid { grid-template-columns:1fr 1fr; } .ps-row { padding:6px 8px; } .ps-nm { font-size:13px; } .ps-ch { font-size:12px; padding:4px 8px; } }
+/*/PSCSS*/</style>
 <link id="themeFont" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap">
 <style>/*THEME*/
 /* 🎮 Game UI theme for the Game Sim + Dynasty mode: night-game stadium look, glass panels, condensed
@@ -2282,9 +2299,10 @@ const SimReplay = (() => {
     const you = me === 'watch' ? '' : (e.side === me ? `You called <b>${e.play}</b>; they showed <b>${e.def}</b>.` : `They ran <b>${e.play}</b> into your <b>${e.def}</b>.`);
     return `${you} ${playText(e)}`;
   }
+  $('calls').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role=button]')) { e.preventDefault(); e.target.click(); } });
   $('calls').onclick = (e) => {
     if (e.target.closest('.term')) return; // a coaching term opens the dictionary; it never snaps the ball
-    const b = e.target.closest('button'); if (!b || g.over) return;
+    const b = e.target.closest('button, [role=button]'); if (!b || g.over) return;
     if (ADV && advClick(b)) return;
     idleStop(); stopSong(); // next call: any song ends, the drums come back after the play
     const mark = (e) => { if (e) e.byUser = true; return e; };
@@ -2521,33 +2539,37 @@ const SimReplay = (() => {
       <p class="hint">${C.kind === 'pass' ? '🎯 Pass' : C.kind === 'rpo' ? '🔀 RPO' : '🏃 Run'}: beats ${C.beats}. Struggles against ${C.fails}.</p>
       <button class="btn primary" data-abuild="1" style="width:100%">🏈 Break the huddle</button></details>`;
   }
-  function advRender() {
-    const key = `${g.log.length}|${g.poss}|${g.down}|${g.ball}`, bk = A.bucket(g), opp = oppSide();
-    if (!AP || AP.key !== key) AP = { key, stage: userOnOffense() ? 'call' : 'pers' };
+  function advRender() { /*SHEET*/
+    const key = `${g.log.length}|${g.poss}|${g.down}|${g.ball}`, bk = A.bucket(g), opp = oppSide(), seen = (g.tipSeen = g.tipSeen || {});
+    AP && (AP.sheetHTML = ''); if (!AP || AP.key !== key) AP = { key, stage: userOnOffense() ? 'call' : 'align' };
     const sit = `<div class="adv-sit"><span>📍 ${A.sitLabel ? A.sitLabel(g) : A.BUCKET[bk]}</span><span>⏱️ Timeouts: you ${g.timeouts[me]}, them ${g.timeouts[opp]}</span>${g.hurry[g.poss] && g.poss !== me ? '<span>⚡ They’re in hurry-up</span>' : ''}</div>`;
     let h = sit;
     $('read').innerHTML = '';
     if (userOnOffense()) {
       if (AP.stage === 'call') {
         $('callTitle').textContent = '🧠 Your call, coordinator';
-        const sheet = AP.sheet || (AP.sheet = A.callSheet(g, me, bk));
         if (g.down === 4 || (g.ot === 0 && g.qtr >= 2 && g.clock < 30)) { // 4th down (or the end of the half): the decision comes first
           const fgDist = 100 - g.ball + 17, pr = E.fgProb(g, g.poss);
           if (g.down === 4 && !AP.rec) { const d = E.aiOffense(g); AP.rec = d === 'punt' ? '🦵 punt' : d === 'field_goal' ? `🎯 kick the ${fgDist}-yard field goal` : '🏈 go for it'; }
-          h += `<div class="adv-line">4️⃣ <b>${g.down === 4 ? `4th & ${Math.min(g.togo, 100 - g.ball) >= 100 - g.ball ? 'goal' : g.togo}: your decision` : 'End of the half: your decision'}</b>${AP.rec ? `. The analytics call: <b>${AP.rec}</b>` : ''}. Go for it with a play from the call sheet below, or:</div>`;
+          h += `<div class="adv-line">4️⃣ <b>${g.down === 4 ? `4th & ${Math.min(g.togo, 100 - g.ball) >= 100 - g.ball ? 'goal' : g.togo}: your decision` : 'End of the half: your decision'}</b>${AP.rec ? `. The analytics call: <b>${AP.rec}</b>` : ''}. Go for it with a call off the sheet below, or:</div>`;
           h += '<div class="adv-pick" style="margin-bottom:10px">' + (!g.ot ? `<button class="btn" data-o="punt">🦵 Punt<small>Flip the field</small></button>` : '') + (fgDist <= 65 ? `<button class="btn" data-o="field_goal">🎯 Field goal (${fgDist} yds)<small>~${Math.round(pr * 100)}% to make</small></button>` : '') + '</div>';
         }
-        h += `<div class="h2" style="margin:6px 0">📋 Call sheet${g.down === 4 ? ' if you go for it' : ''}: ${A.sitLabel(g)}</div><div class="adv-sheet">${sheet.map((c, i) => `<button class="btn" data-ac="${i}"><b>${A.CON[c.concept].label}</b><small>${c.pers} personnel · ${A.FORMS[c.form].label}</small><small>${c.why}</small></button>`).join('')}</div>`;
+        const full = AP.full || (AP.full = offSheet(bk));
+        h += '\u0003'; AP.sheetHTML = `<div class="ps"><div class="ps-hd"><b>📋 Call sheet</b><span>${A.sitLabel(g)} · ⭐ = best calls here · tap a play to break the huddle</span></div><div class="ps-grid">`
+          + SHEET_O.map(([lab, col, f]) => {
+            const L = full.map((r, i) => [r, i]).filter(([r]) => f(A.CON[r.concept])).sort((a, b) => b[0].star - a[0].star);
+            return L.length ? `<div class="ps-col" style="--c:${col}"><div class="ps-ch">${lab}</div>${L.map(([r, i]) => `<div role="button" tabindex="0" class="ps-row${r.star ? ' star' : ''}" data-asheet="${i}"><span class="ps-nm">${r.star ? '⭐ ' : ''}${A.CON[r.concept].label}</span><span class="ps-f">${r.pers} pers · ${A.FORMS[r.form].label.replace(/ \(.*\)/, '')}</span><span class="ps-w">${r.why}</span></div>`).join('')}</div>` : '';
+          }).join('') + '</div></div>';
         h += buildHTML();
         h += toolsHTML(true);
-        $('tip').innerHTML = coach ? READ_TIP : '';
+        $('tip').innerHTML = coach && !seen.o ? READ_TIP : '';
       } else {
         const lk = AP.look, F = A.FORMS[AP.oc.form], blk = A.PERS[AP.oc.pers].blk + (A.CON[AP.oc.concept].read ? 1 : 0);
         $('callTitle').textContent = '🔭 At the line';
         h += `<div class="adv-line">You're in <b>${F.label}</b> with <b>${A.CON[AP.oc.concept].label}</b> called.<br>They subbed <b>${A.PKG[lk.pkg].label}</b> in ${/^[AEIOU]/i.test(A.FRONT[lk.front]) ? 'an' : 'a'} ${A.FRONT[lk.front]} front.<br>Shell: <b>${lk.shell}</b>. Box: <b>${lk.box}</b> vs your ${blk} blockers${lk.box > blk ? ' (they have the numbers against the run)' : lk.box < blk ? ' (you have the numbers to run it)' : ''}.${lk.tell ? '<br>⚠️ Linebackers are creeping toward the line: pressure could be coming.' : ''}</div>`;
         h += `<div class="adv-build"><button class="btn primary" data-asnap="1">▶️ Snap it</button><div><label>Check to</label><select id="advAud">${A.conceptsFor(AP.oc.form, g[me]).filter((c) => c !== AP.oc.concept).map((c) => `<option value="${c}">${A.CON[c].label}</option>`).join('')}</select></div><button class="btn" data-aaud="1">🔁 Audible</button></div>`;
         h += toolsHTML(false);
-        $('tip').innerHTML = coach ? READ_TIP : '';
+        $('tip').innerHTML = coach && !seen.o ? READ_TIP : '';
       }
     } else {
       if (!AP.oc) AP.oc = A.aiOff(g);
@@ -2558,30 +2580,63 @@ const SimReplay = (() => {
         $('calls').className = 'adv'; $('calls').innerHTML = (C.link || ((x) => x))(sit) + `<div class="adv-pick"><button class="btn primary" data-ast="1">▶️ Line up${oc.st === 'field_goal' ? ` (${100 - g.ball + 17}-yard try)` : ''}</button></div>` + toolsHTML(false); $('tip').innerHTML = ''; return true;
       }
       const P = A.profile(O, bk);
+      if (!AP.sug) { AP.sug = A.aiDef(g, oc); AP.pkg = AP.sug.pkg; }
       const scoutLine = P.src === 'pff' ? `<br>🔒 Scouting (${A.sitLabel ? A.sitLabel(g) : A.BUCKET[bk]}): they run ${pctA(P.run)}; runs: ${topK(P.runc, 2, RUNLAB)}; passes: ${topK(P.passc, 2, (k) => FAMLAB[k] || k)}.` : `<br>🔎 ${E.STYLES[O.style].label} offense.`;
-      if (AP.stage === 'pers') {
-        $('callTitle').textContent = '🛡️ Match their personnel';
-        h += `<div class="adv-line">🔄 They're sending in <b>${A.PERS[oc.pers].label}</b> (${A.PERS[oc.pers].who}).${scoutLine}</div>`;
-        const tips = { base: 'Bigger: best vs 2 TEs / 2 backs', nickel: '5 DBs: the answer to 3 receivers', dime: '6 DBs: obvious passing downs', heavy: 'Goal line / short yardage' };
-        h += `<div class="adv-pick">${Object.keys(A.PKG).map((k) => `<button class="btn" data-apkg="${k}">${A.PKG[k].label}<small>${tips[k]}</small></button>`).join('')}</div>` + toolsHTML(false);
-        $('tip').innerHTML = coach ? '🧢 <b>Match personnel first.</b> Nickel against 3 receivers, base against 2 tight ends or 2 backs, heavy at the goal line. Too light and they run on you; too heavy and a linebacker ends up covering a slot receiver.' : '';
-      } else {
-        $('callTitle').textContent = '🛡️ Your defensive call';
-        const sg = AP.sug, o = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${t}</option>`;
-        h += `<div class="adv-line">They line up in <b>${A.FORMS[oc.form].label}</b> (${oc.pers} personnel) against your ${A.PKG[AP.pkg].label.replace(/ \(.*\)/, '')}.${scoutLine}</div>`;
-        h += `<div class="adv-build"><div><label>Front</label><select id="adF">${Object.keys(A.FRONT).map((k) => o(k, A.FRONT[k], k === sg.front)).join('')}</select></div>
+      $('callTitle').textContent = '🛡️ Your defensive call';
+      h += `<div class="adv-line">🔄 They sent in <b>${A.PERS[oc.pers].label}</b> (${A.PERS[oc.pers].who}) and lined up in <b>${A.FORMS[oc.form].label}</b>.${scoutLine}</div>`;
+      const ptip = { base: 'vs 2 TE / 2 backs', nickel: 'vs 3 receivers', dime: 'passing downs', heavy: 'goal line' };
+      h += `<div class="ps-pk"><span>Your package</span>${Object.keys(A.PKG).map((k) => `<button class="btn${k === AP.pkg ? ' on' : ''}" data-dpkg="${k}">${A.PKG[k].label.replace(/ \(.*\)/, '')}<small>${k === AP.sug.pkg ? '⭐ matches them' : ptip[k]}</small></button>`).join('')}</div>`;
+      const full = (AP.dfull = defSheet(O, bk));
+      h += '\u0003'; AP.sheetHTML = `<div class="ps"><div class="ps-hd"><b>📋 Call sheet</b><span>${A.sitLabel(g)} · ⭐ = your DC likes it here · tap a call to snap</span></div><div class="ps-grid">`
+        + SHEET_D.map(([lab, col, grp]) => {
+          const L = full.map((r, i) => [r, i]).filter(([r]) => r.grp === grp);
+          return `<div class="ps-col" style="--c:${col}"><div class="ps-ch">${lab}</div>${L.map(([r, i]) => `<div role="button" tabindex="0" class="ps-row${r.star ? ' star' : ''}" data-dsheet="${i}"><span class="ps-nm">${r.star ? '⭐ ' : ''}${A.COV[r.cov].label}${r.pres !== 'none' ? ' · ' + (r.pres === 'all' ? 'all-out blitz' : r.pres === 'fire' ? 'fire zone' : 'sim pressure') : ''}</span><span class="ps-f">${A.FRONT[r.front].replace(/ \(.*\)/, '')} front</span><span class="ps-w">${r.tag}</span></div>`).join('')}</div>`;
+        }).join('') + '</div></div>';
+      const sg = AP.sug, o = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${t}</option>`;
+      h += `<details class="sec" style="margin-top:10px"><summary class="h2">🛠️ Build your own call</summary><div class="adv-build"><div><label>Front</label><select id="adF">${Object.keys(A.FRONT).map((k) => o(k, A.FRONT[k], k === (AP.pkg === 'heavy' ? 'bear' : sg.front))).join('')}</select></div>
           <div><label>Coverage</label><select id="adC">${Object.keys(A.COV).map((k) => o(k, A.COV[k].long, k === sg.cov)).join('')}</select></div>
           <div><label>Pressure</label><select id="adP">${Object.keys(A.PRES).map((k) => o(k, A.PRES[k].label, k === sg.pres)).join('')}</select></div>
-          <button class="btn primary" data-adsnap="1">▶️ Snap</button></div><p class="hint">Your DC's suggestion is pre-selected. Cover 0 always sends everyone.</p>` + toolsHTML(false);
-        $('tip').innerHTML = coach ? '🧢 <b>Take away what they love here.</b> Single-high (Cover 1, 3) adds a defender to the box against the run; two-high (Cover 2, 4, 6) takes away deep shots and verticals; man (Cover 1, 2-Man) kills zone-beaters like Flood and Stick but gets rubbed by Mesh and crossers. Pressure gets home on long downs but leaves no help behind it.' : '';
-      }
+          <button class="btn primary" data-adsnap="1">▶️ Snap</button></div><p class="hint">Cover 0 always sends everyone.</p></details>` + toolsHTML(false);
+      $('tip').innerHTML = coach && !seen.d ? '🧢 <b>Match personnel, then take away what they love here.</b> Nickel against 3 receivers, base against 2 tight ends or 2 backs, heavy at the goal line. Single-high (Cover 1, 3) adds a defender to the box against the run; two-high (Cover 2, 4, 6) takes away deep shots; man (Cover 1, 2-Man) kills zone-beaters like Flood and Stick but gets rubbed by Mesh and crossers. Pressure gets home on long downs but leaves no help behind it.' : '';
     }
-    $('calls').className = 'adv'; $('calls').innerHTML = C.link ? C.link(h) : h; if (C.link) $('tip').innerHTML = C.link($('tip').innerHTML); return true;
+    $('calls').className = 'adv'; $('calls').innerHTML = (C.link ? C.link(h) : h).replace('\u0003', () => AP.sheetHTML || ''); if (C.link) $('tip').innerHTML = C.link($('tip').innerHTML); return true;
+  }
+  // ---- play sheet helpers ----
+  const SHEET_O = [['🏃 Runs', '#35d07f', (C) => C.kind === 'run'], ['⚡ Quick game', '#3ee0ff', (C) => C.fam === 'quick'], ['🎯 Dropback', '#7aa2ff', (C) => C.fam === 'mid'], ['🚀 Shots', '#ff7a1a', (C) => C.fam === 'deep'], ['🎭 Play action', '#c08cff', (C) => C.fam === 'pa'], ['🪤 Screens & RPOs', '#ffc53d', (C) => C.fam === 'screen' || C.fam === 'rpo']];
+  const SHEET_D = [['🧱 Zone', '#3ee0ff', 'zone'], ['🔒 Man', '#7aa2ff', 'man'], ['🔥 Pressure', '#ff7a1a', 'pres']];
+  function shortBeat(C) { let b = C.beats.split(':')[0]; if (b.length > 30) b = b.slice(0, 30).replace(/\s+\S*$/, '') + '…'; return 'Beats ' + b; }
+  function offSheet(bk) {
+    const T = g[me], P = A.profile(T, bk), rec = AP.sheet || (AP.sheet = A.callSheet(g, me, bk)), togo = Math.min(g.togo, 100 - g.ball);
+    const pers = Object.entries(P.pers).sort((a, b) => b[1] - a[1]).map((x) => x[0]).filter((p) => A.PERS[p] && A.formsFor(p, T).length);
+    for (const p of Object.keys(A.PERS)) if (!pers.includes(p) && A.formsFor(p, T).length) pers.push(p);
+    const formOf = (c) => { for (const p of pers) { const fs = A.formsFor(p, T), pf = P.form ? Object.entries(P.form).sort((a, b) => b[1] - a[1]).map((x) => x[0]).filter((f) => fs.includes(f)) : []; for (const f of pf.concat(fs)) if (A.allowed(c, f, T)) return { pers: p, form: f }; } return null; };
+    const rows = [];
+    for (const c of Object.keys(A.CON)) {
+      if (c === 'sneak' && togo > 2) continue;
+      const r = rec.find((x) => x.concept === c), pf = r ? { pers: r.pers, form: r.form } : formOf(c); if (!pf) continue;
+      rows.push(Object.assign(pf, { concept: c, why: r ? r.why : shortBeat(A.CON[c]), star: !!r }));
+    }
+    return rows;
+  }
+  function defSheet(O, bk) {
+    const sg = AP.sug, fr = AP.pkg === 'heavy' ? 'bear' : sg.front === 'bear' ? 'over' : sg.front, P = A.profile(O, bk);
+    const runny = P.run != null ? P.run >= 0.55 : ['option', 'power'].includes(O.style), short = ['s', 'gl'].includes(bk), long = ['L', 'l'].includes(bk);
+    const L = [['zone', 'c3', 'none', '3 deep, 4 under: safe all-around'], ['zone', 'c4', 'none', 'Quarters: 4 deep, safeties help vs the run'], ['zone', 'c2', 'none', '2 deep, 5 under: no deep shots'], ['zone', 'c6', 'none', 'Quarter-quarter-half: two looks in one'],
+      ['man', 'c1', 'none', 'Man free: tight coverage, one deep safety'], ['man', 'c2m', 'none', '2 deep, man under: chokes the short game'],
+      ['pres', 'c3', 'fire', '5-man rush, zone behind it'], ['pres', 'c1', 'fire', '5-man rush, man behind it'], ['pres', 'c3', 'sim', '4 rush, but one is a surprise rusher'], ['pres', 'c0', 'all', 'Everyone comes: sack or big play']];
+    return L.map(([grp, cov, pres, tag]) => {
+      const dc = sg.cov === cov && sg.pres === (cov === 'c0' ? 'all' : pres);
+      const tend = (runny || short) ? (cov === 'c1' && pres === 'none') || (cov === 'c3' && pres === 'fire') : long ? (cov === 'c4' && pres === 'none') || (cov === 'c3' && pres === 'sim') : false;
+      return { grp, pkg: AP.pkg, front: fr, cov, pres: cov === 'c0' ? 'all' : pres, tag, star: dc || tend };
+    });
   }
   function breakHuddle(oc) { AP.oc = oc; AP.dc = A.aiDef(g, oc); AP.look = A.look(g, AP.dc); AP.stage = 'line'; renderCalls(); }
-  function snapAdv(oc, dc) { idleStop(); stopSong(); const e = A.play(g, oc, dc); if (e) e.byUser = true; AP = null; after(e, null); }
+  function snapAdv(oc, dc) { (g.tipSeen = g.tipSeen || {})[userOnOffense() ? 'o' : 'd'] = 1; idleStop(); stopSong(); const e = A.play(g, oc, dc); if (e) e.byUser = true; AP = null; after(e, null); }
   function advClick(b) {
     const ds = b.dataset;
+    if (ds.asheet != null) { const c = AP.full[+ds.asheet]; breakHuddle({ pers: c.pers, form: c.form, concept: c.concept }); return true; }
+    if (ds.dsheet != null) { const c = AP.dfull[+ds.dsheet]; snapAdv(AP.oc, { pkg: c.pkg, front: c.front, cov: c.cov, pres: c.pres }); return true; }
+    if (ds.dpkg) { AP.pkg = ds.dpkg; renderCalls(); return true; }
     if (ds.ac != null) { const c = AP.sheet[+ds.ac]; breakHuddle({ pers: c.pers, form: c.form, concept: c.concept }); return true; }
     if (ds.abuild) { breakHuddle({ pers: AP.build.pers, form: AP.build.form, concept: AP.build.concept }); return true; }
     if (ds.asnap) { snapAdv(AP.oc, AP.dc); return true; }
