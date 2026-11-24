@@ -145,7 +145,9 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 .ps-fs { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
 .ps-fc { font-size:11px; line-height:1; padding:4px 7px; border-radius:999px; border:1px solid rgba(130,160,230,.28); color:#c9d3ee; background:rgba(255,255,255,.03); cursor:pointer; white-space:nowrap; }
 .ps-fc.on { border-color:var(--c); color:#fff; } .ps-fc:hover { background:rgba(62,224,255,.15); border-color:var(--neon, #3ee0ff); }
-@media (max-width:520px) { .ps-grid { grid-template-columns:1fr 1fr; } .ps-row { padding:6px 8px; } .ps-nm { font-size:13px; } .ps-ch { font-size:12px; padding:4px 8px; } }
+.ps-row { position:relative; } .ps-dg { float:right; margin:-2px -4px 0 6px; width:26px; height:24px; line-height:22px; text-align:center; border-radius:8px; border:1px solid rgba(130,160,230,.28); color:var(--c, #3ee0ff); font-size:13px; cursor:pointer; background:rgba(255,255,255,.03); }
+.ps-dg:hover { background:rgba(62,224,255,.15); } .ps-dgw { display:block; margin:6px 0 2px; cursor:pointer; } .ps-svg { display:block; width:100%; height:auto; border-radius:8px; } .ps-dgc { display:block; color:var(--muted); font-size:10.5px; line-height:1.3; margin-top:3px; }
+@media (max-width:520px) { .ps-grid { grid-template-columns:1fr 1fr; } .ps-col:has(.ps-dgw) { grid-column:1 / -1; } .ps-dgw .ps-svg { max-width:380px; margin:0 auto; } .ps-row { padding:6px 8px; } .ps-nm { font-size:13px; } .ps-ch { font-size:12px; padding:4px 8px; } }
 /*/PSCSS*/</style>
 <link id="themeFont" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap">
 <style>/*THEME*/
@@ -1727,8 +1729,9 @@ const SimReplay = (() => {
       else if (manMap.has(d)) { const r = manMap.get(d); for (const k of r.kf) if (k[0] > T0) d.kf.push([k[0] + 0.02, k[1] + (k[1] > 0 ? -0.9 : 0.9), k[2] + 0.4]); }
       else { const z = under[ui++ % under.length]; d.kf.push([T0 + 0.3, z[0], z[1]]); }
     }
-    // pursuit to the ball and the tackle
     const fsp = finalSpot || [TE, 0, Y];
+    if (!e.dg) {
+    // pursuit to the ball and the tackle
     if (res === 'int' && ball.tgt) { tk.kf = tk.kf.filter((k) => k[0] < tacklePt[2]); tk.kf.push([tacklePt[2], tacklePt[0], tacklePt[1]], [TE, fsp[1], fsp[2]]); ball.push([TE, fsp[1], fsp[2]]); }
     else if (res === 'inc') { tk.kf = tk.kf.filter((k) => k[0] < tacklePt[2] - 0.05); tk.kf.push([tacklePt[2], tacklePt[0], tacklePt[1]]); }
     X.forEach((d, i) => d.j = ((i * 7) % 5 - 2) * 1.4); // spread the pursuit so it doesn't pile up
@@ -1739,10 +1742,11 @@ const SimReplay = (() => {
       if (d === tk) { d.kf = d.kf.filter((k) => k[0] < TE - 0.1); d.kf.push([TE, fsp[1] + (fsp[1] > 0 ? 0.7 : -0.7), fsp[2] + 0.7]); }
       else if (dist > 2) { const f = dl.includes(d) ? Math.min(0.45, 5 / dist + 0.1) : Math.min(0.75, 9 / dist + 0.3); d.kf.push([TE + 0.04, p[0] + dx * f + d.j, p[1] + dy * f - Math.abs(d.j) * 0.5]); }
     }
+    }
     if (fum) ball.push([TE + 0.03, fsp[1] + 1.5, fsp[2] + 1], [TE + 0.08, fsp[1] + 1.8, fsp[2] + 1.2]);
     for (const P of [...O, ...X]) P.kf.sort((a2, b2) => a2[0] - b2[0]);
     ball.sort((a2, b2) => a2[0] - b2[0]);
-    return { O, X, ball, tk, carrier, target: ball.tgt || carrier, finalSpot: fsp, isRun, oc, dc };
+    return { O, X, ball, tk, carrier, target: ball.tgt || carrier, finalSpot: fsp, isRun, oc, dc, rushers };
   }
 
   // ---------- drawing ----------
@@ -1788,7 +1792,43 @@ const SimReplay = (() => {
     requestAnimationFrame(step);
   }
   if (typeof document !== 'undefined') document.addEventListener('click', (ev) => { const b = ev.target.closest && ev.target.closest('[data-rp]'); if (b) play(b.dataset.rp, !!b.dataset.slow); });
-  return { build, html, play };
+  // ---------- static play-sheet diagram (Nov 24): the call drawn like a playbook card ----------
+  // side 'o': your routes and blocks against a faint defense; side 'd': your rush, drops and man assignments.
+  function diagram(oc, dc, side = 'o', run) {
+    const e = { adv: { oc, dc, rpo: null }, offKey: run ? 'inside_run' : 'short_pass', res: run ? 'run' : 'inc', yards: run ? 6 : 0, togo: 10, ball0: 35, text: '', dg: 1, offRole: run ? (oc.concept === 'sneak' || oc.concept === 'qbpower' || oc.concept === 'qb_draw' ? 'QB' : 'RB') : 'WR1', defRole: '' };
+    let B; try { B = build(e); } catch (err) { return ''; }
+    const yLo = -9, yHi = side === 'o' ? 22 : 18, k = 4.4, Wp = W * k, H = (yHi - yLo) * k;
+    const SX = (x) => ((x + HALF) * k).toFixed(1), SY = (y) => ((yHi - y) * k).toFixed(1);
+    const cut = (kf, t1) => { const out = kf.filter((q) => q[0] >= T0 && q[0] <= t1); const end = at(kf, t1); if (!out.length || out[out.length - 1][0] < t1) out.push([t1, end[0], end[1]]); return out; };
+    const pth = (kf) => kf.map((q, i) => `${i ? 'L' : 'M'}${SX(q[1])} ${SY(q[2])}`).join(' ');
+    const moved = (kf) => kf.length > 1 && Math.hypot(kf[kf.length - 1][1] - kf[0][1], kf[kf.length - 1][2] - kf[0][2]) > 0.8;
+    const id = 'dg' + (++uid);
+    let g = `<defs><marker id="${id}a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#f4f1e6"/></marker><marker id="${id}b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffb347"/></marker><marker id="${id}c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#7fdcff"/></marker></defs>`;
+    g += `<rect width="${Wp}" height="${H}" fill="#24452f" rx="8"/>`;
+    for (let y = -5; y <= yHi; y += 5) g += `<line x1="0" x2="${Wp}" y1="${SY(y)}" y2="${SY(y)}" stroke="#f4f1e6" stroke-opacity=".12"/>`;
+    g += `<line x1="0" x2="${Wp}" y1="${SY(0)}" y2="${SY(0)}" stroke="#7fb2ff" stroke-opacity=".7" stroke-dasharray="4 3"/>`;
+    const tO = TE, tD = 0.56, carrier = B.carrier;
+    // offense
+    for (const p of B.O) {
+      const kf = cut(p.kf, tO), start = p.kf[0];
+      if (side === 'o' && moved(kf)) {
+        const blk = !p.lab; // linemen: short block marks
+        if (blk) { const q = kf[kf.length - 1]; g += `<line x1="${SX(start[1])}" y1="${SY(start[2])}" x2="${SX(q[1])}" y2="${SY(q[2])}" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.6"/>`; }
+        else g += `<path d="${pth([[0, start[1], start[2]]].concat(kf))}" fill="none" stroke="#f4f1e6" stroke-width="${p === carrier || p === B.target ? 2.2 : 1.5}" stroke-opacity="${p === carrier || p === B.target ? 1 : 0.8}" ${p === B.target || p === carrier ? '' : 'stroke-dasharray="5 3"'} marker-end="url(#${id}a)"/>`;
+      }
+      const hot = side === 'o' && (p === carrier || p === B.target);
+      g += `<circle cx="${SX(start[1])}" cy="${SY(start[2])}" r="${p.lab ? 5.5 : 5}" fill="${hot ? '#f4f1e6' : '#24452f'}" stroke="#f4f1e6" stroke-width="1.6" stroke-opacity="${side === 'o' ? 1 : 0.45}"/>`;
+      if (p.lab && side === 'o') g += `<text x="${SX(start[1])}" y="${(+SY(start[2]) + 3).toFixed(1)}" text-anchor="middle" font-size="7" font-weight="700" fill="${hot ? '#24452f' : '#f4f1e6'}">${p.lab}</text>`;
+    }
+    // defense
+    for (const d of B.X) {
+      const kf = cut(d.kf, tD), s0 = d.kf[0], rush = B.rushers.has(d);
+      if (side === 'd' && moved(kf)) g += `<path d="${pth([[0, s0[1], s0[2]]].concat(kf))}" fill="none" stroke="${rush ? '#ffb347' : '#7fdcff'}" stroke-width="1.6" ${rush ? '' : 'stroke-dasharray="5 3"'} marker-end="url(#${id}${rush ? 'b' : 'c'})"/>`;
+      g += `<path transform="translate(${SX(s0[1])} ${SY(s0[2])})" d="M-4 -4 L4 4 M4 -4 L-4 4" stroke="${side === 'd' ? (rush && moved(kf) ? '#ffb347' : '#f2c94c') : '#f2c94c'}" stroke-opacity="${side === 'd' ? 1 : 0.4}" stroke-width="2" stroke-linecap="round"/>`;
+    }
+    return `<svg class="ps-svg" viewBox="0 0 ${Wp.toFixed(0)} ${H.toFixed(0)}" role="img" aria-label="Play diagram">${g}</svg>`;
+  }
+  return { build, html, play, diagram };
 })();
 
 /*/RP*/</script>
@@ -2599,7 +2639,7 @@ const SimReplay = (() => {
         h += '\u0003'; AP.sheetHTML = `<div class="ps"><div class="ps-hd"><b>📋 Call sheet</b><span>${A.sitLabel(g)} · ⭐ = best calls here · tap a play to break the huddle</span></div><div class="ps-grid">`
           + SHEET_O.map(([lab, col, f]) => {
             const L = full.map((r, i) => [r, i]).filter(([r]) => f(A.CON[r.concept])).sort((a, b) => b[0].star - a[0].star);
-            return L.length ? `<div class="ps-col" style="--c:${col}"><div class="ps-ch">${lab}</div>${L.map(([r, i]) => `<div role="button" tabindex="0" class="ps-row${r.star ? ' star' : ''}" data-asheet="${i}" data-af="0"><span class="ps-nm">${r.star ? '⭐ ' : ''}${A.CON[r.concept].label}</span><span class="ps-w">${r.why}</span><span class="ps-fs">${r.forms.map((f, j) => `<span role="button" class="ps-fc${j ? '' : ' on'}" data-asheet="${i}" data-af="${j}">${f.pers} · ${A.FORMS[f.form].label.replace(/ \(.*\)/, '')}</span>`).join('')}</span></div>`).join('')}</div>` : '';
+            return L.length ? `<div class="ps-col" style="--c:${col}"><div class="ps-ch">${lab}</div>${L.map(([r, i]) => `<div role="button" tabindex="0" class="ps-row${r.star ? ' star' : ''}" data-asheet="${i}" data-af="0"><span role="button" class="ps-dg" data-dg="o${r.concept}" title="Show the play">${AP.dg && AP.dg['o' + r.concept] ? '▾' : '▸'}</span><span class="ps-nm">${r.star ? '⭐ ' : ''}${A.CON[r.concept].label}</span>${AP.dg && AP.dg['o' + r.concept] && typeof SimReplay !== 'undefined' && SimReplay.diagram ? `<span role="button" class="ps-dgw" data-dg="o${r.concept}">${SimReplay.diagram({ pers: r.forms[0].pers, form: r.forms[0].form, concept: r.concept }, { pkg: 'nickel', front: 'over', cov: 'c3', pres: 'none' }, 'o', A.CON[r.concept].kind === 'run')}<span class="ps-dgc">${r.forms[0].pers} · ${A.FORMS[r.forms[0].form].label.replace(/ \(.*\)/, '')} vs a standard Cover 3 look. Filled circle = the ball carrier or first read.</span></span>` : ''}<span class="ps-w">${r.why}</span><span class="ps-fs">${r.forms.map((f, j) => `<span role="button" class="ps-fc${j ? '' : ' on'}" data-asheet="${i}" data-af="${j}">${f.pers} · ${A.FORMS[f.form].label.replace(/ \(.*\)/, '')}</span>`).join('')}</span></div>`).join('')}</div>` : '';
           }).join('') + '</div></div>';
         h += buildHTML();
         h += toolsHTML(true);
@@ -2631,7 +2671,7 @@ const SimReplay = (() => {
       h += '\u0003'; AP.sheetHTML = `<div class="ps"><div class="ps-hd"><b>📋 Call sheet</b><span>${A.sitLabel(g)} · ⭐ = your DC likes it here · tap a call to snap</span></div><div class="ps-grid">`
         + SHEET_D.map(([lab, col, grp]) => {
           const L = full.map((r, i) => [r, i]).filter(([r]) => r.grp === grp);
-          return `<div class="ps-col" style="--c:${col}"><div class="ps-ch">${lab}</div>${L.map(([r, i]) => `<div role="button" tabindex="0" class="ps-row${r.star ? ' star' : ''}" data-dsheet="${i}"><span class="ps-nm">${r.star ? '⭐ ' : ''}${A.COV[r.cov].label}${r.pres !== 'none' ? ' · ' + (r.pres === 'all' ? 'all-out blitz' : r.pres === 'fire' ? 'fire zone' : 'sim pressure') : ''}</span><span class="ps-w">${r.tag}</span><span class="ps-fs">${(r.fixed ? [r.front] : ['over', 'under', 'odd', 'bear']).map((fk) => `<span role="button" class="ps-fc${fk === r.front ? ' on' : ''}" data-dsheet="${i}" data-dfr="${fk}">${A.FRONT[fk].replace(/ \(.*\)/, '').replace('Odd / Tite', 'Odd')}</span>`).join('')}</span></div>`).join('')}</div>`;
+          return `<div class="ps-col" style="--c:${col}"><div class="ps-ch">${lab}</div>${L.map(([r, i]) => `<div role="button" tabindex="0" class="ps-row${r.star ? ' star' : ''}" data-dsheet="${i}"><span role="button" class="ps-dg" data-dg="d${i}" title="Show the call">${AP.dg && AP.dg['d' + i] ? '▾' : '▸'}</span><span class="ps-nm">${r.star ? '⭐ ' : ''}${A.COV[r.cov].label}${r.pres !== 'none' ? ' · ' + (r.pres === 'all' ? 'all-out blitz' : r.pres === 'fire' ? 'fire zone' : 'sim pressure') : ''}</span><span class="ps-w">${r.tag}</span>${AP.dg && AP.dg['d' + i] && typeof SimReplay !== 'undefined' && SimReplay.diagram ? `<span role="button" class="ps-dgw" data-dg="d${i}">${SimReplay.diagram(AP.oc, { pkg: r.pkg, front: r.front, cov: r.cov, pres: r.pres }, 'd', false)}<span class="ps-dgc">Your ${A.PKG[r.pkg].label.replace(/ \(.*\)/, '')} ${A.FRONT[r.front].replace(/ \(.*\)/, '')} front vs their ${A.FORMS[AP.oc.form].label.replace(/ \(.*\)/, '')}. Orange = rushers, blue = coverage.</span></span>` : ''}<span class="ps-fs">${(r.fixed ? [r.front] : ['over', 'under', 'odd', 'bear']).map((fk) => `<span role="button" class="ps-fc${fk === r.front ? ' on' : ''}" data-dsheet="${i}" data-dfr="${fk}">${A.FRONT[fk].replace(/ \(.*\)/, '').replace('Odd / Tite', 'Odd')}</span>`).join('')}</span></div>`).join('')}</div>`;
         }).join('') + '</div></div>';
       const sg = AP.sug, o = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${t}</option>`;
       h += `<details class="sec" style="margin-top:10px"><summary class="h2">🛠️ Build your own call</summary><div class="adv-build"><div><label>Front</label><select id="adF">${Object.keys(A.FRONT).map((k) => o(k, A.FRONT[k], k === (AP.pkg === 'heavy' ? 'bear' : sg.front))).join('')}</select></div>
@@ -2686,6 +2726,7 @@ const SimReplay = (() => {
   function snapAdv(oc, dc) { (g.tipSeen = g.tipSeen || {})[userOnOffense() ? 'o' : 'd'] = 1; idleStop(); stopSong(); const e = A.play(g, oc, dc); if (e) e.byUser = true; AP = null; after(e, null); }
   function advClick(b) {
     const ds = b.dataset;
+    if (ds.dg) { const D2 = (AP.dg = AP.dg || {}); D2[ds.dg] = !D2[ds.dg]; renderCalls(); return true; }
     if (ds.asheet != null) { const c = AP.full[+ds.asheet], f = c.forms[+(ds.af || 0)] || c.forms[0]; breakHuddle({ pers: f.pers, form: f.form, concept: c.concept }); return true; }
     if (ds.dsheet != null) { const c = AP.dfull[+ds.dsheet]; snapAdv(AP.oc, { pkg: c.pkg, front: ds.dfr || c.front, cov: c.cov, pres: c.pres }); return true; }
     if (ds.dpkg) { AP.pkg = ds.dpkg; renderCalls(); return true; }
