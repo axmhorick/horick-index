@@ -369,8 +369,9 @@ const SimEngine = (() => {
   const OFF_ROLES = { inside_run: [['RB', 1]], outside_run: [['RB', 1]], qb_sneak: [['QB', 1]], screen: [['RB', 1]],
     short_pass: [['SLOT', 0.4], ['TE', 0.3], ['WR2', 0.3]], medium_pass: [['WR2', 0.4], ['WR1', 0.35], ['TE', 0.25]], deep_pass: [['WR1', 0.65], ['WR2', 0.35]],
     play_action: [['TE', 0.35], ['WR1', 0.35], ['WR2', 0.3]] };
-  const DEF_ROLES = { run: [['LB', 0.4], ['LB2', 0.2], ['S', 0.15], ['DT', 0.15], ['EDGE', 0.1]], sack: [['EDGE', 0.5], ['EDGE2', 0.25], ['DT', 0.15], ['LB', 0.1]],
-    screen: [['LB', 0.5], ['NB', 0.3], ['S', 0.2]], short: [['NB', 0.35], ['CB2', 0.35], ['LB', 0.3]], medium: [['LB', 0.25], ['NB', 0.2], ['S', 0.3], ['CB2', 0.25]], deep: [['CB1', 0.45], ['CB2', 0.3], ['S', 0.25]],
+  const DEF_ROLES = { run: [['LB', 0.28], ['LB2', 0.18], ['S', 0.1], ['S2', 0.06], ['NB', 0.04], ['DT', 0.1], ['DT2', 0.08], ['EDGE', 0.09], ['EDGE2', 0.07]], // the whole front makes tackles
+    sack: [['EDGE', 0.36], ['EDGE2', 0.3], ['DT', 0.14], ['DT2', 0.1], ['LB', 0.06], ['LB2', 0.04]],
+    screen: [['LB', 0.4], ['LB2', 0.15], ['NB', 0.25], ['S', 0.2]], short: [['NB', 0.35], ['CB2', 0.35], ['LB', 0.3]], medium: [['LB', 0.25], ['NB', 0.2], ['S', 0.3], ['CB2', 0.25]], deep: [['CB1', 0.45], ['CB2', 0.3], ['S', 0.25]],
     pa: [['S', 0.35], ['LB', 0.3], ['CB2', 0.35]] };
   const pkey = (play) => (play === 'play_action' ? 'pa' : play.replace('_pass', ''));
   function pickRole(r, list) { let x = r(), acc = 0; for (const [k, w] of list) { acc += w; if (x < acc) return k; } return list[list.length - 1][0]; }
@@ -379,6 +380,15 @@ const SimEngine = (() => {
   // rotation spots (RB, D-line), which keep subbing to stay fresh.
   const SHARE = { QB: 0, RB: 0.42, WR1: 0.15, WR2: 0.2, SLOT: 0.22, TE: 0.3, EDGE: 0.35, EDGE2: 0.38, DT: 0.4, DT2: 0.42, LB: 0.12, LB2: 0.2, CB1: 0.06, CB2: 0.1, NB: 0.15, S: 0.06, S2: 0.1 };
   const ROTATE = new Set(['RB', 'EDGE', 'EDGE2', 'DT', 'DT2']);
+  // the third string (when a roster lists one): RBs and D-linemen get a real share; everyone else mostly in blowouts
+  const THIRD = { RB: 0.14, EDGE: 0.12, EDGE2: 0.14, DT: 0.14, DT2: 0.16, WR2: 0.05, SLOT: 0.05, TE: 0.08, LB2: 0.05 };
+  function thirdShare(g, side, role) {
+    const base = THIRD[role] || 0, m = Math.abs(g.score[side] - g.score[other(side)]), q = g.qtr;
+    if ((q >= 4 && m >= 28) || (q >= 3 && m >= 35)) return 0.4;
+    if ((q >= 4 && m >= 21) || (q >= 3 && m >= 28)) return Math.max(base * 2, 0.15);
+    if (q >= 3 && m <= 8 && !ROTATE.has(role)) return 0;
+    return base;
+  }
   function backupShare(g, side, role) {
     const base = SHARE[role] || 0, m = Math.abs(g.score[side] - g.score[other(side)]), q = g.qtr;
     if (!base) return 0;
@@ -387,7 +397,7 @@ const SimEngine = (() => {
     if (q >= 3 && m <= 8 && !ROTATE.has(role)) return base * 0.5;            // close game: starters stay in
     return base;
   }
-  // role -> 'ROLE' (starter) or 'ROLE~b' (backup) for this snap
+  // role -> 'ROLE' (starter), 'ROLE~b' (backup) or 'ROLE~c' (third string) for this snap
   function onField(g, side, role) {
     const p = g[side].roster && g[side].roster[role];
     if (role === 'QB') {   // QBs don't rotate: the backup comes in for good once the game is out of reach
@@ -395,9 +405,12 @@ const SimEngine = (() => {
       if (p && p.b && ((g.qtr >= 4 && m >= 24) || (g.qtr >= 3 && m >= 31))) (g.qb2 = g.qb2 || {})[side] = true;
       return g.qb2 && g.qb2[side] ? 'QB~b' : 'QB';
     }
-    return p && p.b && g.rng() < backupShare(g, side, role) ? role + '~b' : role;
+    if (!p || !p.b) return role;
+    if (p.t3 && g.rng() < thirdShare(g, side, role)) return role + '~c';
+    return g.rng() < backupShare(g, side, role) ? role + '~b' : role;
   }
-  const player = (T, role) => { const [k, b] = role.split('~'); const p = T.roster && T.roster[k]; return p && b ? p.b : p; };
+  const player = (T, role) => { const [k, b] = role.split('~'); const p = T.roster && T.roster[k]; return p && b ? (b === 'c' ? p.t3 || p.b : p.b) : p; }; // t3 = third string ('c' on a roster entry is his class year)
+  const subPen = (role) => (role.endsWith('~c') ? 0.05 : role.endsWith('~b') ? 0.03 : 0);
   function star(T, role) { const p = player(T, role); if (!p || !p.bb) return 0; return p.bb <= 50 ? 1 : p.bb <= 150 ? 0.6 : p.bb <= 300 ? 0.3 : 0; }
 
   // Offensive identity from public season numbers (run share, efficiency). Drives the AI's play calling, tempo and
@@ -766,7 +779,7 @@ const SimEngine = (() => {
     const grp = kind === 'run' ? 'run' : pkey(play);
     let defRole = onField(g, dside, pickRole(r, DEF_ROLES[grp]));
     // stars help; backups are a step slower (the backup QB matters most)
-    g._mod = 1 + 0.06 * (star(g[side], offRole) - star(g[dside], defRole)) - (offRole.endsWith('~b') ? 0.03 : 0) + (defRole.endsWith('~b') ? 0.03 : 0)
+    g._mod = 1 + 0.06 * (star(g[side], offRole) - star(g[dside], defRole)) - subPen(offRole) + subPen(defRole)
       - (kind === 'pass' && qbRole.endsWith('~b') ? 0.08 : 0);
     const res = kind === 'run' ? runPlay(g, play, defCall) : passPlay(g, play, defCall);
     g._mod = 1;
@@ -2196,7 +2209,7 @@ const SimReplay = (() => {
   // ---------- players (public depth charts + NFL big board) ----------
   const POS = { QB: 'QB', RB: 'RB', WR1: 'WR', WR2: 'WR', SLOT: 'WR', TE: 'TE', EDGE: 'EDGE', EDGE2: 'EDGE', DT: 'DT', DT2: 'DT', LB: 'LB', LB2: 'LB', CB1: 'CB', CB2: 'CB', NB: 'nickel', S: 'S', S2: 'S', K: 'K', P: 'P' };
   const ALT = { SLOT: 'TE', WR2: 'WR1', DT2: 'DT', EDGE2: 'EDGE', NB: 'S2', LB2: 'LB', LB: 'LB2', CB1: 'CB2', CB2: 'CB1', S2: 'S', S: 'S2' };
-  const pl = (T, role) => { const [k, b] = role.split('~'); const p = (T.roster && (T.roster[k] || T.roster[ALT[k]])) || null; return p && b ? (p.b || p) : p; };
+  const pl = (T, role) => { const [k, b] = role.split('~'); const p = (T.roster && (T.roster[k] || T.roster[ALT[k]])) || null; return p && b ? (b === 'c' ? (p.t3 || p.b || p) : (p.b || p)) : p; };
   const posOf = (role) => POS[role.split('~')[0]] || role;
   const starTag = (p) => (p && p.bb && p.bb <= 300 ? ` <span class="star" title="No. ${p.bb} on the 2027 NFL big board">⭐${p.bb <= 50 ? '⭐' : ''}</span>` : '');
   function nm(T, role, opts = {}) {
@@ -2826,7 +2839,7 @@ const SimReplay = (() => {
     syncOrder(); const out = {}, used = {};
     for (const g of GROUPS) used[g] = S.order[g].map(byId).filter((p) => p && !p.inj && !p.susp && !p.inel);
     const slotsOf = (g) => SLOTS.filter((s) => GROUP[s] === g);
-    for (const g of GROUPS) { const L = used[g], ss = slotsOf(g); ss.forEach((s, i) => { out[s] = { st: L[i] || null, bk: L[i + ss.length] || L[ss.length] || null }; }); }
+    for (const g of GROUPS) { const L = used[g], ss = slotsOf(g); ss.forEach((s, i) => { out[s] = { st: L[i] || null, bk: L[i + ss.length] || L[ss.length] || null, th: L[i + 2 * ss.length] || null }; }); }
     return out;
   }
   function rosterAvgs() {
@@ -2844,7 +2857,8 @@ const SimReplay = (() => {
       const pool = L.filter((p) => p[1] === GROUP[s] && !used.has(p[0]) && p[2] + age <= 4).sort((a, b) => rank(a) - rank(b));
       if (pool[0]) { used.add(pool[0][0]); ro[s] = mk(pool[0]); }
     }
-    for (const s of SLOTS) { if (!ro[s]) continue; const b = L.find((p) => p[1] === GROUP[s] && !used.has(p[0]) && p[2] + age <= 4); if (b) { used.add(b[0]); ro[s].b = mk(b); } }
+    for (const s of SLOTS) { if (!ro[s]) continue; const b = L.filter((p) => p[1] === GROUP[s] && !used.has(p[0]) && p[2] + age <= 4).sort((a, b2) => rank(a) - rank(b2))[0]; if (b) { used.add(b[0]); ro[s].b = mk(b); } }
+    for (const s of SLOTS) { if (!ro[s] || !ro[s].b) continue; const c = L.filter((p) => p[1] === GROUP[s] && !used.has(p[0]) && p[2] + age <= 4).sort((a, b2) => rank(a) - rank(b2))[0]; if (c) { used.add(c[0]); ro[s].t3 = mk(c); } } // third string
     return ro;
   }
   function simTeamFor(name) { // the team object the game engine plays with
@@ -2855,7 +2869,7 @@ const SimReplay = (() => {
       const st = myStrength(); obj.off = st.off; obj.def = st.def; obj.rating = +(st.off - st.def).toFixed(1);
       const d = depth(), ro = {};
       const pl = (p) => p ? { n: p.n, num: p.num, c: clsText(p), bb: p.bb || (p.ovr >= 92 ? 40 : p.ovr >= 88 ? 150 : 0), note: '' } : null;
-      for (const s of SLOTS) { const x = pl(d[s].st); if (!x) continue; const b = pl(d[s].bk); if (b && b.n !== x.n) x.b = b; ro[s] = x; }
+      for (const s of SLOTS) { const x = pl(d[s].st); if (!x) continue; const b = pl(d[s].bk); if (b && b.n !== x.n) x.b = b; const c = pl(d[s].th); if (c && x.b && c.n !== x.n && c.n !== x.b.n) x.t3 = c; ro[s] = x; } // third string rotates in too
       obj.roster = ro; engStyle(obj);
     }
     return obj;
