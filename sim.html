@@ -142,6 +142,9 @@ details.pbk > summary { cursor:pointer; font-weight:600; padding:4px 0; }
 .ps-pk { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 10px; } .ps-pk > span { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin-right:4px; }
 .ps-pk .btn { padding:6px 10px; font-size:13px; text-align:left; } .ps-pk .btn small { display:block; font-size:11px; color:var(--muted); font-weight:400; }
 .ps-pk .btn.on { border-color:var(--neon, #3ee0ff); box-shadow:0 0 0 2px rgba(62,224,255,.35); }
+.ps-fs { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+.ps-fc { font-size:11px; line-height:1; padding:4px 7px; border-radius:999px; border:1px solid rgba(130,160,230,.28); color:#c9d3ee; background:rgba(255,255,255,.03); cursor:pointer; white-space:nowrap; }
+.ps-fc.on { border-color:var(--c); color:#fff; } .ps-fc:hover { background:rgba(62,224,255,.15); border-color:var(--neon, #3ee0ff); }
 @media (max-width:520px) { .ps-grid { grid-template-columns:1fr 1fr; } .ps-row { padding:6px 8px; } .ps-nm { font-size:13px; } .ps-ch { font-size:12px; padding:4px 8px; } }
 /*/PSCSS*/</style>
 <link id="themeFont" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap">
@@ -1284,16 +1287,41 @@ const SimAdv = (() => {
     postwheel: { label: 'Post-Wheel', kind: 'pass', key: 'deep_pass', fam: 'deep', pr: 'deep', side: 1, beats: 'Quarters: the post holds the safety, the wheel runs past the linebacker', fails: '2-Man, with safeties over the top', mat: M(0.5, 1, -0.5, -1, 0.5, 2, 1) },
     shot: { label: 'Max-protect shot', kind: 'pass', key: 'deep_pass', fam: 'deep', pr: 'max', beats: 'Cover 0 and Cover 1: eight blockers, two receivers, one-on-one outside', fails: 'two-deep shells: two receivers into double coverage', mat: M(2, 1, -1.5, -1, 0.5, -1.5, -1) },
     pa_boot: { label: 'Play-action boot', kind: 'pass', key: 'play_action', fam: 'pa', pr: 'pa', side: 1, beats: 'defenses flowing hard to the run fake (Cover 3, loaded boxes)', fails: 'unblocked edge pressure from the boot side', mat: M(-1, 0.5, 0.5, 0, 1.5, 0.5, 0.5) },
+    // ---- more of the playbook (Nov 24): standard concepts, strengths from common coaching principles ----
+    split_zone: { label: 'Split Zone', kind: 'run', key: 'inside_run', fam: 'run', beats: 'backside ends who crash: the H-back kicks him out', fails: 'odd fronts with a free linebacker', front: { over: 0.3, under: 0.2, odd: -0.3 } },
+    trap: { label: 'Trap', kind: 'run', key: 'inside_run', fam: 'run', beats: 'penetrating tackles: let him in, then kick him out', fails: 'patient two-gap noses', front: { over: 0.5, under: 0.3, bear: -0.3 }, pres: { fire: 0.5 } },
+    iso: { label: 'Iso', kind: 'run', key: 'inside_run', fam: 'run', fb: 1, beats: 'light boxes: the fullback lead-blocks the linebacker', fails: 'eight-man boxes', front: { odd: 0.3 }, pkg: { nickel: 0.5, dime: 1, heavy: -0.5 } },
+    gt_counter: { label: 'GT Counter', kind: 'run', key: 'inside_run', fam: 'run', beats: 'fast-flowing linebackers and slants: guard and tackle pull', fails: 'gap-sound, patient defenses', pres: { fire: 0.8, all: 1 }, cov: { c0: 0.5, c1: 0.3 }, front: { odd: 0.3 } },
+    toss: { label: 'Toss sweep', kind: 'run', key: 'outside_run', fam: 'run', beats: 'inside-heavy fronts that are slow to the edge', fails: 'fast linebackers and a set edge', front: { bear: 0.5, under: -0.2 }, pkg: { heavy: 0.5, dime: -0.3 } },
+    pin_pull: { label: 'Pin and pull', kind: 'run', key: 'outside_run', fam: 'run', beats: 'odd fronts and crashing edges: pin them inside, pull around', fails: 'Over fronts with a hard edge', front: { odd: 0.5, over: -0.2 } },
+    qb_draw: { label: 'QB draw', kind: 'run', key: 'inside_run', fam: 'run', read: 1, empty: 1, beats: 'man coverage: defenders turn their backs on the QB', fails: 'spy linebackers and zone', cov: { c0: 1, c1: 1, c2m: 1, c3: -0.3 }, pres: { all: 1, fire: 0.5 }, pkg: { dime: 0.5 } },
+    spacing: { label: 'Spacing', kind: 'pass', key: 'short_pass', fam: 'quick', pr: 'hot', beats: 'zone coverage: five quick hitches spread the underneath', fails: 'man coverage', mat: M(-0.5, -1, 0.5, -1, 1.5, 1, 1) },
+    snag: { label: 'Snag (triangle)', kind: 'pass', key: 'short_pass', fam: 'quick', pr: 'hot', side: 1, beats: 'Cover 3 and Quarters: a high-low-wide triangle on one defender', fails: 'man coverage', mat: M(-0.5, -0.5, 1, -1, 1.5, 1, 1) },
+    shallow: { label: 'Shallow cross', kind: 'pass', key: 'short_pass', fam: 'quick', beats: 'man coverage and blitzes: the shallow runs away from his man', fails: 'zone droppers sitting in the middle', mat: M(1.5, 1.5, 0, 0.5, 0.5, 0.5, 0) },
+    levels: { label: 'Levels', kind: 'pass', key: 'medium_pass', fam: 'mid', beats: 'zone coverage: in-cuts at two depths under the safety', fails: 'press man', mat: M(-0.5, -0.5, 1, -0.5, 1.5, 1, 1) },
+    drive: { label: 'Drive (shallow + dig)', kind: 'pass', key: 'medium_pass', fam: 'mid', beats: 'Cover 1 and Cover 3: the linebacker can’t carry both', fails: '2-Man', mat: M(0.5, 1.5, 0, -0.5, 1.5, 0.5, 0.5) },
+    hank: { label: 'Hank (curls + crosser)', kind: 'pass', key: 'medium_pass', fam: 'mid', beats: 'Cover 2: the crosser settles behind the linebackers', fails: 'man coverage', mat: M(0, -0.5, 1.5, 0, 1, 0.5, 1) },
+    cornerpost: { label: 'Corner-post', kind: 'pass', key: 'deep_pass', fam: 'deep', pr: 'deep', side: 1, beats: 'Quarters: the post holds the safety, the corner breaks open', fails: '2-Man', mat: M(0.5, 0.5, 0, -0.5, 1, 1.5, 1) },
+    mills: { label: 'Mills (post-dig)', kind: 'pass', key: 'deep_pass', fam: 'deep', pr: 'deep', beats: 'Cover 3 and Quarters: the dig pulls the safety, the post goes over him', fails: '2-Man', mat: M(0, 0.5, 0, -1, 1.5, 1.5, 1) },
+    sluggo: { label: 'Double move (sluggo)', kind: 'pass', key: 'deep_pass', fam: 'deep', pr: 'deep', side: 1, beats: 'press man and corners jumping the slant', fails: 'two-high safeties over the top', mat: M(1.5, 1.5, -0.5, -1, 0, -0.5, -0.5) },
+    te_screen: { label: 'TE screen', kind: 'pass', key: 'screen', fam: 'screen', pr: 'screen', beats: 'the blitz and upfield edge rushers', fails: 'zone linebackers sitting underneath', mat: M(1.5, 1, -0.5, 0, 0, -0.5, 0) },
+    jailbreak: { label: 'Jailbreak screen', kind: 'pass', key: 'screen', fam: 'screen', pr: 'screen', side: 1, beats: 'the blitz and soft corners', fails: 'press man', mat: M(1.5, 0.5, -0.5, -0.5, 1, 0.5, 0) },
+    pa_naked: { label: 'Naked bootleg', kind: 'pass', key: 'play_action', fam: 'pa', pr: 'pa', side: 1, beats: 'defenses flowing hard to the run fake: the QB gets the edge', fails: 'a disciplined, unblocked edge rusher', mat: M(-1, 0.5, 0.5, 0, 1.5, 0.5, 0.5) },
+    pa_yankee: { label: 'Yankee (PA crossers)', kind: 'pass', key: 'play_action', fam: 'pa', pr: 'pa', beats: 'single-high: two deep crossers put the safety in conflict', fails: 'two-high shells', mat: M(0, 1.5, -1, -1, 1.5, -0.5, -0.5) },
+    flea: { label: 'Flea flicker', kind: 'pass', key: 'play_action', fam: 'pa', pr: 'pa', beats: 'aggressive run defenses and Cover 1', fails: 'patient two-high safeties (and it takes time)', mat: M(1, 1.5, -1, -1, 1, -1, -1) },
+    rpo_glance: { label: 'RPO glance (zone + seam)', kind: 'rpo', key: 'inside_run', fam: 'rpo', beats: 'any box count, with a seam shot when the safety bites', fails: 'disguised boxes that fool the read' },
+    rpo_stick: { label: 'RPO stick (zone + stick)', kind: 'rpo', key: 'inside_run', fam: 'rpo', beats: 'any box count, with a quick stick to the apex defender', fails: 'disguised boxes that fool the read' },
     pa_shot: { label: 'Play-action shot (post-dig)', kind: 'pass', key: 'play_action', fam: 'pa', pr: 'pa', beats: 'single-high safeties biting on the run fake', fails: 'two-high shells that stay deep', mat: M(0, 1.5, -1, -1, 1.5, -1, -0.5) },
   };
-  const FAMS = { screen: ['screen_rb', 'bubble'], quick: ['slant', 'stick', 'mesh'], mid: ['smash', 'flood', 'curlflat', 'dagger', 'ycross'], deep: ['fourverts', 'postwheel', 'shot'], pa: ['pa_boot', 'pa_shot'], rpo: ['rpo'] };
+  const FAMS = { screen: ['screen_rb', 'bubble', 'te_screen', 'jailbreak'], quick: ['slant', 'stick', 'mesh', 'spacing', 'snag', 'shallow'], mid: ['smash', 'flood', 'curlflat', 'dagger', 'ycross', 'levels', 'drive', 'hank'], deep: ['fourverts', 'postwheel', 'shot', 'cornerpost', 'mills', 'sluggo'], pa: ['pa_boot', 'pa_shot', 'pa_naked', 'pa_yankee', 'flea'], rpo: ['rpo', 'rpo_glance', 'rpo_stick'] };
   const RUNMAP = { iz: 'iz', oz: 'oz', duo: 'duo', power: 'power', counter: 'counter', draw: 'draw', option: 'option', sneak: 'sneak', dive: 'iz', jet: 'jet' };
   const K = { off: -0.7, runOff: 0.93, runBox: 0.14, run: 0.06, pass: 0.09 }; // calibration: K.off centres the concept matrix on real scoring
 
   function allowed(cid, fid, T) {
     const C = CON[cid], F = FORMS[fid]; if (!C || !F) return false;
     if (F.empty && C.kind !== 'pass' && !C.empty) return false;
-    if (F.empty && ['screen_rb', 'pa_boot', 'pa_shot'].includes(cid)) return false;
+    if (F.empty && ['screen_rb', 'pa_boot', 'pa_shot', 'pa_naked', 'pa_yankee', 'flea', 'te_screen'].includes(cid)) return false;
+    if (C.fb && !['iform', 'jumbo', 'flexbone'].includes(fid)) return false;
     if (C.spread && F.spread < 0.5 && !F.option) return false;
     if (F.option && T && T.style !== 'option') return false;
     return true;
@@ -1313,7 +1341,7 @@ const SimAdv = (() => {
 
   // ---------- team profiles ----------
   const STY_PERS = { option: { 21: 0.5, 22: 0.4, 12: 0.1 }, power: { 12: 0.45, 11: 0.35, 21: 0.12, 13: 0.08 }, balanced: { 11: 0.6, 12: 0.3, 21: 0.05, 13: 0.05 }, spread: { 11: 0.75, 10: 0.15, 12: 0.1 }, airraid: { 10: 0.45, 11: 0.5, 12: 0.05 }, vertical: { 11: 0.7, 12: 0.2, 10: 0.1 } };
-  const STY_RUN = { option: { option: 0.55, iz: 0.15, power: 0.1, counter: 0.1, qbpower: 0.1 }, power: { power: 0.3, counter: 0.2, duo: 0.2, iz: 0.2, oz: 0.1 }, balanced: { iz: 0.3, oz: 0.25, duo: 0.15, power: 0.15, counter: 0.1, jet: 0.05 }, spread: { iz: 0.35, option: 0.25, counter: 0.15, draw: 0.1, jet: 0.1, qbpower: 0.05 }, airraid: { iz: 0.35, draw: 0.25, oz: 0.2, counter: 0.1, jet: 0.1 }, vertical: { oz: 0.35, iz: 0.3, power: 0.15, counter: 0.1, jet: 0.1 } };
+  const STY_RUN = { option: { option: 0.55, iz: 0.15, power: 0.1, counter: 0.1, qbpower: 0.1 }, power: { power: 0.26, counter: 0.15, duo: 0.18, iz: 0.15, oz: 0.08, gt_counter: 0.06, iso: 0.05, trap: 0.04, toss: 0.03 }, balanced: { iz: 0.26, oz: 0.22, duo: 0.12, power: 0.12, counter: 0.08, jet: 0.05, split_zone: 0.06, toss: 0.04, pin_pull: 0.03, trap: 0.02 }, spread: { iz: 0.3, option: 0.22, counter: 0.12, draw: 0.08, jet: 0.08, qbpower: 0.05, split_zone: 0.06, qb_draw: 0.05, gt_counter: 0.04 }, airraid: { iz: 0.32, draw: 0.22, oz: 0.18, counter: 0.08, jet: 0.08, qb_draw: 0.07, trap: 0.05 }, vertical: { oz: 0.3, iz: 0.26, power: 0.13, counter: 0.08, jet: 0.08, split_zone: 0.06, pin_pull: 0.05, toss: 0.04 } };
   const PERS_FORM = { 10: { doubles: 0.5, trips: 0.3, empty: 0.2 }, 11: { doubles: 0.3, trips: 0.3, trey: 0.1, bunch: 0.1, pistol: 0.12, empty: 0.08 }, 12: { ace: 0.35, trey: 0.25, pro: 0.2, pistol: 0.15, bunch: 0.05 }, 13: { jumbo: 0.6, ace: 0.4 }, 20: { doubles: 0.6, pistol: 0.2, empty: 0.2 }, 21: { iform: 0.6, pistol: 0.4 }, 22: { jumbo: 0.5, iform: 0.5 } };
   function profile(T, b) {
     const P = TEND && TEND[T.name], o = P && P.off && (P.off[b] || P.off.e);
@@ -1595,7 +1623,7 @@ const SimReplay = (() => {
     for (const [id, v] of Object.entries(F.r)) { const [x, y] = Array.isArray(v) ? v : [v, -1]; rec[id] = add(O, id, { X: 'W', Z: 'W', H: 'S', Y: 'T', T: 'T', R: 'R' }[id] || id, x, y); }
     if (!rb && rec.R) { /* empty: the back is split out */ }
     const carrierRole = e.offKey === 'qb_sneak' || (oc.concept === 'sneak') ? 'Q' : (ROLE[(e.offRole || 'RB').split('~')[0]] || 'R');
-    const conc = oc.concept, rpoThrow = a && a.rpo ? a.rpo.thr : false;
+    const conc = ({ split_zone: 'iz', trap: 'iz', iso: 'iz', gt_counter: 'counter', toss: 'oz', pin_pull: 'oz', qb_draw: 'draw', spacing: 'stick', snag: 'stick', shallow: 'mesh', levels: 'dagger', drive: 'mesh', hank: 'curlflat', cornerpost: 'postwheel', mills: 'pa_shot', sluggo: 'fourverts', te_screen: 'screen_rb', jailbreak: 'bubble', pa_naked: 'pa_boot', pa_yankee: 'pa_shot', flea: 'pa_shot', rpo_glance: 'rpo', rpo_stick: 'rpo' })[oc.concept] || oc.concept, rpoThrow = a && a.rpo ? a.rpo.thr : false;
     const passPlay = !isRun;
     const routes = CROUTE[(passPlay && conc === 'rpo') ? 'rpo' : conc] || (passPlay ? CROUTE[{ screen: 'screen_rb', short_pass: 'slant', medium_pass: 'dagger', deep_pass: 'fourverts', play_action: 'pa_shot' }[e.offKey] || 'slant'] : {});
     const fam = FAM[conc] || (e.offKey === 'deep_pass' || e.offKey === 'play_action' ? 'd' : e.offKey === 'medium_pass' ? 'm' : 'q');
@@ -1970,6 +1998,19 @@ const SimReplay = (() => {
     const mu = entry && entry.offRole ? `<div class="mu">🆚 <b>Matchup:</b> ${nm(g[entry.side], entry.offRole)} (${posOf(entry.offRole)}) vs ${nm(g[entry.side === 'home' ? 'away' : 'home'], entry.defRole)} (${posOf(entry.defRole)})${(() => { const a = pl(g[entry.side], entry.offRole), b = pl(g[entry.side === 'home' ? 'away' : 'home'], entry.defRole); const sa = a && a.bb && a.bb <= 300, sb = b && b.bb && b.bb <= 300; return sa && !sb ? '. The ⭐ prospect had the edge.' : sb && !sa ? '. Their ⭐ prospect had the edge.' : sa && sb ? '. Star vs. star.' : ''; })()}</div>` : '';
     announce(entry);
     reactions(entry);
+    if ($('replay')) { // 🎞️ animated replay from your side of the ball, in a collapsible section that remembers open/closed
+      if ($('replayOn') && $('replayOn').checked && typeof SimReplay !== 'undefined' && entry && entry.dd && (entry.offRole || entry.adv) && !entry.special) {
+        const flip = me !== 'watch' && entry.side !== me, dside = entry.side === 'home' ? 'away' : 'home';
+        const cap = `${flip ? '🛡️ Your defense: they\u2019re coming at you.' : me === 'watch' ? `⚔️ ${g[entry.side].name} going up the field.` : '⚔️ Your offense, going up the field.'} ${entry.play} vs ${entry.def}. O = offense, ✕ = defense, filled O = ball carrier or target, orange ✕ = made the play.`;
+        try {
+          const open = window.__rpOpen !== false;
+          $('replay').innerHTML = `<details class="sec rp-sec"${open ? ' open' : ''}><summary class="h2" style="margin:10px 0 0">🎞️ Play diagram</summary>${SimReplay.html(entry, { flip, caption: cap, ezColor: g[dside].color })}</details>`;
+          const d = $('replay').querySelector('details'), id = $('replay').querySelector('svg').id;
+          d.addEventListener('toggle', () => { window.__rpOpen = d.open; if (d.open) SimReplay.play(id); });
+          if (open) SimReplay.play(id);
+        } catch (err) { $('replay').innerHTML = ''; }
+      } else $('replay').innerHTML = '';
+    }
     if ($('replay')) { // 🎞️ animated replay from your side of the ball, in a collapsible section that remembers open/closed
       if ($('replayOn') && $('replayOn').checked && typeof SimReplay !== 'undefined' && entry && entry.dd && (entry.offRole || entry.adv) && !entry.special) {
         const flip = me !== 'watch' && entry.side !== me, dside = entry.side === 'home' ? 'away' : 'home';
@@ -2558,7 +2599,7 @@ const SimReplay = (() => {
         h += '\u0003'; AP.sheetHTML = `<div class="ps"><div class="ps-hd"><b>📋 Call sheet</b><span>${A.sitLabel(g)} · ⭐ = best calls here · tap a play to break the huddle</span></div><div class="ps-grid">`
           + SHEET_O.map(([lab, col, f]) => {
             const L = full.map((r, i) => [r, i]).filter(([r]) => f(A.CON[r.concept])).sort((a, b) => b[0].star - a[0].star);
-            return L.length ? `<div class="ps-col" style="--c:${col}"><div class="ps-ch">${lab}</div>${L.map(([r, i]) => `<div role="button" tabindex="0" class="ps-row${r.star ? ' star' : ''}" data-asheet="${i}"><span class="ps-nm">${r.star ? '⭐ ' : ''}${A.CON[r.concept].label}</span><span class="ps-f">${r.pers} pers · ${A.FORMS[r.form].label.replace(/ \(.*\)/, '')}</span><span class="ps-w">${r.why}</span></div>`).join('')}</div>` : '';
+            return L.length ? `<div class="ps-col" style="--c:${col}"><div class="ps-ch">${lab}</div>${L.map(([r, i]) => `<div role="button" tabindex="0" class="ps-row${r.star ? ' star' : ''}" data-asheet="${i}" data-af="0"><span class="ps-nm">${r.star ? '⭐ ' : ''}${A.CON[r.concept].label}</span><span class="ps-w">${r.why}</span><span class="ps-fs">${r.forms.map((f, j) => `<span role="button" class="ps-fc${j ? '' : ' on'}" data-asheet="${i}" data-af="${j}">${f.pers} · ${A.FORMS[f.form].label.replace(/ \(.*\)/, '')}</span>`).join('')}</span></div>`).join('')}</div>` : '';
           }).join('') + '</div></div>';
         h += buildHTML();
         h += toolsHTML(true);
@@ -2590,7 +2631,7 @@ const SimReplay = (() => {
       h += '\u0003'; AP.sheetHTML = `<div class="ps"><div class="ps-hd"><b>📋 Call sheet</b><span>${A.sitLabel(g)} · ⭐ = your DC likes it here · tap a call to snap</span></div><div class="ps-grid">`
         + SHEET_D.map(([lab, col, grp]) => {
           const L = full.map((r, i) => [r, i]).filter(([r]) => r.grp === grp);
-          return `<div class="ps-col" style="--c:${col}"><div class="ps-ch">${lab}</div>${L.map(([r, i]) => `<div role="button" tabindex="0" class="ps-row${r.star ? ' star' : ''}" data-dsheet="${i}"><span class="ps-nm">${r.star ? '⭐ ' : ''}${A.COV[r.cov].label}${r.pres !== 'none' ? ' · ' + (r.pres === 'all' ? 'all-out blitz' : r.pres === 'fire' ? 'fire zone' : 'sim pressure') : ''}</span><span class="ps-f">${A.FRONT[r.front].replace(/ \(.*\)/, '')} front</span><span class="ps-w">${r.tag}</span></div>`).join('')}</div>`;
+          return `<div class="ps-col" style="--c:${col}"><div class="ps-ch">${lab}</div>${L.map(([r, i]) => `<div role="button" tabindex="0" class="ps-row${r.star ? ' star' : ''}" data-dsheet="${i}"><span class="ps-nm">${r.star ? '⭐ ' : ''}${A.COV[r.cov].label}${r.pres !== 'none' ? ' · ' + (r.pres === 'all' ? 'all-out blitz' : r.pres === 'fire' ? 'fire zone' : 'sim pressure') : ''}</span><span class="ps-w">${r.tag}</span><span class="ps-fs">${(r.fixed ? [r.front] : ['over', 'under', 'odd', 'bear']).map((fk) => `<span role="button" class="ps-fc${fk === r.front ? ' on' : ''}" data-dsheet="${i}" data-dfr="${fk}">${A.FRONT[fk].replace(/ \(.*\)/, '').replace('Odd / Tite', 'Odd')}</span>`).join('')}</span></div>`).join('')}</div>`;
         }).join('') + '</div></div>';
       const sg = AP.sug, o = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${t}</option>`;
       h += `<details class="sec" style="margin-top:10px"><summary class="h2">🛠️ Build your own call</summary><div class="adv-build"><div><label>Front</label><select id="adF">${Object.keys(A.FRONT).map((k) => o(k, A.FRONT[k], k === (AP.pkg === 'heavy' ? 'bear' : sg.front))).join('')}</select></div>
@@ -2603,39 +2644,50 @@ const SimReplay = (() => {
   }
   // ---- play sheet helpers ----
   const SHEET_O = [['🏃 Runs', '#35d07f', (C) => C.kind === 'run'], ['⚡ Quick game', '#3ee0ff', (C) => C.fam === 'quick'], ['🎯 Dropback', '#7aa2ff', (C) => C.fam === 'mid'], ['🚀 Shots', '#ff7a1a', (C) => C.fam === 'deep'], ['🎭 Play action', '#c08cff', (C) => C.fam === 'pa'], ['🪤 Screens & RPOs', '#ffc53d', (C) => C.fam === 'screen' || C.fam === 'rpo']];
-  const SHEET_D = [['🧱 Zone', '#3ee0ff', 'zone'], ['🔒 Man', '#7aa2ff', 'man'], ['🔥 Pressure', '#ff7a1a', 'pres']];
+  const SHEET_D = [['🧱 Zone', '#3ee0ff', 'zone'], ['🔒 Man', '#7aa2ff', 'man'], ['🔥 Pressure', '#ff7a1a', 'pres'], ['🎯 Situational', '#c08cff', 'sit']];
   function shortBeat(C) { let b = C.beats.split(':')[0]; if (b.length > 30) b = b.slice(0, 30).replace(/\s+\S*$/, '') + '…'; return 'Beats ' + b; }
   function offSheet(bk) {
     const T = g[me], P = A.profile(T, bk), rec = AP.sheet || (AP.sheet = A.callSheet(g, me, bk)), togo = Math.min(g.togo, 100 - g.ball);
     const pers = Object.entries(P.pers).sort((a, b) => b[1] - a[1]).map((x) => x[0]).filter((p) => A.PERS[p] && A.formsFor(p, T).length);
     for (const p of Object.keys(A.PERS)) if (!pers.includes(p) && A.formsFor(p, T).length) pers.push(p);
-    const formOf = (c) => { for (const p of pers) { const fs = A.formsFor(p, T), pf = P.form ? Object.entries(P.form).sort((a, b) => b[1] - a[1]).map((x) => x[0]).filter((f) => fs.includes(f)) : []; for (const f of pf.concat(fs)) if (A.allowed(c, f, T)) return { pers: p, form: f }; } return null; };
+    const PREF = { run: ['pistol', 'ace', 'iform', 'pro', 'trey', 'doubles', 'jumbo', 'trips', 'flexbone'], quick: ['doubles', 'trips', 'bunch', 'empty', 'trey', 'ace'], mid: ['trips', 'doubles', 'bunch', 'trey', 'empty', 'pro'], deep: ['doubles', 'pro', 'trips', 'ace', 'empty'], pa: ['pro', 'ace', 'iform', 'pistol', 'trey', 'jumbo'], screen: ['trips', 'doubles', 'bunch', 'empty', 'pistol'], rpo: ['doubles', 'trips', 'pistol', 'trey'] };
+    const fOrd = (p, c, ci) => { const fs = A.formsFor(p, T), pr = PREF[A.CON[c].fam] || PREF.quick, sc = (f) => (pr.indexOf(f) < 0 ? 99 : pr.indexOf(f));
+      const L = fs.slice().sort((a, b) => sc(a) - sc(b)), k = Math.min(ci % 3, Math.max(0, L.filter((f) => sc(f) < 99).length - 1)); return L.slice(k).concat(L.slice(0, k)); };
+    const formsOf = (c, first, ci) => { // up to 3 ways to line up for it, from different personnel groups first
+      const out = first ? [first] : [], has = (f) => out.some((x) => x.form === f.form && x.pers === f.pers);
+      const pz = ['run', 'pa'].includes(A.CON[c].fam) ? pers.slice().sort((a, b) => (A.PERS[b].blk - A.PERS[a].blk) * 0.3 + pers.indexOf(a) - pers.indexOf(b)) : pers;
+      for (const pass of [0, 1]) for (const p of pz) { if (out.length >= 3) break; if (!pass && out.some((x) => x.pers === p)) continue; const f = fOrd(p, c, ci).find((ff) => A.allowed(c, ff, T) && !out.some((x) => x.form === ff)); if (f && !has({ pers: p, form: f })) out.push({ pers: p, form: f }); }
+      return out;
+    };
     const rows = [];
-    for (const c of Object.keys(A.CON)) {
-      if (c === 'sneak' && togo > 2) continue;
-      const r = rec.find((x) => x.concept === c), pf = r ? { pers: r.pers, form: r.form } : formOf(c); if (!pf) continue;
-      rows.push(Object.assign(pf, { concept: c, why: r ? r.why : shortBeat(A.CON[c]), star: !!r }));
-    }
+    Object.keys(A.CON).forEach((c, ci) => {
+      if (c === 'sneak' && togo > 2) return;
+      const r = rec.find((x) => x.concept === c), forms = formsOf(c, r ? { pers: r.pers, form: r.form } : null, ci); if (!forms.length) return;
+      rows.push({ concept: c, forms, why: r ? r.why : shortBeat(A.CON[c]), star: !!r });
+    });
     return rows;
   }
   function defSheet(O, bk) {
-    const sg = AP.sug, fr = AP.pkg === 'heavy' ? 'bear' : sg.front === 'bear' ? 'over' : sg.front, P = A.profile(O, bk);
+    const sg = AP.sug, P = A.profile(O, bk), late = g.qtr >= 4 && g.clock <= 150 && g.score[me] > g.score[g.poss];
     const runny = P.run != null ? P.run >= 0.55 : ['option', 'power'].includes(O.style), short = ['s', 'gl'].includes(bk), long = ['L', 'l'].includes(bk);
     const L = [['zone', 'c3', 'none', '3 deep, 4 under: safe all-around'], ['zone', 'c4', 'none', 'Quarters: 4 deep, safeties help vs the run'], ['zone', 'c2', 'none', '2 deep, 5 under: no deep shots'], ['zone', 'c6', 'none', 'Quarter-quarter-half: two looks in one'],
-      ['man', 'c1', 'none', 'Man free: tight coverage, one deep safety'], ['man', 'c2m', 'none', '2 deep, man under: chokes the short game'],
-      ['pres', 'c3', 'fire', '5-man rush, zone behind it'], ['pres', 'c1', 'fire', '5-man rush, man behind it'], ['pres', 'c3', 'sim', '4 rush, but one is a surprise rusher'], ['pres', 'c0', 'all', 'Everyone comes: sack or big play']];
-    return L.map(([grp, cov, pres, tag]) => {
-      const dc = sg.cov === cov && sg.pres === (cov === 'c0' ? 'all' : pres);
-      const tend = (runny || short) ? (cov === 'c1' && pres === 'none') || (cov === 'c3' && pres === 'fire') : long ? (cov === 'c4' && pres === 'none') || (cov === 'c3' && pres === 'sim') : false;
-      return { grp, pkg: AP.pkg, front: fr, cov, pres: cov === 'c0' ? 'all' : pres, tag, star: dc || tend };
-    });
+      ['man', 'c1', 'none', 'Man free: tight coverage, one deep safety'], ['man', 'c2m', 'none', '2 deep, man under: chokes the short game'], ['man', 'c0', 'none', 'Pure man, 8 in the box, nobody deep'],
+      ['pres', 'c3', 'fire', '5-man rush, zone behind it'], ['pres', 'c1', 'fire', '5-man rush, man behind it'], ['pres', 'c3', 'sim', '4 rush, one is a surprise rusher'], ['pres', 'c4', 'sim', 'Sim pressure with quarters behind it'], ['pres', 'c2', 'sim', 'Sim pressure, two deep safeties'], ['pres', 'c1', 'all', '6-man blitz, one safety deep'], ['pres', 'c0', 'all', 'Everyone comes: sack or big play'],
+      ['sit', 'c4', 'none', 'Prevent: dime, everyone deep', 'dime', 'odd'], ['sit', 'c2', 'none', '2-minute: dime, keep it in front', 'dime', 'over'], ['sit', 'c1', 'none', 'Short yardage: Bear front, man free', null, 'bear'], ['sit', 'c0', 'all', 'Goal line: heavy, everybody', 'heavy', 'bear']];
+    return L.map(([grp, cov, pres, tag, pk, fr0]) => {
+      const pkg = pk || AP.pkg, fr = fr0 || (pkg === 'heavy' ? 'bear' : sg.front === 'bear' ? 'over' : sg.front), pr = cov === 'c0' && pres === 'none' && grp === 'man' ? 'all' : cov === 'c0' ? 'all' : pres;
+      const dc = !pk && !fr0 && sg.cov === cov && sg.pres === pr;
+      const tend = grp === 'sit' ? (pk === 'dime' && cov === 'c4' ? late : pk === 'heavy' ? bk === 'gl' : fr0 === 'bear' && !pk ? bk === 's' : false)
+        : (runny || short) ? (cov === 'c1' && pres === 'none') || (cov === 'c3' && pres === 'fire') : long ? (cov === 'c4' && pres === 'none') || (cov === 'c3' && pres === 'sim') : false;
+      return { grp, pkg, front: fr, cov, pres: pr, tag, star: dc || tend, fixed: !!fr0 };
+    }).filter((r, i, a) => a.findIndex((x) => x.grp === r.grp && x.cov === r.cov && x.pres === r.pres && x.pkg === r.pkg) === i);
   }
   function breakHuddle(oc) { AP.oc = oc; AP.dc = A.aiDef(g, oc); AP.look = A.look(g, AP.dc); AP.stage = 'line'; renderCalls(); }
   function snapAdv(oc, dc) { (g.tipSeen = g.tipSeen || {})[userOnOffense() ? 'o' : 'd'] = 1; idleStop(); stopSong(); const e = A.play(g, oc, dc); if (e) e.byUser = true; AP = null; after(e, null); }
   function advClick(b) {
     const ds = b.dataset;
-    if (ds.asheet != null) { const c = AP.full[+ds.asheet]; breakHuddle({ pers: c.pers, form: c.form, concept: c.concept }); return true; }
-    if (ds.dsheet != null) { const c = AP.dfull[+ds.dsheet]; snapAdv(AP.oc, { pkg: c.pkg, front: c.front, cov: c.cov, pres: c.pres }); return true; }
+    if (ds.asheet != null) { const c = AP.full[+ds.asheet], f = c.forms[+(ds.af || 0)] || c.forms[0]; breakHuddle({ pers: f.pers, form: f.form, concept: c.concept }); return true; }
+    if (ds.dsheet != null) { const c = AP.dfull[+ds.dsheet]; snapAdv(AP.oc, { pkg: c.pkg, front: ds.dfr || c.front, cov: c.cov, pres: c.pres }); return true; }
     if (ds.dpkg) { AP.pkg = ds.dpkg; renderCalls(); return true; }
     if (ds.ac != null) { const c = AP.sheet[+ds.ac]; breakHuddle({ pers: c.pers, form: c.form, concept: c.concept }); return true; }
     if (ds.abuild) { breakHuddle({ pers: AP.build.pers, form: AP.build.form, concept: AP.build.concept }); return true; }
