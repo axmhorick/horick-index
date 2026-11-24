@@ -2804,7 +2804,7 @@ const SimReplay = (() => {
   function migrateOld() { // the single save from before slots existed becomes slot one
     try { const old = localStorage.getItem(KEY); if (!old) return; const st = JSON.parse(old); localStorage.removeItem(KEY); const keep = S; S = st; curId = null; save(); S = keep; curId = null; } catch (e) {}
   }
-  function openSlot(id) { const st = loadSlot(id); if (!st) return false; S = st; curId = id; nextId = Math.max(1, S.nextId || 0, ...S.roster.map((p) => p.id + 1)); tab = 'home'; view = null; offTab = 'off'; return true; }
+  function openSlot(id) { const st = loadSlot(id); if (!st) return false; S = st; if (S.year > Y.year && S.phase === 'regular' && S.schedV !== 2 && !S.sched.some((wk) => wk.some((g) => g.res))) { S.sched = SCHED.season(S.year); S.schedV = 2; markConf(); } curId = id; nextId = Math.max(1, S.nextId || 0, ...S.roster.map((p) => p.id + 1)); tab = 'home'; view = null; offTab = 'off'; return true; }
   function backup(id) {
     const st = id === curId && S ? S : loadSlot(id); if (!st) return;
     const blob = new Blob([JSON.stringify({ nniDynasty: 1, saved: new Date().toISOString(), state: st })], { type: 'application/json' });
@@ -2828,6 +2828,167 @@ const SimReplay = (() => {
     S.news.unshift(`🧢 ${S.coach} takes over at ${team} for the ${S.year} season${hcOf(team) ? `, replacing ${hcOf(team)}` : ''}.`);
     save();
   }
+  /*SCHED*/
+  // Future regular seasons (2027 on), built the way conferences actually schedule:
+  // - protected rivals every year (venue alternates), the rest of the league rotates year to year
+  // - annual non-conference rivalries stay (Clemson-South Carolina, Florida-Florida St., Iowa-Iowa St., ...)
+  // - power-conference teams host their Group of 5 and FCS opponents (buy games: no return trip)
+  // - power-vs-power and G5-vs-G5 non-conference games are two-year home-and-home series
+  // - each team keeps its 2026 rhythm: same number of conference games, bye weeks and rivalry week
+  function makeScheduler(Y, CONF) {
+    const CONF_OF = {}; for (const [c, L] of Object.entries(CONF)) for (const t of L) CONF_OF[t] = c;
+    const cf = (t) => CONF_OF[t] || null, fbs = (t) => !!CONF_OF[t];
+    const P4C = new Set(['SEC', 'Big Ten', 'ACC', 'Big 12']), tier = (t) => (P4C.has(cf(t)) || t === 'Notre Dame' ? 'P4' : 'G5');
+    const key = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
+    const PROT = ('Alabama|Auburn;Alabama|Tennessee;Alabama|LSU;Georgia|Florida;Georgia|Auburn;Georgia|S. Carolina;Ole Miss|Miss. St.;LSU|Texas A&M;LSU|Ole Miss;Texas|Oklahoma;Texas|Texas A&M;Arkansas|Missouri;Arkansas|Texas;Kentucky|Tennessee;Tennessee|Vanderbilt;Kentucky|Vanderbilt;S. Carolina|Kentucky;Missouri|Oklahoma;Auburn|Vanderbilt;'
+      + 'Illinois|Northwestern;Illinois|Purdue;Indiana|Purdue;Iowa|Minnesota;Iowa|Nebraska;Iowa|Wisconsin;Maryland|Rutgers;Michigan|Michigan St.;Michigan|Ohio St.;Minnesota|Wisconsin;Oregon|Washington;UCLA|USC;'
+      + 'Kansas|Kansas St.;Arizona|Arizona St.;BYU|Utah;Baylor|TCU;Iowa St.|Kansas St.;TCU|Texas Tech;'
+      + 'Miami|Florida St.;N. Carolina|NC St.;N. Carolina|Duke;Virginia|Va. Tech;California|Stanford;Clemson|Florida St.;Clemson|Ga. Tech;Pittsburgh|Syracuse;Boston Coll.|Syracuse;Duke|Wake Forest;NC St.|Wake Forest;'
+      + 'Nevada|UNLV;Hawaii|San Jose St.;Miami-OH|Ohio;BGSU|Toledo;CMU|WMU;CMU|EMU;Akron|Kent St.;WKU|MTSU;Georgia St.|Ga. Southern;App. St.|Ga. Southern;Louisiana|ULM;Troy|S. Alabama;Marshall|ODU;JMU|ODU;Tulane|Memphis;Memphis|UAB;Charlotte|ECU;USF|FAU;'
+      + 'Clemson|S. Carolina;Florida|Florida St.;Georgia|Ga. Tech;Kentucky|Louisville;Iowa|Iowa St.;Notre Dame|Navy;Notre Dame|Stanford;Army|Air Force;Navy|Air Force;Cincinnati|Miami-OH;New Mexico|N. Mex. St.;Wash. St.|Washington;Wyoming|Colorado St.')
+      .split(';').map((p) => p.split('|'));
+    // ---- the 2026 template ----
+    const base = [], wk26 = {}, weeksOf = {}, confWk = {}, ncSlots = {}, fcsPool = new Set(), nW = Y.weeks.length;
+    const isConf = (a, b) => fbs(a) && fbs(b) && cf(a) === cf(b) && cf(a) !== 'Independent';
+    Y.weeks.forEach((wk, w) => wk.forEach(([a, h, n]) => {
+      base.push({ a, h, n: !!n, w }); wk26[key(a, h)] = { a, h, n: !!n, w };
+      for (const t of [a, h]) { (weeksOf[t] = weeksOf[t] || new Set()).add(w); if (!fbs(t)) fcsPool.add(t); }
+      if (isConf(a, h)) for (const t of [a, h]) (confWk[t] = confWk[t] || new Set()).add(w);
+    }));
+    const protSet = new Set(), protGames = [];
+    for (const [a, b] of PROT) { const g = wk26[key(a, b)]; if (g && !protSet.has(key(a, b))) { protSet.add(key(a, b)); protGames.push(g); } }
+    const confN = {}; // games per team, from the 2026 league schedule (most common count)
+    for (const [c, L] of Object.entries(CONF)) { if (c === 'Independent') continue; const cnt = {}; for (const t of L) { const k = (confWk[t] || new Set()).size; cnt[k] = (cnt[k] || 0) + 1; } confN[c] = +Object.entries(cnt).sort((x, y) => y[1] - x[1] || y[0] - x[0])[0][0]; }
+    // non-conference slots: what kind of game each team had in each non-conference week of 2026
+    for (const g of base) {
+      if (isConf(g.a, g.h) || protSet.has(key(g.a, g.h))) continue;
+      const add = (t, kind, home) => { if (fbs(t)) (ncSlots[t] = ncSlots[t] || []).push({ kind, home, w: g.w, n: g.n }); };
+      if (!fbs(g.a) || !fbs(g.h)) { add(fbs(g.a) ? g.a : g.h, 'fcs', true); continue; }
+      const ta = tier(g.a), th = tier(g.h);
+      if (ta !== th) { const p = ta === 'P4' ? g.a : g.h, o = p === g.a ? g.h : g.a; add(p, 'buyH', true); add(o, 'buyR', false); }
+      else if (g.n) { add(g.a, 'neut' + ta, false); add(g.h, 'neut' + ta, false); }
+      else { add(g.a, 'ser' + ta, false); add(g.h, 'ser' + ta, true); }
+    }
+    // ---- helpers ----
+    function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+    const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
+    const shuffle = (a, r) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    // round-robin rotation for one league in one year
+    const LG = {}, conf26 = {};
+    for (const g of base) if (isConf(g.a, g.h) && !protSet.has(key(g.a, g.h))) (conf26[cf(g.a)] = conf26[cf(g.a)] || []).push({ a: g.a, h: g.h });
+    function leagueGames(c, y) {
+      if (y <= 0) return conf26[c] || [];
+      if (LG[c + y]) return LG[c + y];
+      const prev = [leagueGames(c, y - 1), y >= 2 ? leagueGames(c, y - 2) : []], recent = new Map();
+      prev.forEach((L2, i) => { for (const g of L2) if (!recent.has(key(g.a, g.h))) recent.set(key(g.a, g.h), { h: g.h, ago: i + 1 }); });
+      const L = CONF[c].slice(), N = L.length, r = rng(hash(c + y)), need = {}; for (const t of L) need[t] = (confWk[t] || new Set()).size || confN[c];
+      const cnt = {}; for (const t of L) cnt[t] = 0;
+      const used = new Set(), out = [];
+      for (const g of protGames) if (cf(g.a) === c && cf(g.h) === c) { used.add(key(g.a, g.h)); cnt[g.a]++; cnt[g.h]++; }
+      const ring = N % 2 ? L.concat([null]) : L, M = ring.length, rounds = [];
+      for (let k = 0; k < M - 1; k++) { const rr = []; for (let i = 0; i < M / 2; i++) { const p = ring[(k + i) % (M - 1)], q = i === 0 ? ring[M - 1] : ring[(k + M - 1 - i) % (M - 1)]; if (p && q) rr.push([p, q]); } rounds.push(rr); }
+      const nProt = protGames.filter((g) => cf(g.a) === c && cf(g.h) === c).length, start = (y * Math.max(1, Math.round(confN[c] - 2 * nProt / N)) + Math.floor(r() * 2)) % rounds.length;
+      const add = (p, q) => { used.add(key(p, q)); cnt[p]++; cnt[q]++; out.push([p, q]); };
+      for (const pass of [2, 1, 0]) for (let k = 0; k < rounds.length; k++) for (const [p, q] of rounds[(start + k) % rounds.length]) { const rc = recent.get(key(p, q)); if (rc && rc.ago <= pass) continue; if (!used.has(key(p, q)) && cnt[p] < need[p] && cnt[q] < need[q]) add(p, q); }
+      for (let guard = 0; guard < 200; guard++) { // fill anyone still short, swapping out a game if we have to
+        const short = shuffle(L.filter((t) => cnt[t] < need[t]), r); if (!short.length) break;
+        const p = short[0], q = short.find((t) => t !== p && !used.has(key(p, t)));
+        if (q) { add(p, q); continue; }
+        const q2 = short.find((t) => t !== p) || null; let done = false;
+        for (let i = 0; i < out.length && !done; i++) {
+          const [x, z] = out[i]; if ([x, z].includes(p) || [x, z].includes(q2)) continue;
+          for (const [u, v] of [[x, z], [z, x]]) {
+            if (used.has(key(p, u))) continue;
+            if (q2 && used.has(key(q2, v))) continue;
+            if (!q2 && cnt[p] + 2 > need[p]) continue;
+            if (!q2 && used.has(key(p, v))) continue;
+            out.splice(i, 1); used.delete(key(x, z)); cnt[x]--; cnt[z]--;
+            add(p, u); if (q2) add(q2, v); else add(p, v); done = true; break;
+          }
+        }
+        if (!done) break;
+      }
+      // venues: balance home games, ties broken by the year
+      const home = {}; for (const t of L) home[t] = 0;
+      for (const g of protGames) if (cf(g.a) === c && cf(g.h) === c && !g.n) home[y % 2 ? g.a : g.h]++;
+      return (LG[c + y] = shuffle(out, r).map(([p, q]) => { if (key(p, q) === key('Army', 'Navy')) return { a: y % 2 ? 'Army' : 'Navy', h: y % 2 ? 'Navy' : 'Army', n: true, conf: true }; const rc = recent.get(key(p, q)); const ph = rc ? rc.h !== p : home[p] < home[q] || (home[p] === home[q] && (hash(key(p, q) + y) & 1)); const h = ph ? p : q; home[h]++; return { a: h === p ? q : p, h, n: false, conf: true }; }));
+    }
+    function pairSlots(slots, r, used, cross) { // pair slot holders from different conferences
+      shuffle(slots, r); const out = [], left = [];
+      while (slots.length) {
+        const s = slots.shift(); const j = slots.findIndex((o) => o.t !== s.t && cf(o.t) !== cf(s.t) && !used.has(key(o.t, s.t)));
+        if (j < 0) { left.push(s); continue; } const o = slots.splice(j, 1)[0]; used.add(key(s.t, o.t)); out.push([s, o]);
+      }
+      return { out, left };
+    }
+    const cache = {};
+    function season(year) {
+      if (cache[year]) return cache[year].W.map((wk) => wk.map((g) => ({ a: g.a, h: g.h, n: !!g.n, res: null })));
+      const y = year - Y.year, r = rng(hash('season' + year)), games = [], used = new Set();
+      const push = (g, pref) => { used.add(key(g.a, g.h)); games.push(Object.assign(g, { pref })); };
+      for (const g of protGames) { const fl = y % 2 && !g.n; push({ a: fl ? g.h : g.a, h: fl ? g.a : g.h, n: g.n, pin: true, conf: isConf(g.a, g.h) }, [g.w]); }
+      for (const c of Object.keys(confN)) for (const g0 of leagueGames(c, y)) { const g = Object.assign({}, g0); if (used.has(key(g.a, g.h))) continue; const ca = confWk[g.a] || new Set(), ch = confWk[g.h] || new Set(); push(g, [...ca].filter((w) => ch.has(w)).concat([...ca, ...ch])); }
+      const pool = {}; for (const [t, L] of Object.entries(ncSlots)) for (const s of L) (pool[s.kind] = pool[s.kind] || []).push(Object.assign({ t }, s));
+      // home-and-home series: year 1 of a block keeps the 2026 venue pattern, year 2 is the return trip
+      const blk = Math.floor(y / 2), ret = y % 2 === 1;
+      for (const T of ['P4', 'G5']) {
+        const S = (pool['ser' + T] || []).slice(); let pairs;
+        if (blk === 0) { pairs = []; for (const g of base) { if (isConf(g.a, g.h) || protSet.has(key(g.a, g.h)) || g.n || !fbs(g.a) || !fbs(g.h) || tier(g.a) !== T || tier(g.h) !== T) continue; pairs.push([{ t: g.a, w: g.w }, { t: g.h, w: g.w }]); } }
+        else pairs = pairSlots(S.map((s) => Object.assign({}, s)), rng(hash('series' + T + blk)), new Set(protSet)).out;
+        for (let [p, q] of pairs) { if (ret) [p, q] = [q, p]; if (used.has(key(p.t, q.t))) continue; push({ a: p.t, h: q.t, n: false }, [q.w, p.w]); }
+      }
+      for (const T of ['P4', 'G5']) { const { out } = pairSlots((pool['neut' + T] || []).slice(), r, used); for (const [p, q] of out) push({ a: p.t, h: q.t, n: true }, [p.w, q.w]); }
+      // buy games: the power team always hosts
+      const H = shuffle((pool.buyH || []).slice(), r), A = shuffle((pool.buyR || []).slice(), r), extra = [];
+      for (const s of H) { const j = A.findIndex((o) => !used.has(key(o.t, s.t)) && o.t !== s.t); if (j < 0) { extra.push(s); continue; } const o = A.splice(j, 1)[0]; push({ a: o.t, h: s.t, n: false }, [s.w, o.w]); }
+      // FCS guests, then top up anyone short of his 2026 game count (power teams host a G5 team if one is free, otherwise an FCS team)
+      const fcs = shuffle([...fcsPool], r); let fi = 0;
+      for (const s of (pool.fcs || [])) push({ a: fcs[fi++ % fcs.length], h: s.t, n: false }, [s.w]);
+      const n26 = {}, nNow = {}; for (const g of base) for (const t of [g.a, g.h]) n26[t] = (n26[t] || 0) + 1;
+      for (const g of games) for (const t of [g.a, g.h]) nNow[t] = (nNow[t] || 0) + 1;
+      const short = (t) => fbs(t) && (nNow[t] || 0) < (n26[t] || 0), slotW = (t) => ((ncSlots[t] || [])[0] || { w: 0 }).w;
+      const hosts = shuffle(Object.keys(CONF_OF).filter(short), r);
+      for (const t of hosts) while (short(t)) {
+        const o = tier(t) === 'P4' ? hosts.find((x) => x !== t && short(x) && tier(x) === 'G5' && cf(x) !== cf(t) && !used.has(key(x, t))) : hosts.find((x) => x !== t && short(x) && cf(x) !== cf(t) && !used.has(key(x, t)) && tier(x) === 'G5');
+        if (o && !(tier(t) === 'G5' && tier(o) === 'P4')) { push({ a: o, h: t, n: false }, [slotW(t), slotW(o)]); nNow[t]++; nNow[o]++; }
+        else { push({ a: fcs[fi++ % fcs.length], h: t, n: false }, [slotW(t)]); nNow[t]++; }
+      }
+      { // even out home games: flip rotating league games from teams with too many home dates to teams with too few
+        const hc = {}; for (const g of games) if (!g.n) hc[g.h] = (hc[g.h] || 0) + 1;
+        for (let pass = 0; pass < 3; pass++) for (const g of games) { if (!g.conf || g.pin || g.n) continue; const hh = hc[g.h] || 0, ha = hc[g.a] || 0; if (hh - ha >= 2) { hc[g.h]--; hc[g.a] = ha + 1; [g.a, g.h] = [g.h, g.a]; } }
+      }
+      // ---- weeks: each team plays at most once a week ----
+      let best = null;
+      const played = (t, w) => (weeksOf[t] || new Set()).has(w);
+      const cost = (g, w) => { let c = (played(g.a, w) ? 0 : 0.6) + (played(g.h, w) ? 0 : 0.6) + (g.pref.includes(w) ? 0 : 0.4) + (g.pref[0] === w ? -0.3 : 0);
+        if (g.conf) c += ((confWk[g.a] || new Set()).has(w) ? 0 : 1) + ((confWk[g.h] || new Set()).has(w) ? 0 : 1) + (w <= 1 ? 4 : w === 2 ? 1 : 0); else c += w >= nW - 1 ? 3 : 0, c += ((confWk[g.a] || new Set()).has(w) ? 0.8 : 0) + ((confWk[g.h] || new Set()).has(w) ? 0.8 : 0); return c; };
+      for (let tr = 0; tr < 30; tr++) {
+        const busy = {}, rr = rng(hash('wk' + year + tr)), W = new Array(nW).fill(0).map(() => []), miss = []; let pen = 0;
+        const free = (t, w) => !(busy[t] && busy[t].has(w)), take = (g, w) => { for (const t of [g.a, g.h]) (busy[t] = busy[t] || new Set()).add(w); W[w].push(g); g.wk = w; };
+        const order = games.map((g, i) => [g, i < protGames.length ? 0 : g.conf ? 1 + rr() : 2 + rr() * 0.5]).sort((x, y2) => x[1] - y2[1]).map((x) => x[0]);
+        for (const g of order) {
+          const cand = [...Array(nW).keys()].filter((x) => free(g.a, x) && free(g.h, x)).map((x) => [x, cost(g, x) + rr() * 0.2]).sort((p, q) => p[1] - q[1]);
+          let w = cand.length ? cand[0][0] : null;
+          if (w == null || cand[0][1] > 2) { // try moving one blocking game to make room in a better week
+            for (const x of [...Array(nW).keys()].sort((p, q) => cost(g, p) - cost(g, q))) {
+              if (w != null && cost(g, x) >= cand[0][1] - 0.5) break;
+              const blk2 = W[x].filter((o) => o.a === g.a || o.h === g.a || o.a === g.h || o.h === g.h);
+              if (blk2.length !== 1 || blk2[0].pin) continue;
+              const o = blk2[0], z = [...Array(nW).keys()].filter((v) => v !== x && free(o.a, v) && free(o.h, v)).sort((p, q) => cost(o, p) - cost(o, q))[0];
+              if (z == null || cost(o, z) - cost(o, x) + cost(g, x) >= (w == null ? 99 : cand[0][1])) continue;
+              W[x].splice(W[x].indexOf(o), 1); for (const t of [o.a, o.h]) busy[t].delete(x); take(o, z); w = x; break;
+            }
+          }
+          if (w == null) { miss.push(g); pen += 100; } else { pen += cost(g, w); take(g, w); }
+        }
+        if (!best || pen < best.pen) best = { W, miss, pen };
+      }
+      cache[year] = best; return best.W.map((wk) => wk.map((g) => ({ a: g.a, h: g.h, n: !!g.n, res: null })));
+    }
+    return { season, protGames, confN, ncSlots };
+  }
+  /*/SCHED*/
+  const SCHED = makeScheduler(Y, CONF);
   function buildSeason(flip) {
     return Y.weeks.map((wk) => wk.map(([a, h, n]) => { const sw = flip && !n; return { a: sw ? h : a, h: sw ? a : h, n: !!n, res: null }; }));
   }
@@ -3212,7 +3373,7 @@ const SimReplay = (() => {
     const me = TM(S.team); const st = myStrength(true); const r0 = st.off - st.def, pull = 0.15 * (me.base - r0) / 2; me.off = st.off + pull; me.def = st.def - pull;
     for (const T of Object.values(S.teams)) { T.w = T.l = T.cw = T.cl = T.pf = T.pa = 0; }
     S.classPts = null; S.boxes = {}; S.boxN = 0; S.lure = null; S.apPrev = null; apCache = null; if (S.contract) { S.contract.yrs = Math.max(0, S.contract.yrs - 1); if (!S.contract.yrs) { S.contract.yrs = 2; S.news.unshift('📝 Your contract ran out; the AD renewed it for two years.'); } } S.year++; S.wi = 0; S.phase = 'regular'; S.post = null; S.offseason = null; S.review = null;
-    S.sched = buildSeason((S.year - S.startYear) % 2 === 1); markConf();
+    S.sched = S.year > Y.year ? SCHED.season(S.year) : buildSeason(false); S.schedV = 2; markConf();
     { const B = budget(), pr = payroll(); if (S.prog && pr > B * 0.95) { const k = B * 0.95 / pr; for (const p of S.roster) p.pay = +((p.pay || 0) * k).toFixed(2); S.news.unshift('💵 Payroll was over budget: every deal was restructured to fit.'); } }
     if (S.prog) { S.prog.fat = 10; S.prog.lobbied = false; S.prog.press = null; S.prog.event = null; academicsCheck(); }
     syncAll(); if (!S.tac) initTac(); autoDepth(); S.inbox = S.inbox || []; battles('Fall camp'); S.base = rosterAvgs(); setGoals(); initRec(); initAw(); S.nextId = nextId; seasonMail();
