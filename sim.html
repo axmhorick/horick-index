@@ -2751,7 +2751,33 @@ const SimReplay = (() => {
   const teamBaseOvr = (rating) => clamp(74 + rating * 0.5, 58, 90);
   const bbBonus = (bb) => !bb ? 0 : bb <= 32 ? 11 : bb <= 100 ? 7 : bb <= 200 ? 4 : 2;
   const parseCls = (c) => { const s = String(c || 'SO'); const tr = /\/TR/.test(s); const rs = /RS/.test(s); const m = s.match(/FR|SO|JR|SR|GR/); const k = m ? m[0] : 'SO'; return { cls: k === 'GR' ? 4 : CLS.indexOf(k), rs: rs || k === 'GR', tr }; };
-  function mkPlayer(n, pos, cls, ovr, extra) { const p = Object.assign({ id: nextId++, n, pos, cls, rs: false, tr: false, ovr: Math.round(clamp(ovr, 40, 99)), inj: 0, injNote: '', bb: 0, num: String(1 + Math.floor(R() * 98)), stars: 0 }, extra || {}); genExtra(p); return p; }
+  // ---- jersey numbers that fit the position (college norms: linemen 50-79, receivers single digits/teens and 80s, DBs under 40, ...) ----
+  const rng_ = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+  const NUMS = { // [usual, also seen]
+    QB: [rng_(1, 19), [0]], RB: [rng_(0, 9).concat(rng_(20, 39)), rng_(10, 49)], WR: [rng_(0, 19).concat(rng_(80, 89)), []], TE: [rng_(80, 89), rng_(9, 19).concat(rng_(40, 49))],
+    OT: [rng_(50, 79), []], IOL: [rng_(50, 79), []], EDGE: [rng_(1, 19).concat(rng_(90, 99)), rng_(40, 59)], DT: [rng_(90, 99).concat(rng_(50, 79)), rng_(1, 19)],
+    LB: [rng_(1, 19).concat(rng_(30, 59)), rng_(20, 29)], CB: [rng_(0, 39), []], S: [rng_(0, 49), []], K: [rng_(10, 49), rng_(90, 99)], P: [rng_(10, 49), rng_(90, 99)],
+  };
+  const SIDE = (g) => (['QB', 'RB', 'WR', 'TE', 'OT', 'IOL'].includes(g) ? 'o' : ['K', 'P'].includes(g) ? 'k' : 'd');
+  const numOk = (g, n) => { const L = NUMS[g]; return !L || (n !== '' && n != null && (L[0].includes(+n) || L[1].includes(+n)) && String(+n) === String(n)); };
+  function numFor(g, taken) { // taken: Set of 'side|num' (and 'all|num' for retired numbers)
+    const L = NUMS[g] || [rng_(1, 99), []], ok = (n) => !taken || (!taken.has(SIDE(g) + '|' + n) && !taken.has('all|' + n));
+    for (const pool of [L[0], L[1], L[0].concat(L[1])]) { const free = pool.filter(ok); if (free.length) { const both = taken ? free.filter((n) => !taken.has((SIDE(g) === 'o' ? 'd' : 'o') + '|' + n)) : free; return String(pickOne(both.length && R() < 0.8 ? both : free)); } }
+    return String(pickOne(L[0]));
+  }
+  function fixNums() { // real players from your original roster keep their real numbers; newcomers get a free number that fits
+    if (!S || !S.roster) return;
+    const taken = new Set(), keep = (p) => p.rl && !p.from && p.num !== '' && p.num != null;
+    for (const r of S.retired || []) if (r.t === S.team && r.num) taken.add('all|' + +r.num);
+    for (const p of S.roster) if (keep(p) && p.num !== '' && p.num != null) taken.add(SIDE(p.pos) + '|' + +p.num);
+    for (const p of S.roster.filter((x) => !keep(x)).sort((a, b) => b.ovr - a.ovr)) {
+      const k = SIDE(p.pos) + '|' + +p.num;
+      if (numOk(p.pos, p.num) && !taken.has(k) && !taken.has('all|' + +p.num) && p.numPos === p.pos) { taken.add(k); continue; }
+      if (numOk(p.pos, p.num) && !taken.has(k) && !taken.has('all|' + +p.num) && p.numPos == null) { p.numPos = p.pos; taken.add(k); continue; }
+      p.num = numFor(p.pos, taken); p.numPos = p.pos; taken.add(SIDE(p.pos) + '|' + +p.num);
+    }
+  }
+  function mkPlayer(n, pos, cls, ovr, extra) { const p = Object.assign({ id: nextId++, n, pos, cls, rs: false, tr: false, ovr: Math.round(clamp(ovr, 40, 99)), inj: 0, injNote: '', bb: 0, num: numFor(pos), stars: 0 }, extra || {}); if (p.num === undefined || p.num === '') p.num = numFor(pos); genExtra(p); return p; }
   // real 2026 rosters for every FBS team (name, position, class, jersey, height, weight; depth-chart role; NFL big board rank)
   const RR = Y.rosters || {};
   // private build only: PFF season grades (window.__DYNPFF__) set ratings for players with real snaps
@@ -2772,7 +2798,7 @@ const SimReplay = (() => {
     const ro = T.roster || {};
     for (const s of SLOTS) {
       const st = ro[s];
-      const add = (p, isStarter) => { const c = parseCls(p.c); out.push(mkPlayer(p.n, GROUP[s], c.cls, base + (isStarter ? 2 : -5) + gauss() * 3 + bbBonus(+p.bb), { rs: c.rs, tr: c.tr, bb: +p.bb || 0, num: p.num || '' })); };
+      const add = (p, isStarter) => { const c = parseCls(p.c); out.push(mkPlayer(p.n, GROUP[s], c.cls, base + (isStarter ? 2 : -5) + gauss() * 3 + bbBonus(+p.bb), { rs: c.rs, tr: c.tr, bb: +p.bb || 0, num: p.num || '', rl: 1 })); };
       if (st) { add(st, true); if (st.b) add(st.b, false); }
     }
     return fillRoster(out, base);
@@ -2794,7 +2820,7 @@ const SimReplay = (() => {
   function slots() { try { return JSON.parse(localStorage.getItem(IDX) || '[]'); } catch (e) { return []; } }
   function setSlots(L) { try { localStorage.setItem(IDX, JSON.stringify(L)); } catch (e) {} }
   function slotMeta() { const T = S.teams && S.teams[S.team]; return { id: curId, team: S.team, coach: S.coach, year: S.year, step: S.phase === 'offseason' ? 'Offseason' : S.phase === 'review' ? 'Season review' : stepLabel(), rec: T ? `${T.w}-${T.l}` : '', career: S.career ? `${S.career.w}-${S.career.l}` : '', titles: S.career ? S.career.titles : 0, upd: Date.now() }; }
-  function save() {
+  function save() { try { fixNums(); } catch (e) {}
     if (!S) return false; if (!curId) curId = Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
     try { localStorage.setItem(KEY + ':' + curId, JSON.stringify(S)); saveOk = true; } catch (e) { saveOk = false; return false; }
     const L = slots().filter((x) => x.id !== curId); L.unshift(slotMeta()); setSlots(L); return true;
@@ -3624,7 +3650,7 @@ const SimReplay = (() => {
     if (p.sb == null) { p.sb = +(gauss() * 6).toFixed(1); p.pb = +(gauss() * 7).toFixed(1); }
   }
   function syncAttrs(p) { genExtra(p); if (ovrOf(p) !== p.ovr) fitAttrs(p, p.ovr); }
-  function syncAll() { if (S && S.roster) for (const p of S.roster) syncAttrs(p); }
+  function syncAll() { if (S && S.roster) { fixNums(); for (const p of S.roster) syncAttrs(p); } }
   function perLabel(p) {
     const q = p.per; if (!q) return 'Unknown';
     if (q.pro >= 16 && q.tmp >= 13) return 'Model professional'; if (q.pro >= 15) return 'Professional'; if (q.amb >= 16 && q.loy <= 8) return 'Mercenary';
